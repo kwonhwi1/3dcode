@@ -51,7 +51,6 @@
 		<Filter Name="SOLVER">
 		<Filter Name="UPDATE">
 		<Filter Name="RHS">
-		<File RelativePath=".\src\AXI_MODULE.F90"/>
 		<File RelativePath=".\src\CAV_MODULE.F90"/>
 		<File RelativePath=".\src\FLUX_MODULE.F90"/>
 		<File RelativePath=".\src\MUSCL_MODULE.F90"/>
@@ -69,7 +68,7 @@
 		<File RelativePath=".\src\RESIDUAL_MODULE.F90"/>
 		<File RelativePath=".\src\UPDATE_MODULE.F90"/></Filter>
 		<File RelativePath=".\src\CONFIG_MODULE.F90"/>
-		<File RelativePath=".\src\CTFS2D.F90"/>
+		<File RelativePath=".\src\CTFS3D.F90"/>
 		<File RelativePath=".\src\EOS_MODULE.F90"/>
 		<File RelativePath=".\src\GRID_MODULE.F90"/>
 		<File RelativePath=".\src\PROP_MODULE.F90"/>

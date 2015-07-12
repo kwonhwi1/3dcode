@@ -174,8 +174,9 @@ MODULE SOLVE_MODULE
             QQ(1) = DV(1)
             QQ(2) = DV(1)*PV(2)
             QQ(3) = DV(1)*PV(3)
-            QQ(4) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2))-PV(1)-SOLVE%PREF
-            DO N=5,SOLVE%NPV
+            QQ(4) = DV(1)*PV(4)
+            QQ(5) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2+PV(4)**2))-PV(1)-SOLVE%PREF
+            DO N=6,SOLVE%NPV
               QQ(N) = DV(1)*PV(N)
             END DO
             

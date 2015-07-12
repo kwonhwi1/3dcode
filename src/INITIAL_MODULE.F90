@@ -11,7 +11,7 @@ MODULE INITIAL_MODULE
   TYPE, ABSTRACT :: T_INI
     PRIVATE
     LOGICAL :: L_INI
-    INTEGER :: SIZE,RANK,IMAX,JMAX
+    INTEGER :: SIZE,RANK,IMAX,JMAX,KMAX
     INTEGER :: ITURB,NSTEADY,RSTNUM
     REAL(8) :: PREF,UREF,AOA,TREF,Y1REF,Y2REF,KREF,OREF,EMUTREF
     CONTAINS
@@ -69,6 +69,7 @@ MODULE INITIAL_MODULE
       INI%EMUTREF = CONFIG%GETEMUTREF()
       INI%IMAX = GRID%GETIMAX()
       INI%JMAX = GRID%GETJMAX()
+      INI%KMAX = GRID%GETKMAX()
       
       INI%L_INI = .TRUE.
     END SUBROUTINE CONSTRUCT
@@ -87,17 +88,17 @@ MODULE INITIAL_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER, INTENT(OUT) :: NPS,NTS
-      INTEGER :: I,J,L,N,M,IO
+      INTEGER :: I,J,K,L,N,M,IO
       REAL(8) :: DV(VARIABLE%GETNDV())
       REAL(8), DIMENSION(:), ALLOCATABLE :: QQ_TEMP
-      REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: PV,TV
-      REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: QQ
+      REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV,TV
+      REAL(8), DIMENSION(:,:,:,:,:), ALLOCATABLE :: QQ
       CHARACTER(7) :: ITER_TAG
-      INTEGER :: SIZE,RANK,IMAX,JMAX,NQQ
+      INTEGER :: SIZE,RANK,IMAX,JMAX,KMAX,NQQ
       REAL(8) :: VAR1,VAR2,VAR3
       
-      ALLOCATE(PV(VARIABLE%GETNPV(),INI%IMAX,INI%JMAX))
-      ALLOCATE(TV(VARIABLE%GETNTV(),INI%IMAX,INI%JMAX))
+      ALLOCATE(PV(VARIABLE%GETNPV(),INI%IMAX,INI%JMAX,INI%KMAX))
+      ALLOCATE(TV(VARIABLE%GETNTV(),INI%IMAX,INI%JMAX,INI%KMAX))
       
       IF(INI%NSTEADY.EQ.1) THEN
         WRITE(ITER_TAG,'(I4.4)') INI%RSTNUM
@@ -107,19 +108,19 @@ MODULE INITIAL_MODULE
 
       OPEN(NEWUNIT=IO,FILE='./OUT_'//TRIM(ITER_TAG)//'.DAT',STATUS='OLD',ACTION='READ',FORM='UNFORMATTED',SHARED)
       READ(IO) SIZE,NPS,NTS,NQQ
-      ALLOCATE(QQ(NQQ,VARIABLE%GETNPV(),INI%IMAX,INI%JMAX))
+      ALLOCATE(QQ(NQQ,VARIABLE%GETNPV(),INI%IMAX,INI%JMAX,INI%KMAX))
       IF(SIZE.NE.INI%SIZE) WRITE(*,*) 'INVALID SIZE'
       
       DO M=0,INI%SIZE-1
-        READ(IO) RANK,IMAX,JMAX
-        IF((RANK.EQ.INI%RANK).AND.(IMAX.EQ.INI%IMAX).AND.(JMAX.EQ.INI%JMAX)) THEN
-          READ(IO) (((PV(N,I,J),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX)
-          READ(IO) (((TV(N,I,J),N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX)
-          READ(IO) ((((QQ(L,N,I,J),L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX)    
-        ELSE
-          READ(IO) (((VAR1,N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX)
-          READ(IO) (((VAR2,N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX)
-          READ(IO) ((((VAR3,L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX)
+        READ(IO) RANK,IMAX,JMAX,KMAX
+        IF((RANK.EQ.INI%RANK).AND.(IMAX.EQ.INI%IMAX).AND.(JMAX.EQ.INI%JMAX).AND.(KMAX.EQ.INI%KMAX)) THEN
+          READ(IO) ((((PV(N,I,J,K),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
+          READ(IO) ((((TV(N,I,J,K),N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
+          READ(IO) (((((QQ(L,N,I,J,K),L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)    
+        ELSE       
+          READ(IO) ((((VAR1,N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
+          READ(IO) ((((VAR2,N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
+          READ(IO) (((((VAR3,L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
         END IF
       END DO
       
@@ -131,42 +132,44 @@ MODULE INITIAL_MODULE
         NTS = 1
       END IF
       
-      DO J=2,INI%JMAX
-        DO I=2,INI%IMAX
-          CALL VARIABLE%SETPV(1,I,J,PV(1,I,J)-INI%PREF)
-          DO N=2,VARIABLE%GETNPV()
-            CALL VARIABLE%SETPV(N,I,J,PV(N,I,J))
-          END DO
-
-          DO N=1,VARIABLE%GETNTV()
-            CALL VARIABLE%SETTV(N,I,J,TV(N,I,J))
-          END DO      
-          
-          CALL EOS%DETEOS(PV(1,I,J),PV(4,I,J),PV(5,I,J),PV(6,I,J),DV)
-          
-          DO N=1,VARIABLE%GETNDV()
-            CALL VARIABLE%SETDV(N,I,J,DV(N))
-          END DO
-
-          IF(NQQ.NE.VARIABLE%GETNQQ()) THEN
-            QQ_TEMP(1) = DV(1)
-            QQ_TEMP(2) = DV(1)*PV(2,I,J)
-            QQ_TEMP(3) = DV(1)*PV(3,I,J)
-            QQ_TEMP(4) = DV(1)*(DV(2)+0.5D0*(PV(2,I,J)**2+PV(3,I,J)**2))-PV(1,I,J)
-            DO N=5,VARIABLE%GETNPV()
-              QQ_TEMP(N) = DV(1)*PV(N,I,J)
+      DO K=2,INI%KMAX
+        DO J=2,INI%JMAX
+          DO I=2,INI%IMAX
+            CALL VARIABLE%SETPV(1,I,J,K,PV(1,I,J,K)-INI%PREF)
+            DO N=2,VARIABLE%GETNPV()
+              CALL VARIABLE%SETPV(N,I,J,K,PV(N,I,J,K))
             END DO
+        
+            DO N=1,VARIABLE%GETNTV()
+              CALL VARIABLE%SETTV(N,I,J,K,TV(N,I,J,K))
+            END DO      
             
-            CALL VARIABLE%SETQQ(1,I,J,QQ_TEMP)
-            CALL VARIABLE%SETQQ(2,I,J,QQ_TEMP)
-          ELSE
-            DO N=1,VARIABLE%GETNQQ()
-              CALL VARIABLE%SETQQ(N,I,J,QQ(N,:,I,J))
-            END DO          
-          END IF
+            CALL EOS%DETEOS(PV(1,I,J,K),PV(5,I,J,K),PV(6,I,J,K),PV(7,I,J,K),DV)
+            
+            DO N=1,VARIABLE%GETNDV()
+              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
+            END DO
+        
+            IF(NQQ.NE.VARIABLE%GETNQQ()) THEN
+              QQ_TEMP(1) = DV(1)
+              QQ_TEMP(2) = DV(1)*PV(2,I,J,K)
+              QQ_TEMP(3) = DV(1)*PV(3,I,J,K)
+              QQ_TEMP(4) = DV(1)*PV(4,I,J,K)
+              QQ_TEMP(5) = DV(1)*(DV(2)+0.5D0*(PV(2,I,J,K)**2+PV(3,I,J,K)**2+PV(4,I,J,K)**2))-PV(1,I,J,K)
+              DO N=6,VARIABLE%GETNPV()
+                QQ_TEMP(N) = DV(1)*PV(N,I,J,K)
+              END DO
+              
+              CALL VARIABLE%SETQQ(1,I,J,K,QQ_TEMP)
+              CALL VARIABLE%SETQQ(2,I,J,K,QQ_TEMP)
+            ELSE
+              DO N=1,VARIABLE%GETNQQ()
+                CALL VARIABLE%SETQQ(N,I,J,K,QQ(N,:,I,J,K))
+              END DO          
+            END IF
+          END DO
         END DO
       END DO
-
       IF(ALLOCATED(QQ_TEMP)) DEALLOCATE(QQ_TEMP)
       DEALLOCATE(PV,TV,QQ)
     END SUBROUTINE RESTART
@@ -179,53 +182,57 @@ MODULE INITIAL_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER, INTENT(OUT) :: NPS,NTS
-      INTEGER :: I,J,N
+      INTEGER :: I,J,K,N
       REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV())
       REAL(8) :: TV(VARIABLE%GETNTV()),QQ(VARIABLE%GETNPV())
       
-      DO J=2,INI%JMAX
-        DO I=2,INI%IMAX
-          CALL VARIABLE%SETPV(1,I,J,0.D0)
-          CALL VARIABLE%SETPV(2,I,J,INI%UREF*DCOS(INI%AOA))
-          CALL VARIABLE%SETPV(3,I,J,INI%UREF*DSIN(INI%AOA))
-          CALL VARIABLE%SETPV(4,I,J,INI%TREF)
-          CALL VARIABLE%SETPV(5,I,J,INI%Y1REF)
-          CALL VARIABLE%SETPV(6,I,J,INI%Y2REF)
-          
-          PV = VARIABLE%GETPV(I,J)   
-
-          CALL EOS%DETEOS(PV(1)+INI%PREF,PV(4),PV(5),PV(6),DV)
-          
-          DO N=1,VARIABLE%GETNDV()
-            CALL VARIABLE%SETDV(N,I,J,DV(N))
-          END DO
-          
-          IF(INI%ITURB.GE.-2) THEN
-            CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(4),PV(5),PV(6),TV(1:2))
-          END IF
-          
-          IF(INI%ITURB.GE.-1) THEN
-            TV(3) = INI%EMUTREF
-            CALL VARIABLE%SETPV(7,I,J,INI%KREF)
-            CALL VARIABLE%SETPV(8,I,J,INI%OREF)          
-          END IF
-          
-          DO N=1,VARIABLE%GETNTV()
-            CALL VARIABLE%SETTV(N,I,J,TV(N))
-          END DO
-          
-          IF(INI%NSTEADY.EQ.1) THEN
-            QQ(1) = DV(1)
-            QQ(2) = DV(1)*PV(2)
-            QQ(3) = DV(1)*PV(3)
-            QQ(4) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2))-PV(1)-INI%PREF
-            DO N=5,VARIABLE%GETNPV()
-              QQ(N) = DV(1)*PV(N)
+      DO K=2,INI%KMAX
+        DO J=2,INI%JMAX
+          DO I=2,INI%IMAX
+            CALL VARIABLE%SETPV(1,I,J,K,0.D0)
+            CALL VARIABLE%SETPV(2,I,J,K,INI%UREF*DCOS(INI%AOA))
+            CALL VARIABLE%SETPV(3,I,J,K,INI%UREF*DSIN(INI%AOA))
+            CALL VARIABLE%SETPV(4,I,J,K,0.D0)
+            CALL VARIABLE%SETPV(5,I,J,K,INI%TREF)
+            CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
+            CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)
+            
+            PV = VARIABLE%GETPV(I,J,K)   
+        
+            CALL EOS%DETEOS(PV(1)+INI%PREF,PV(5),PV(6),PV(7),DV)
+            
+            DO N=1,VARIABLE%GETNDV()
+              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
             END DO
             
-            CALL VARIABLE%SETQQ(1,I,J,QQ)
-            CALL VARIABLE%SETQQ(2,I,J,QQ)
-          END IF
+            IF(INI%ITURB.GE.-2) THEN
+              CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
+            END IF
+            
+            IF(INI%ITURB.GE.-1) THEN
+              TV(3) = INI%EMUTREF
+              CALL VARIABLE%SETPV(8,I,J,K,INI%KREF)
+              CALL VARIABLE%SETPV(9,I,J,K,INI%OREF)          
+            END IF
+            
+            DO N=1,VARIABLE%GETNTV()
+              CALL VARIABLE%SETTV(N,I,J,K,TV(N))
+            END DO
+            
+            IF(INI%NSTEADY.EQ.1) THEN
+              QQ(1) = DV(1)
+              QQ(2) = DV(1)*PV(2)
+              QQ(3) = DV(1)*PV(3)
+              QQ(4) = DV(1)*PV(4)
+              QQ(5) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2+PV(4)**2))-PV(1)-INI%PREF
+              DO N=6,VARIABLE%GETNPV()
+                QQ(N) = DV(1)*PV(N)
+              END DO
+              
+              CALL VARIABLE%SETQQ(1,I,J,K,QQ)
+              CALL VARIABLE%SETQQ(2,I,J,K,QQ)
+            END IF
+          END DO
         END DO
       END DO
       NPS = 1

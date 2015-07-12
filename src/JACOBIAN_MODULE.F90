@@ -8,10 +8,9 @@ MODULE JACOBIAN_MODULE
   
   TYPE, ABSTRACT :: T_JAC
     PRIVATE
-    LOGICAL :: L_AXI
     INTEGER :: NPV,NTV,NDV,NGRD
     REAL(8) :: UREF,STR
-    REAL(8), POINTER :: NX(:),R
+    REAL(8), POINTER :: NX(:)
     REAL(8), POINTER :: PV(:),TV(:),DV(:),GRD(:)
     REAL(8), DIMENSION(:,:), ALLOCATABLE :: A
     PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
@@ -19,9 +18,9 @@ MODULE JACOBIAN_MODULE
     CONTAINS
       PROCEDURE :: CONSTRUCT
       PROCEDURE :: DESTRUCT
-      PROCEDURE :: SETNORM ! (NX,R)
-      PROCEDURE :: SETGRD  ! VOL,XCEN,YCEN,YDNS
-      PROCEDURE :: SETPV   ! P,U,V,T,Y1,Y2,K,O
+      PROCEDURE :: SETNORM ! (NX)
+      PROCEDURE :: SETGRD  ! VOL,XCEN,YCEN,ZCEN,YDNS
+      PROCEDURE :: SETPV   ! P,U,V,W,T,Y1,Y2,K,O
       PROCEDURE :: SETDV   ! RHO,H,RHOL,RHOV,RHOG,SND2,DRDP,DRDT,DRDY1,DRDY2,DHDP,DHDT,DHDY1,DHDY2,DRDPV,DRDTV,DRDPL,DRDTL
       PROCEDURE :: SETTV   ! VIS,COND,EMUT
       PROCEDURE :: GETA
@@ -94,13 +93,6 @@ MODULE JACOBIAN_MODULE
         JAC%GETEIGENVIS => EULER
       END SELECT
 
-      SELECT CASE(CONFIG%GETNAXI())
-      CASE(0)
-        JAC%L_AXI = .FALSE.
-      CASE(1)
-        JAC%L_AXI = .TRUE.
-      END SELECT
-
       JAC%NGRD = GRID%GETNGRD()
       JAC%NPV  = VARIABLE%GETNPV()
       JAC%NTV  = VARIABLE%GETNTV()
@@ -113,8 +105,7 @@ MODULE JACOBIAN_MODULE
       IMPLICIT NONE
       CLASS(T_JAC), INTENT(INOUT) :: JAC
 
-      IF(ASSOCIATED(JAC%NX))           NULLIFY(JAC%NX)          
-      IF(ASSOCIATED(JAC%R))            NULLIFY(JAC%R)           
+      IF(ASSOCIATED(JAC%NX))           NULLIFY(JAC%NX)                    
       IF(ASSOCIATED(JAC%GRD))          NULLIFY(JAC%GRD)         
       IF(ASSOCIATED(JAC%PV))           NULLIFY(JAC%PV)
       IF(ASSOCIATED(JAC%DV))           NULLIFY(JAC%DV) 
@@ -125,13 +116,12 @@ MODULE JACOBIAN_MODULE
       DEALLOCATE(JAC%A)
     END SUBROUTINE DESTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETNORM(JAC,NX,R)
+    SUBROUTINE SETNORM(JAC,NX)
       IMPLICIT NONE
       CLASS(T_JAC), INTENT(INOUT) :: JAC
-      REAL(8), INTENT(IN), TARGET :: NX(2),R
+      REAL(8), INTENT(IN), TARGET :: NX(3)
       
       JAC%NX => NX
-      JAC%R  => R
 
     END SUBROUTINE SETNORM
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -177,78 +167,93 @@ MODULE JACOBIAN_MODULE
       INTEGER, INTENT(IN) :: SIGN
       REAL(8) :: DS,H,U,UP,D,BETA,SNDP2,LAMDA,VIS
       REAL(8), PARAMETER :: CAPPA = 1.05D0
-      REAL(8) :: A1,A2,A3,A4,A5,A6,G1,G4,G5,G6,GE1,GE4,GE5,GE6
+      REAL(8) :: A1,A2,A3,A4,A5,A6,A7
+      REAL(8) :: G1,G5,G6,G7,GE1,GE5,GE6,GE7
       
-      DS = JAC%NX(1)**2+JAC%NX(2)**2
-      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)
-      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2)
-      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2)
+      DS = JAC%NX(1)**2+JAC%NX(2)**2+JAC%NX(3)**2
+      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)+JAC%NX(3)*JAC%PV(4)
+      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
+      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
       UP = (1.D0+SNDP2/JAC%DV(6))*U
       D  = DSQRT(U**2*(1.D0-SNDP2/JAC%DV(6))**2+4.D0*SNDP2*DS)
       LAMDA = DBLE(SIGN)*CAPPA*(DABS(UP)+D)
-      VIS = 2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
+      VIS = DBLE(SIGN)*2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
       BETA = 1.D0/SNDP2-1.D0/JAC%DV(6)+JAC%DV(7)
       
       A1 = U*JAC%DV(7)
       A2 = JAC%NX(1)*JAC%DV(1)
       A3 = JAC%NX(2)*JAC%DV(1)
-      A4 = U*JAC%DV(8)
-      A5 = U*JAC%DV(9)
-      A6 = U*JAC%DV(10)
+      A4 = JAC%NX(3)*JAC%DV(1)
+      A5 = U*JAC%DV(8)
+      A6 = U*JAC%DV(9)
+      A7 = U*JAC%DV(10)
       G1 = LAMDA*BETA
-      G4 = LAMDA*JAC%DV(8)
-      G5 = LAMDA*JAC%DV(9)
-      G6 = LAMDA*JAC%DV(10)
+      G5 = LAMDA*JAC%DV(8)
+      G6 = LAMDA*JAC%DV(9)
+      G7 = LAMDA*JAC%DV(10)
       GE1 = VIS*JAC%DV(7)
-      GE4 = VIS*JAC%DV(8)
-      GE5 = VIS*JAC%DV(9)
-      GE6 = VIS*JAC%DV(10)
+      GE5 = VIS*JAC%DV(8)
+      GE6 = VIS*JAC%DV(9)
+      GE7 = VIS*JAC%DV(10)
       
       JAC%A(1,1) = A1+G1+GE1
       JAC%A(1,2) = A2
       JAC%A(1,3) = A3
-      JAC%A(1,4) = A4+G4+GE4
+      JAC%A(1,4) = A4
       JAC%A(1,5) = A5+G5+GE5
       JAC%A(1,6) = A6+G6+GE6
+      JAC%A(1,7) = A7+G7+GE7
 
       JAC%A(2,1) = JAC%PV(2)*(A1+G1+GE1) + JAC%NX(1)
       JAC%A(2,2) = JAC%PV(2)*A2 + JAC%DV(1)*(U+LAMDA+VIS)
       JAC%A(2,3) = JAC%PV(2)*A3
-      JAC%A(2,4) = JAC%PV(2)*(A4+G4+GE4)
+      JAC%A(2,4) = JAC%PV(2)*A4
       JAC%A(2,5) = JAC%PV(2)*(A5+G5+GE5)
       JAC%A(2,6) = JAC%PV(2)*(A6+G6+GE6)
+      JAC%A(2,7) = JAC%PV(2)*(A7+G7+GE7)
         
       JAC%A(3,1) = JAC%PV(3)*(A1+G1+GE1) + JAC%NX(2)
       JAC%A(3,2) = JAC%PV(3)*A2 
       JAC%A(3,3) = JAC%PV(3)*A3 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(3,4) = JAC%PV(3)*(A4+G4+GE4)
-      JAC%A(3,5) = JAC%PV(3)*(A5+G5+GE5)  
+      JAC%A(3,4) = JAC%PV(3)*A4
+      JAC%A(3,5) = JAC%PV(3)*(A5+G5+GE5)
       JAC%A(3,6) = JAC%PV(3)*(A6+G6+GE6)
-        
-      JAC%A(4,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*(A1+G1+GE1)-LAMDA-VIS
-      JAC%A(4,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
-      JAC%A(4,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
-      JAC%A(4,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*(A4+G4+GE4)
-      JAC%A(4,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*(A5+G5+GE5)
-      JAC%A(4,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*(A6+G6+GE6)
-        
-      JAC%A(5,1) = JAC%PV(5)*(A1+G1+GE1)
-      JAC%A(5,2) = JAC%PV(5)*A2
-      JAC%A(5,3) = JAC%PV(5)*A3
-      JAC%A(5,4) = JAC%PV(5)*(A4+G4+GE4)
-      JAC%A(5,5) = JAC%PV(5)*(A5+G5+GE5)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(5,6) = JAC%PV(5)*(A6+G6+GE6)
+      JAC%A(3,7) = JAC%PV(3)*(A7+G7+GE7)
+
+      JAC%A(4,1) = JAC%PV(4)*(A1+G1+GE1) + JAC%NX(3)
+      JAC%A(4,2) = JAC%PV(4)*A2 
+      JAC%A(4,3) = JAC%PV(4)*A3 
+      JAC%A(4,4) = JAC%PV(4)*A4 + JAC%DV(1)*(U+LAMDA+VIS)
+      JAC%A(4,5) = JAC%PV(4)*(A5+G5+GE5)
+      JAC%A(4,6) = JAC%PV(4)*(A6+G6+GE6)
+      JAC%A(4,7) = JAC%PV(4)*(A7+G7+GE7)
+      
+      JAC%A(5,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*(A1+G1+GE1)-LAMDA-VIS
+      JAC%A(5,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
+      JAC%A(5,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
+      JAC%A(5,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(4) +H*A4
+      JAC%A(5,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*(A5+G5+GE5)
+      JAC%A(5,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*(A6+G6+GE6)
+      JAC%A(5,7) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*(A7+G7+GE7)
         
       JAC%A(6,1) = JAC%PV(6)*(A1+G1+GE1)
       JAC%A(6,2) = JAC%PV(6)*A2
       JAC%A(6,3) = JAC%PV(6)*A3
-      JAC%A(6,4) = JAC%PV(6)*(A4+G4+GE4)
+      JAC%A(6,4) = JAC%PV(6)*A4
       JAC%A(6,5) = JAC%PV(6)*(A5+G5+GE5)
       JAC%A(6,6) = JAC%PV(6)*(A6+G6+GE6)+JAC%DV(1)*(U+LAMDA+VIS)
+      JAC%A(6,7) = JAC%PV(6)*(A7+G7+GE7)
+        
+      JAC%A(7,1) = JAC%PV(7)*(A1+G1+GE1)
+      JAC%A(7,2) = JAC%PV(7)*A2
+      JAC%A(7,3) = JAC%PV(7)*A3
+      JAC%A(7,4) = JAC%PV(7)*A4
+      JAC%A(7,5) = JAC%PV(7)*(A5+G5+GE5)
+      JAC%A(7,6) = JAC%PV(7)*(A6+G6+GE6)
+      JAC%A(7,7) = JAC%PV(7)*(A7+G7+GE7)+JAC%DV(1)*(U+LAMDA+VIS)
 
       JAC%A = JAC%A*0.5D0
       
-      IF(JAC%L_AXI) JAC%A = JAC%A*JAC%R
     END SUBROUTINE FLOWONLY
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE FLOWTURBALL(JAC,SIGN)
@@ -257,107 +262,126 @@ MODULE JACOBIAN_MODULE
       INTEGER, INTENT(IN) :: SIGN
       REAL(8) :: DS,H,U,UP,D,BETA,SNDP2,LAMDA,VIS
       REAL(8), PARAMETER :: CAPPA = 1.05D0
-      REAL(8) :: A1,A2,A3,A4,A5,A6,G1,G4,G5,G6,GE1,GE4,GE5,GE6
+      REAL(8) :: A1,A2,A3,A4,A5,A6,A7
+      REAL(8) :: G1,G5,G6,G7,GE1,GE5,GE6,GE7
       
-      DS = JAC%NX(1)**2+JAC%NX(2)**2
-      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)
-      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2)
-      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2)
+      DS = JAC%NX(1)**2+JAC%NX(2)**2+JAC%NX(3)**2
+      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)+JAC%NX(3)*JAC%PV(4)
+      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
+      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
       UP = (1.D0+SNDP2/JAC%DV(6))*U
       D  = DSQRT(U**2*(1.D0-SNDP2/JAC%DV(6))**2+4.D0*SNDP2*DS)
       LAMDA = DBLE(SIGN)*CAPPA*(DABS(UP)+D)
-      VIS = 2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
+      VIS = DBLE(SIGN)*2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
       BETA = 1.D0/SNDP2-1.D0/JAC%DV(6)+JAC%DV(7)
       
       A1 = U*JAC%DV(7)
       A2 = JAC%NX(1)*JAC%DV(1)
       A3 = JAC%NX(2)*JAC%DV(1)
-      A4 = U*JAC%DV(8)
-      A5 = U*JAC%DV(9)
-      A6 = U*JAC%DV(10)
+      A4 = JAC%NX(3)*JAC%DV(1)
+      A5 = U*JAC%DV(8)
+      A6 = U*JAC%DV(9)
+      A7 = U*JAC%DV(10)
       G1 = LAMDA*BETA
-      G4 = LAMDA*JAC%DV(8)
-      G5 = LAMDA*JAC%DV(9)
-      G6 = LAMDA*JAC%DV(10)
+      G5 = LAMDA*JAC%DV(8)
+      G6 = LAMDA*JAC%DV(9)
+      G7 = LAMDA*JAC%DV(10)
       GE1 = VIS*JAC%DV(7)
-      GE4 = VIS*JAC%DV(8)
-      GE5 = VIS*JAC%DV(9)
-      GE6 = VIS*JAC%DV(10)
+      GE5 = VIS*JAC%DV(8)
+      GE6 = VIS*JAC%DV(9)
+      GE7 = VIS*JAC%DV(10)
       
       JAC%A(1,1) = A1+G1+GE1
       JAC%A(1,2) = A2
       JAC%A(1,3) = A3
-      JAC%A(1,4) = A4+G4+GE4
+      JAC%A(1,4) = A4
       JAC%A(1,5) = A5+G5+GE5
       JAC%A(1,6) = A6+G6+GE6
-      JAC%A(1,7) = 0.D0
+      JAC%A(1,7) = A7+G7+GE7
       JAC%A(1,8) = 0.D0
+      JAC%A(1,9) = 0.D0
         
       JAC%A(2,1) = JAC%PV(2)*(A1+G1+GE1) + JAC%NX(1)
       JAC%A(2,2) = JAC%PV(2)*A2 + JAC%DV(1)*(U+LAMDA+VIS)
       JAC%A(2,3) = JAC%PV(2)*A3
-      JAC%A(2,4) = JAC%PV(2)*(A4+G4+GE4)
+      JAC%A(2,4) = JAC%PV(2)*A4
       JAC%A(2,5) = JAC%PV(2)*(A5+G5+GE5)
       JAC%A(2,6) = JAC%PV(2)*(A6+G6+GE6)
-      JAC%A(2,7) = 0.D0
+      JAC%A(2,7) = JAC%PV(2)*(A7+G7+GE7)
       JAC%A(2,8) = 0.D0
+      JAC%A(2,9) = 0.D0
         
       JAC%A(3,1) = JAC%PV(3)*(A1+G1+GE1) + JAC%NX(2)
       JAC%A(3,2) = JAC%PV(3)*A2 
       JAC%A(3,3) = JAC%PV(3)*A3 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(3,4) = JAC%PV(3)*(A4+G4+GE4)
-      JAC%A(3,5) = JAC%PV(3)*(A5+G5+GE5)  
+      JAC%A(3,4) = JAC%PV(3)*A4
+      JAC%A(3,5) = JAC%PV(3)*(A5+G5+GE5)
       JAC%A(3,6) = JAC%PV(3)*(A6+G6+GE6)
-      JAC%A(3,7) = 0.D0
+      JAC%A(3,7) = JAC%PV(3)*(A7+G7+GE7)
       JAC%A(3,8) = 0.D0
-        
-      JAC%A(4,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*(A1+G1+GE1)-LAMDA-VIS
-      JAC%A(4,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
-      JAC%A(4,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
-      JAC%A(4,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*(A4+G4+GE4)
-      JAC%A(4,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*(A5+G5+GE5)
-      JAC%A(4,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*(A6+G6+GE6)
-      JAC%A(4,7) = 0.D0
+      JAC%A(3,9) = 0.D0
+
+      JAC%A(4,1) = JAC%PV(4)*(A1+G1+GE1) + JAC%NX(3)
+      JAC%A(4,2) = JAC%PV(4)*A2 
+      JAC%A(4,3) = JAC%PV(4)*A3 
+      JAC%A(4,4) = JAC%PV(4)*A4 + JAC%DV(1)*(U+LAMDA+VIS)
+      JAC%A(4,5) = JAC%PV(4)*(A5+G5+GE5)
+      JAC%A(4,6) = JAC%PV(4)*(A6+G6+GE6)
+      JAC%A(4,7) = JAC%PV(4)*(A7+G7+GE7)
       JAC%A(4,8) = 0.D0
-        
-      JAC%A(5,1) = JAC%PV(5)*(A1+G1+GE1)
-      JAC%A(5,2) = JAC%PV(5)*A2
-      JAC%A(5,3) = JAC%PV(5)*A3
-      JAC%A(5,4) = JAC%PV(5)*(A4+G4+GE4)
-      JAC%A(5,5) = JAC%PV(5)*(A5+G5+GE5)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(5,6) = JAC%PV(5)*(A6+G6+GE6)
-      JAC%A(5,7) = 0.D0
+      JAC%A(4,9) = 0.D0
+      
+      JAC%A(5,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*(A1+G1+GE1)-LAMDA-VIS
+      JAC%A(5,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
+      JAC%A(5,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
+      JAC%A(5,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(4) +H*A4
+      JAC%A(5,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*(A5+G5+GE5)
+      JAC%A(5,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*(A6+G6+GE6)
+      JAC%A(5,7) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*(A7+G7+GE7)
       JAC%A(5,8) = 0.D0
+      JAC%A(5,9) = 0.D0
         
       JAC%A(6,1) = JAC%PV(6)*(A1+G1+GE1)
       JAC%A(6,2) = JAC%PV(6)*A2
       JAC%A(6,3) = JAC%PV(6)*A3
-      JAC%A(6,4) = JAC%PV(6)*(A4+G4+GE4)
+      JAC%A(6,4) = JAC%PV(6)*A4
       JAC%A(6,5) = JAC%PV(6)*(A5+G5+GE5)
       JAC%A(6,6) = JAC%PV(6)*(A6+G6+GE6)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(6,7) = 0.D0
+      JAC%A(6,7) = JAC%PV(6)*(A7+G7+GE7)
       JAC%A(6,8) = 0.D0
-
+      JAC%A(6,9) = 0.D0
+        
       JAC%A(7,1) = JAC%PV(7)*(A1+G1+GE1)
       JAC%A(7,2) = JAC%PV(7)*A2
       JAC%A(7,3) = JAC%PV(7)*A3
-      JAC%A(7,4) = JAC%PV(7)*(A4+G4+GE4)
+      JAC%A(7,4) = JAC%PV(7)*A4
       JAC%A(7,5) = JAC%PV(7)*(A5+G5+GE5)
       JAC%A(7,6) = JAC%PV(7)*(A6+G6+GE6)
-      JAC%A(7,7) = (U+LAMDA+VIS)*JAC%DV(1)
+      JAC%A(7,7) = JAC%PV(7)*(A7+G7+GE7)+JAC%DV(1)*(U+LAMDA+VIS)
       JAC%A(7,8) = 0.D0
+      JAC%A(7,9) = 0.D0
 
       JAC%A(8,1) = JAC%PV(8)*(A1+G1+GE1)
       JAC%A(8,2) = JAC%PV(8)*A2
       JAC%A(8,3) = JAC%PV(8)*A3
-      JAC%A(8,4) = JAC%PV(8)*(A4+G4+GE4)
+      JAC%A(8,4) = JAC%PV(8)*A4
       JAC%A(8,5) = JAC%PV(8)*(A5+G5+GE5)
       JAC%A(8,6) = JAC%PV(8)*(A6+G6+GE6)
-      JAC%A(8,7) = 0.D0
+      JAC%A(8,7) = JAC%PV(8)*(A7+G7+GE7)
       JAC%A(8,8) = (U+LAMDA+VIS)*JAC%DV(1)
+      JAC%A(8,9) = 0.D0
+
+      JAC%A(9,1) = JAC%PV(9)*(A1+G1+GE1)
+      JAC%A(9,2) = JAC%PV(9)*A2
+      JAC%A(9,3) = JAC%PV(9)*A3
+      JAC%A(9,4) = JAC%PV(9)*A4
+      JAC%A(9,5) = JAC%PV(9)*(A5+G5+GE5)
+      JAC%A(9,6) = JAC%PV(9)*(A6+G6+GE6)
+      JAC%A(9,7) = JAC%PV(9)*(A7+G7+GE7)
+      JAC%A(9,8) = 0.D0
+      JAC%A(9,9) = (U+LAMDA+VIS)*JAC%DV(1)
       
       JAC%A = JAC%A*0.5D0
-      IF(JAC%L_AXI) JAC%A = JAC%A*JAC%R
     END SUBROUTINE FLOWTURBALL
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     FUNCTION EULER(JAC) RESULT(EIGENVIS)

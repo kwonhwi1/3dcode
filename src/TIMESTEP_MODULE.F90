@@ -8,9 +8,9 @@ MODULE TIMESTEP_MODULE
 
   TYPE, ABSTRACT :: T_TIMESTEP
     PRIVATE
-    INTEGER :: NPV,NDV,NTV,NGRD,IMAX,JMAX
+    INTEGER :: NPV,NDV,NTV,NGRD,IMAX,JMAX,KMAX
     REAL(8) :: CFL,UREF,STR
-    REAL(8), DIMENSION(:,:), ALLOCATABLE :: DT
+    REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: DT
     PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
     PROCEDURE(P_GETEIGENVIS), POINTER :: GETEIGENVIS
     CONTAINS
@@ -99,12 +99,13 @@ MODULE TIMESTEP_MODULE
       TIMESTEP%NGRD = GRID%GETNGRD()
       TIMESTEP%IMAX = GRID%GETIMAX()
       TIMESTEP%JMAX = GRID%GETJMAX()
+      TIMESTEP%KMAX = GRID%GETKMAX()
 
       TIMESTEP%NPV = VARIABLE%GETNPV()
       TIMESTEP%NDV = VARIABLE%GETNDV()
       TIMESTEP%NTV = VARIABLE%GETNTV()
       
-      ALLOCATE(TIMESTEP%DT(2:TIMESTEP%IMAX,2:TIMESTEP%JMAX))
+      ALLOCATE(TIMESTEP%DT(2:TIMESTEP%IMAX,2:TIMESTEP%JMAX,2:TIMESTEP%KMAX))
       
     END SUBROUTINE CONSTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -124,55 +125,70 @@ MODULE TIMESTEP_MODULE
       CLASS(T_LOCALTIME), INTENT(INOUT) :: TIMESTEP
       TYPE(T_GRID), INTENT(IN) :: GRID
       TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: I,J    
-      REAL(8) :: CX1(2),CX2(2),EX1(2),EX2(2)
+      INTEGER :: I,J,K    
+      REAL(8) :: CX1(3),CX2(3),EX1(3),EX2(3),TX1(3),TX2(3)
       REAL(8) :: PV(TIMESTEP%NPV)
       REAL(8) :: TV(TIMESTEP%NTV)
       REAL(8) :: DV(TIMESTEP%NDV)
       REAL(8) :: GRD(TIMESTEP%NGRD)
-      REAL(8) :: C1,C2,E1,E2,S1,S2
-      REAL(8) :: UC,VC,UV2,SNDP2
-      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENVIS
+      REAL(8) :: C1,C2,C3,E1,E2,E3,T1,T2,T3,S1,S2,S3
+      REAL(8) :: UC,VC,WC,UV2,SNDP2
+      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENZ,EIGENVIS
       
-      DO J = 2,TIMESTEP%JMAX 
-        DO I = 2,TIMESTEP%IMAX 
-          
-          PV = VARIABLE%GETPV(I,J)
-          TV = VARIABLE%GETTV(I,J)
-          DV = VARIABLE%GETDV(I,J)
-          GRD = GRID%GETGRD(I,J)
-          CX1 = GRID%GETCX(I-1,J)
-          CX2 = GRID%GETCX(I,J)
-          EX1 = GRID%GETEX(I,J-1)
-          EX2 = GRID%GETEX(I,J)
+      DO K = 2,TIMESTEP%KMAX
+        DO J = 2,TIMESTEP%JMAX 
+          DO I = 2,TIMESTEP%IMAX            
+            PV = VARIABLE%GETPV(I,J,K)
+            TV = VARIABLE%GETTV(I,J,K)
+            DV = VARIABLE%GETDV(I,J,K)
+            GRD = GRID%GETGRD(I,J,K)
+            CX1 = GRID%GETCX(I-1,J,K)
+            CX2 = GRID%GETCX(I,J,K)
+            EX1 = GRID%GETEX(I,J-1,K)
+            EX2 = GRID%GETEX(I,J,K)
+            TX1 = GRID%GETTX(I,J,K-1)
+            TX2 = GRID%GETTX(I,J,K)
+        
+            C1 = 0.5D0*(CX1(1)+CX2(1))
+            C2 = 0.5D0*(CX1(2)+CX2(2))
+            C3 = 0.5D0*(CX1(3)+CX2(3))
+            E1 = 0.5D0*(EX1(1)+EX2(1))
+            E2 = 0.5D0*(EX1(2)+EX2(2))
+            E3 = 0.5D0*(EX1(3)+EX2(3))
+            T1 = 0.5D0*(TX1(1)+TX2(1))
+            T2 = 0.5D0*(TX1(2)+TX2(2))
+            T3 = 0.5D0*(TX1(3)+TX2(3))
+            
+            UC = DABS(C1*PV(2)+C2*PV(3)+C3*PV(4))
+            VC = DABS(E1*PV(2)+E2*PV(3)+E3*PV(4))
+            WC = DABS(T1*PV(2)+T2*PV(3)+T3*PV(4))
+            
+            S1 = C1**2+C2**2+C3**2
+            S2 = E1**2+E2**2+E3**2
+            S3 = T1**2+T2**2+T3**2
+            
+            UV2 = PV(2)**2+PV(3)**2+PV(4)**2
+            
+            SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
+            
+            UP = UC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
+            EIGENX = 0.5D0*(UP+D)
+            
+            UP = VC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
+            EIGENY = 0.5D0*(UP+D)
 
-          C1 = 0.5D0*(CX1(1)+CX2(1))
-          C2 = 0.5D0*(CX1(2)+CX2(2))
-          E1 = 0.5D0*(EX1(1)+EX2(1))
-          E2 = 0.5D0*(EX1(2)+EX2(2))
-          
-          UC = DABS(C1*PV(2)+C2*PV(3))
-          VC = DABS(E1*PV(2)+E2*PV(3))
-          S1 = C1**2+C2**2
-          S2 = E1**2+E2**2
-          UV2 = PV(2)**2+PV(3)**2
-          
-          SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
-          
-          UP = UC*(1.D0+SNDP2/DV(6))
-          D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
-          EIGENX = 0.5D0*(UP+D)
-          
-          UP = VC*(1.D0+SNDP2/DV(6))
-          D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
-          EIGENY = 0.5D0*(UP+D)
-          
-          EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2)/GRD(1)
-          
-          TIMESTEP%DT(I,J) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + 4.D0*EIGENVIS)
-         END DO
+            UP = WC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(WC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S3)
+            EIGENZ = 0.5D0*(UP+D)
+            
+            EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2+S3)/GRD(1)
+            
+            TIMESTEP%DT(I,J,K) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + EIGENZ + 4.D0*EIGENVIS)
+           END DO
+        END DO
       END DO
-
     END SUBROUTINE LOCALTIME
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE MINTIME(TIMESTEP,GRID,VARIABLE)
@@ -181,55 +197,70 @@ MODULE TIMESTEP_MODULE
       TYPE(T_GRID), INTENT(IN) :: GRID
       TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
       INCLUDE 'mpif.h'
-      INTEGER :: I,J
-      REAL(8) :: CX1(2),CX2(2),EX1(2),EX2(2)
+      INTEGER :: I,J,K    
+      REAL(8) :: CX1(3),CX2(3),EX1(3),EX2(3),TX1(3),TX2(3)
       REAL(8) :: PV(TIMESTEP%NPV)
       REAL(8) :: TV(TIMESTEP%NTV)
       REAL(8) :: DV(TIMESTEP%NDV)
       REAL(8) :: GRD(TIMESTEP%NGRD)
-      REAL(8) :: C1,C2,E1,E2,S1,S2
-      REAL(8) :: UC,VC,UV2,SNDP2
-      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENVIS
+      REAL(8) :: C1,C2,C3,E1,E2,E3,T1,T2,T3,S1,S2,S3
+      REAL(8) :: UC,VC,WC,UV2,SNDP2
+      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENZ,EIGENVIS
       REAL(8) :: DTMIN,MPI_DTMIN
       INTEGER :: IERR
             
-      DO J = 2,TIMESTEP%JMAX 
-        DO I = 2,TIMESTEP%IMAX 
+      DO K = 2,TIMESTEP%KMAX
+        DO J = 2,TIMESTEP%JMAX 
+          DO I = 2,TIMESTEP%IMAX            
+            PV = VARIABLE%GETPV(I,J,K)
+            TV = VARIABLE%GETTV(I,J,K)
+            DV = VARIABLE%GETDV(I,J,K)
+            GRD = GRID%GETGRD(I,J,K)
+            CX1 = GRID%GETCX(I-1,J,K)
+            CX2 = GRID%GETCX(I,J,K)
+            EX1 = GRID%GETEX(I,J-1,K)
+            EX2 = GRID%GETEX(I,J,K)
+            TX1 = GRID%GETTX(I,J,K-1)
+            TX2 = GRID%GETTX(I,J,K)
         
-          PV = VARIABLE%GETPV(I,J)
-          TV = VARIABLE%GETTV(I,J)
-          DV = VARIABLE%GETDV(I,J)
-          GRD = GRID%GETGRD(I,J)
-          CX1 = GRID%GETCX(I-1,J)
-          CX2 = GRID%GETCX(I,J)
-          EX1 = GRID%GETEX(I,J-1)
-          EX2 = GRID%GETEX(I,J)
+            C1 = 0.5D0*(CX1(1)+CX2(1))
+            C2 = 0.5D0*(CX1(2)+CX2(2))
+            C3 = 0.5D0*(CX1(3)+CX2(3))
+            E1 = 0.5D0*(EX1(1)+EX2(1))
+            E2 = 0.5D0*(EX1(2)+EX2(2))
+            E3 = 0.5D0*(EX1(3)+EX2(3))
+            T1 = 0.5D0*(TX1(1)+TX2(1))
+            T2 = 0.5D0*(TX1(2)+TX2(2))
+            T3 = 0.5D0*(TX1(3)+TX2(3))
+            
+            UC = DABS(C1*PV(2)+C2*PV(3)+C3*PV(4))
+            VC = DABS(E1*PV(2)+E2*PV(3)+E3*PV(4))
+            WC = DABS(T1*PV(2)+T2*PV(3)+T3*PV(4))
+            
+            S1 = C1**2+C2**2+C3**2
+            S2 = E1**2+E2**2+E3**2
+            S3 = T1**2+T2**2+T3**2
+            
+            UV2 = PV(2)**2+PV(3)**2+PV(4)**2
+            
+            SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
+            
+            UP = UC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
+            EIGENX = 0.5D0*(UP+D)
+            
+            UP = VC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
+            EIGENY = 0.5D0*(UP+D)
 
-          C1 = 0.5D0*(CX1(1)+CX2(1))
-          C2 = 0.5D0*(CX1(2)+CX2(2))
-          E1 = 0.5D0*(EX1(1)+EX2(1))
-          E2 = 0.5D0*(EX1(2)+EX2(2))
-          
-          UC = DABS(C1*PV(2)+C2*PV(3))
-          VC = DABS(E1*PV(2)+E2*PV(3))
-          S1 = C1**2+C2**2
-          S2 = E1**2+E2**2
-          UV2 = PV(2)**2+PV(3)**2
-          
-          SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
-          
-          UP = UC*(1.D0+SNDP2/DV(6))
-          D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
-          EIGENX = 0.5D0*(UP+D)
-          
-          UP = VC*(1.D0+SNDP2/DV(6))
-          D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
-          EIGENY = 0.5D0*(UP+D)
-          
-          EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2)/GRD(1)
-          
-          TIMESTEP%DT(I,J) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + 4.D0*EIGENVIS)
-          
+            UP = WC*(1.D0+SNDP2/DV(6))
+            D = DSQRT(WC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S3)
+            EIGENZ = 0.5D0*(UP+D)
+            
+            EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2+S3)/GRD(1)
+            
+            TIMESTEP%DT(I,J,K) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + EIGENZ + 4.D0*EIGENVIS)
+           END DO
         END DO
       END DO
 
@@ -313,13 +344,13 @@ MODULE TIMESTEP_MODULE
                        -DV(11)*DV(8)*DV(1)),4.D0/3.D0*(TV(1)+TV(3))/DV(1))
     END FUNCTION TURBULENT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETDT(TIMESTEP,I,J)
+    FUNCTION GETDT(TIMESTEP,I,J,K)
       IMPLICIT NONE
       CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      INTEGER, INTENT(IN) :: I,J
+      INTEGER, INTENT(IN) :: I,J,K
       REAL(8) :: GETDT
       
-      GETDT = TIMESTEP%DT(I,J)
+      GETDT = TIMESTEP%DT(I,J,K)
       
     END FUNCTION GETDT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC

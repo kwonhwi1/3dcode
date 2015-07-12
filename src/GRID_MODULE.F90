@@ -61,7 +61,7 @@ MODULE GRID_MODULE
       TYPE(T_CONFIG), INTENT(IN) :: CONFIG
       CHARACTER(32) :: NODENAME,CONNECTNAME,DONORNAME
       CHARACTER(32), DIMENSION(:), ALLOCATABLE :: FAMNAME,FAMBCNAME,ZONENAME
-      INTEGER :: I,J,K,N,M
+      INTEGER :: I,J,N,M
       INTEGER :: IFILE,IER
       INTEGER :: NZONE,NFAM
       INTEGER :: NMAX(3),NSTART(3)
@@ -569,7 +569,7 @@ MODULE GRID_MODULE
                 GRID%GRD(5,II,JJ,KK) = RECVBUF(L)
               END DO
             END DO
-          
+          END DO
         END IF
         DEALLOCATE(SENDBUF,RECVBUF)
       END DO
@@ -902,7 +902,7 @@ MODULE GRID_MODULE
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       CLASS(T_GRID), INTENT(INOUT) :: GRID
-      INTEGER :: I,J,N,L,II,JJ,IS,IE,JS,JE
+      INTEGER :: I,J,K,N,L,II,JJ,KK,IS,IE,JS,JE,KS,KE
       REAL(8) :: PA(3),PB(3),PC(3),PD(3)
       REAL(8) :: VOLP1,VOLP2,VOLP3,VOLP4,VOLP5,VOLP6
       INTEGER :: NUM
@@ -920,105 +920,105 @@ MODULE GRID_MODULE
             GRID%GRD(4,I,J,K) = 0.125D0*(GRID%X(3,I,J,K)+GRID%X(3,I+1,J,K)+GRID%X(3,I,J+1,K)+GRID%X(3,I,J,K+1) &
                               + GRID%X(3,I+1,J+1,K)+GRID%X(3,I,J+1,K+1)+GRID%X(3,I+1,J,K+1)+GRID%X(3,I+1,J+1,K+1))
                               
-            PA(1) = X(1,I,J,K) 
-            PB(1) = X(1,I+1,J,K)
-            PC(1) = X(1,I+1,J+1,K)
-            PD(1) = X(1,I,J+1,K)
+            PA(1) = GRID%X(1,I,J,K) 
+            PB(1) = GRID%X(1,I+1,J,K)
+            PC(1) = GRID%X(1,I+1,J+1,K)
+            PD(1) = GRID%X(1,I,J+1,K)
 
-            PA(2) = X(2,I,J,K)
-            PB(2) = X(2,I+1,J,K)
-            PC(2) = X(2,I+1,J+1,K)
-            PD(2) = X(2,I,J+1,K)
+            PA(2) = GRID%X(2,I,J,K)
+            PB(2) = GRID%X(2,I+1,J,K)
+            PC(2) = GRID%X(2,I+1,J+1,K)
+            PD(2) = GRID%X(2,I,J+1,K)
 
-            PA(3) = X(3,I,J,K)
-            PB(3) = X(3,I+1,J,K)
-            PC(3) = X(3,I+1,J+1,K)
-            PD(3) = X(3,I,J+1,K)
+            PA(3) = GRID%X(3,I,J,K)
+            PB(3) = GRID%X(3,I+1,J,K)
+            PC(3) = GRID%X(3,I+1,J+1,K)
+            PD(3) = GRID%X(3,I,J+1,K)
             
             VOLP1 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
-            PA(1) = X(1,I,J,K+1) 
-            PB(1) = X(1,I+1,J,K+1)
-            PC(1) = X(1,I+1,J+1,K+1)
-            PD(1) = X(1,I,J+1,K+1)
+            PA(1) = GRID%X(1,I,J,K+1) 
+            PB(1) = GRID%X(1,I+1,J,K+1)
+            PC(1) = GRID%X(1,I+1,J+1,K+1)
+            PD(1) = GRID%X(1,I,J+1,K+1)
 
-            PA(2) = X(2,I,J,K+1)
-            PB(2) = X(2,I+1,J,K+1)
-            PC(2) = X(2,I+1,J+1,K+1)
-            PD(2) = X(2,I,J+1,K+1)
+            PA(2) = GRID%X(2,I,J,K+1)
+            PB(2) = GRID%X(2,I+1,J,K+1)
+            PC(2) = GRID%X(2,I+1,J+1,K+1)
+            PD(2) = GRID%X(2,I,J+1,K+1)
 
-            PA(3) = X(3,I,J,K+1)
-            PB(3) = X(3,I+1,J,K+1)
-            PC(3) = X(3,I+1,J+1,K+1)
-            PD(3) = X(3,I,J+1,K+1)
+            PA(3) = GRID%X(3,I,J,K+1)
+            PB(3) = GRID%X(3,I+1,J,K+1)
+            PC(3) = GRID%X(3,I+1,J+1,K+1)
+            PD(3) = GRID%X(3,I,J+1,K+1)
             
             VOLP2 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
-            PA(1) = X(1,I,J,K) 
-            PB(1) = X(1,I+1,J,K)
-            PC(1) = X(1,I+1,J,K+1)
-            PD(1) = X(1,I,J,K+1)
+            PA(1) = GRID%X(1,I,J,K) 
+            PB(1) = GRID%X(1,I+1,J,K)
+            PC(1) = GRID%X(1,I+1,J,K+1)
+            PD(1) = GRID%X(1,I,J,K+1)
 
-            PA(2) = X(2,I,J,K)
-            PB(2) = X(2,I+1,J,K)
-            PC(2) = X(2,I+1,J,K+1)
-            PD(2) = X(2,I,J,K+1)
+            PA(2) = GRID%X(2,I,J,K)
+            PB(2) = GRID%X(2,I+1,J,K)
+            PC(2) = GRID%X(2,I+1,J,K+1)
+            PD(2) = GRID%X(2,I,J,K+1)
 
-            PA(3) = X(3,I,J,K)
-            PB(3) = X(3,I+1,J,K)
-            PC(3) = X(3,I+1,J,K+1)
-            PD(3) = X(3,I,J,K+1)
+            PA(3) = GRID%X(3,I,J,K)
+            PB(3) = GRID%X(3,I+1,J,K)
+            PC(3) = GRID%X(3,I+1,J,K+1)
+            PD(3) = GRID%X(3,I,J,K+1)
             
             VOLP3 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
-            PA(1) = X(1,I,J+1,K) 
-            PB(1) = X(1,I+1,J+1,K)
-            PC(1) = X(1,I+1,J+1,K+1)
-            PD(1) = X(1,I,J+1,K+1)
+            PA(1) = GRID%X(1,I,J+1,K) 
+            PB(1) = GRID%X(1,I+1,J+1,K)
+            PC(1) = GRID%X(1,I+1,J+1,K+1)
+            PD(1) = GRID%X(1,I,J+1,K+1)
 
-            PA(2) = X(2,I,J+1,K)
-            PB(2) = X(2,I+1,J+1,K)
-            PC(2) = X(2,I+1,J+1,K+1)
-            PD(2) = X(2,I,J+1,K+1)
+            PA(2) = GRID%X(2,I,J+1,K)
+            PB(2) = GRID%X(2,I+1,J+1,K)
+            PC(2) = GRID%X(2,I+1,J+1,K+1)
+            PD(2) = GRID%X(2,I,J+1,K+1)
 
-            PA(3) = X(3,I,J+1,K)
-            PB(3) = X(3,I+1,J+1,K)
-            PC(3) = X(3,I+1,J+1,K+1)
-            PD(3) = X(3,I,J+1,K+1)
+            PA(3) = GRID%X(3,I,J+1,K)
+            PB(3) = GRID%X(3,I+1,J+1,K)
+            PC(3) = GRID%X(3,I+1,J+1,K+1)
+            PD(3) = GRID%X(3,I,J+1,K+1)
             
             VOLP4 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
-            PA(1) = X(1,I,J,K) 
-            PB(1) = X(1,I,J+1,K)
-            PC(1) = X(1,I,J+1,K+1)
-            PD(1) = X(1,I,J,K+1)
+            PA(1) = GRID%X(1,I,J,K) 
+            PB(1) = GRID%X(1,I,J+1,K)
+            PC(1) = GRID%X(1,I,J+1,K+1)
+            PD(1) = GRID%X(1,I,J,K+1)
 
-            PA(2) = X(2,I,J,K)
-            PB(2) = X(2,I,J+1,K)
-            PC(2) = X(2,I,J+1,K+1)
-            PD(2) = X(2,I,J,K+1)
+            PA(2) = GRID%X(2,I,J,K)
+            PB(2) = GRID%X(2,I,J+1,K)
+            PC(2) = GRID%X(2,I,J+1,K+1)
+            PD(2) = GRID%X(2,I,J,K+1)
 
-            PA(3) = X(3,I,J,K)
-            PB(3) = X(3,I,J+1,K)
-            PC(3) = X(3,I,J+1,K+1)
-            PD(3) = X(3,I,J,K+1)
+            PA(3) = GRID%X(3,I,J,K)
+            PB(3) = GRID%X(3,I,J+1,K)
+            PC(3) = GRID%X(3,I,J+1,K+1)
+            PD(3) = GRID%X(3,I,J,K+1)
             
             VOLP5 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
-            PA(1) = X(1,I+1,J,K) 
-            PB(1) = X(1,I+1,J+1,K)
-            PC(1) = X(1,I+1,J+1,K+1)
-            PD(1) = X(1,I+1,J,K+1)
+            PA(1) = GRID%X(1,I+1,J,K) 
+            PB(1) = GRID%X(1,I+1,J+1,K)
+            PC(1) = GRID%X(1,I+1,J+1,K+1)
+            PD(1) = GRID%X(1,I+1,J,K+1)
 
-            PA(2) = X(2,I+1,J,K)
-            PB(2) = X(2,I+1,J+1,K)
-            PC(2) = X(2,I+1,J+1,K+1)
-            PD(2) = X(2,I+1,J,K+1)
+            PA(2) = GRID%X(2,I+1,J,K)
+            PB(2) = GRID%X(2,I+1,J+1,K)
+            PC(2) = GRID%X(2,I+1,J+1,K+1)
+            PD(2) = GRID%X(2,I+1,J,K+1)
 
-            PA(3) = X(3,I+1,J,K)
-            PB(3) = X(3,I+1,J+1,K)
-            PC(3) = X(3,I+1,J+1,K+1)
-            PD(3) = X(3,I+1,J,K+1)
+            PA(3) = GRID%X(3,I+1,J,K)
+            PB(3) = GRID%X(3,I+1,J+1,K)
+            PC(3) = GRID%X(3,I+1,J+1,K+1)
+            PD(3) = GRID%X(3,I+1,J,K+1)
             
             VOLP6 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
             
@@ -1186,7 +1186,7 @@ MODULE GRID_MODULE
       VOLPZ = (ZC - CSZ)*(VAX*VBY - VAY*VBX)
       
       !  MAKE RIGHT HAND RULE UNNECESSARY BY TAKE ABSOLUTE VALUE
-      VOL = DABS( VOLPX + VOLPY + VOLPZ )
+      PYRAMID = DABS( VOLPX + VOLPY + VOLPZ )
     END FUNCTION PYRAMID
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     FUNCTION GETIMAX(GRID)
