@@ -5,24 +5,24 @@ MODULE GRID_MODULE
   PUBLIC :: T_GRID,T_BCINFO,T_CONNECTINFO
 
   TYPE T_BCINFO
-    INTEGER :: ISTART(2),IEND(2)
+    INTEGER :: ISTART(3),IEND(3)
     CHARACTER(32) :: BCNAME
   END TYPE T_BCINFO
   
   TYPE T_CONNECTINFO
-    INTEGER :: DONOR,TRANSMAT(2,2)
-    INTEGER :: ISTART(2),IEND(2),ISTART_DONOR(2),IEND_DONOR(2)
+    INTEGER :: DONOR,TRANSMAT(3,3)
+    INTEGER :: ISTART(3),IEND(3),ISTART_DONOR(3),IEND_DONOR(3)
   END TYPE T_CONNECTINFO
   
   TYPE T_GRID
     PRIVATE
     INTEGER :: RANK
-    INTEGER :: IMAX,JMAX,NBC,NCON,NGRD
+    INTEGER :: IMAX,JMAX,KMAX,NBC,NCON,NGRD
     TYPE(T_BCINFO), DIMENSION(:), ALLOCATABLE :: BCINFO
     TYPE(T_CONNECTINFO), DIMENSION(:), ALLOCATABLE ::CONNECTINFO
-    REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: X
-    REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: CX,EX
-    REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: GRD ! VOL,XCEN,YCEN,YDNS
+    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: X
+    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: CX,EX,TX
+    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: GRD ! VOL,XCEN,YCEN,ZCEN,YDNS
     CONTAINS
       PROCEDURE :: CONSTRUCT
       PROCEDURE :: DESTRUCT
@@ -31,11 +31,13 @@ MODULE GRID_MODULE
       PROCEDURE, PRIVATE :: CALVOLUME
       PROCEDURE :: GETIMAX
       PROCEDURE :: GETJMAX
+      PROCEDURE :: GETKMAX
       PROCEDURE :: GETNBC
       PROCEDURE :: GETNCON
       PROCEDURE :: GETX
       PROCEDURE :: GETCX
       PROCEDURE :: GETEX
+      PROCEDURE :: GETTX
       PROCEDURE :: GETNGRD
       PROCEDURE :: GETGRD
       PROCEDURE :: GETBCNAME
@@ -59,15 +61,15 @@ MODULE GRID_MODULE
       TYPE(T_CONFIG), INTENT(IN) :: CONFIG
       CHARACTER(32) :: NODENAME,CONNECTNAME,DONORNAME
       CHARACTER(32), DIMENSION(:), ALLOCATABLE :: FAMNAME,FAMBCNAME,ZONENAME
-      INTEGER :: I,J,N,M
+      INTEGER :: I,J,K,N,M
       INTEGER :: IFILE,IER
       INTEGER :: NZONE,NFAM
       INTEGER :: NMAX(3),NSTART(3)
       INTEGER :: ISIZE(9),IPNTS(6),IPNTSDONOR(6),TRANSVEC(3) 
       INTEGER :: NFAMBC,NGEO,IBCTYPE
       INTEGER :: NORMALLIST
-      INTEGER, PARAMETER :: DIM = 2
-      REAL(8), DIMENSION(:,:), ALLOCATABLE :: XX,YY
+      INTEGER, PARAMETER :: DIM = 3
+      REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: XX,YY,ZZ
       
       GRID%RANK = CONFIG%GETRANK()
       DO N = 0,CONFIG%GETSIZE()-1
@@ -86,21 +88,24 @@ MODULE GRID_MODULE
             IF(J.EQ.N) THEN
               GRID%IMAX = ISIZE(1)
               GRID%JMAX = ISIZE(2)
+              GRID%KMAX = ISIZE(3)
             END IF
           END DO
           
-          ALLOCATE(GRID%X(2,2:GRID%IMAX+1,2:GRID%JMAX+1))
-          ALLOCATE(XX(2:GRID%IMAX+1,2:GRID%JMAX+1),YY(2:GRID%IMAX+1,2:GRID%JMAX+1))
+          ALLOCATE(GRID%X(DIM,2:GRID%IMAX+1,2:GRID%JMAX+1,2:GRID%KMAX+1))
+          ALLOCATE(XX(2:GRID%IMAX+1,2:GRID%JMAX+1,2:GRID%KMAX+1),YY(2:GRID%IMAX+1,2:GRID%JMAX+1,2:GRID%KMAX+1),ZZ(2:GRID%IMAX+1,2:GRID%JMAX+1,2:GRID%KMAX+1))
           
-          NMAX(1) = GRID%IMAX; NMAX(2) = GRID%JMAX; NMAX(3) = 0
+          NMAX(1) = GRID%IMAX; NMAX(2) = GRID%JMAX; NMAX(3) = GRID%KMAX
           NSTART  = 1
           
           CALL CG_COORD_READ_F(IFILE,1,N+1,'CoordinateX',REALDOUBLE,NSTART,NMAX,XX,IER)
           CALL CG_COORD_READ_F(IFILE,1,N+1,'CoordinateY',REALDOUBLE,NSTART,NMAX,YY,IER)
+          CALL CG_COORD_READ_F(IFILE,1,N+1,'CoordinateZ',REALDOUBLE,NSTART,NMAX,ZZ,IER)
           
-          GRID%X(1,:,:) = XX*CONFIG%GETSCALE()
-          GRID%X(2,:,:) = YY*CONFIG%GETSCALE()
-
+          GRID%X(1,:,:,:) = XX*CONFIG%GETSCALE()
+          GRID%X(2,:,:,:) = YY*CONFIG%GETSCALE()
+          GRID%X(3,:,:,:) = ZZ*CONFIG%GETSCALE()
+          
           CALL CG_NFAMILIES_F(IFILE,1,NFAM,IER)
           
           ALLOCATE(FAMNAME(NFAM),FAMBCNAME(NFAM))
@@ -130,26 +135,48 @@ MODULE GRID_MODULE
                   CASE(1)
                     GRID%BCINFO(I)%ISTART(1) = IPNTS(1)
                     GRID%BCINFO(I)%ISTART(2) = IPNTS(2)+1
-                    GRID%BCINFO(I)%IEND(1)   = IPNTS(3)
-                    GRID%BCINFO(I)%IEND(2)   = IPNTS(4)
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)+1
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)
                   CASE(2)
                     GRID%BCINFO(I)%ISTART(1) = IPNTS(1)+1
                     GRID%BCINFO(I)%ISTART(2) = IPNTS(2)
-                    GRID%BCINFO(I)%IEND(1)   = IPNTS(3)
-                    GRID%BCINFO(I)%IEND(2)   = IPNTS(4)
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)+1
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)
+                  CASE(3)
+                    GRID%BCINFO(I)%ISTART(1) = IPNTS(1)+1
+                    GRID%BCINFO(I)%ISTART(2) = IPNTS(2)+1
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)
                   END SELECT
                 ELSE
                   SELECT CASE(J)
                   CASE(1)
                     GRID%BCINFO(I)%ISTART(1) = IPNTS(1)+1
                     GRID%BCINFO(I)%ISTART(2) = IPNTS(2)+1
-                    GRID%BCINFO(I)%IEND(1)   = IPNTS(3)+1
-                    GRID%BCINFO(I)%IEND(2)   = IPNTS(4)
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)+1
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)+1
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)
                   CASE(2)
                     GRID%BCINFO(I)%ISTART(1) = IPNTS(1)+1
                     GRID%BCINFO(I)%ISTART(2) = IPNTS(2)+1
-                    GRID%BCINFO(I)%IEND(1)   = IPNTS(3)
-                    GRID%BCINFO(I)%IEND(2)   = IPNTS(4)+1
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)+1
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)+1
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)
+                  CASE(3)
+                    GRID%BCINFO(I)%ISTART(1) = IPNTS(1)+1
+                    GRID%BCINFO(I)%ISTART(2) = IPNTS(2)+1
+                    GRID%BCINFO(I)%ISTART(3) = IPNTS(3)+1
+                    GRID%BCINFO(I)%IEND(1)   = IPNTS(4)
+                    GRID%BCINFO(I)%IEND(2)   = IPNTS(5)
+                    GRID%BCINFO(I)%IEND(3)   = IPNTS(6)+1
                   END SELECT
                 END IF
               END IF
@@ -174,7 +201,8 @@ MODULE GRID_MODULE
             GRID%CONNECTINFO(J)%TRANSMAT = 0
             GRID%CONNECTINFO(J)%TRANSMAT(ABS(TRANSVEC(1)),1)=TRANSVEC(1)/ABS(TRANSVEC(1))
             GRID%CONNECTINFO(J)%TRANSMAT(ABS(TRANSVEC(2)),2)=TRANSVEC(2)/ABS(TRANSVEC(2))
-
+            GRID%CONNECTINFO(J)%TRANSMAT(ABS(TRANSVEC(3)),3)=TRANSVEC(3)/ABS(TRANSVEC(3))
+            
             DO M=1,DIM
               IF(IPNTS(M).EQ.IPNTS(DIM+M)) THEN
                 IF(IPNTS(M).EQ.1) THEN
@@ -182,39 +210,66 @@ MODULE GRID_MODULE
                   CASE(1)
                     GRID%CONNECTINFO(J)%ISTART(1) = IPNTS(1)+1
                     GRID%CONNECTINFO(J)%ISTART(2) = IPNTS(2)
-                    GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(3)+1
-                    GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(4)
+                    GRID%CONNECTINFO(J)%ISTART(3) = IPNTS(3)
+                    GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(4)+1
+                    GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(5)
+                    GRID%CONNECTINFO(J)%IEND(3)   = IPNTS(6)
                   CASE(2)
                     GRID%CONNECTINFO(J)%ISTART(1) = IPNTS(1)
                     GRID%CONNECTINFO(J)%ISTART(2) = IPNTS(2)+1
-                    GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(3)
-                    GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(4)+1
+                    GRID%CONNECTINFO(J)%ISTART(3) = IPNTS(3)
+                    GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(4)
+                    GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(5)+1
+                    GRID%CONNECTINFO(J)%IEND(3)   = IPNTS(6)
+                  CASE(3)
+                    GRID%CONNECTINFO(J)%ISTART(1) = IPNTS(1)
+                    GRID%CONNECTINFO(J)%ISTART(2) = IPNTS(2)
+                    GRID%CONNECTINFO(J)%ISTART(3) = IPNTS(3)+1
+                    GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(4)
+                    GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(5)
+                    GRID%CONNECTINFO(J)%IEND(3)   = IPNTS(6)+1
                   END SELECT
                 ELSE
                   GRID%CONNECTINFO(J)%ISTART(1) = IPNTS(1)
                   GRID%CONNECTINFO(J)%ISTART(2) = IPNTS(2)
-                  GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(3)
-                  GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(4)
+                  GRID%CONNECTINFO(J)%ISTART(3) = IPNTS(3)
+                  GRID%CONNECTINFO(J)%IEND(1)   = IPNTS(4)
+                  GRID%CONNECTINFO(J)%IEND(2)   = IPNTS(5)
+                  GRID%CONNECTINFO(J)%IEND(3)   = IPNTS(6)
                 END IF
               END IF
+              
               IF(IPNTSDONOR(M).EQ.IPNTSDONOR(DIM+M)) THEN
                 IF(IPNTSDONOR(M).EQ.1) THEN
                   GRID%CONNECTINFO(J)%ISTART_DONOR(1) = IPNTSDONOR(1)
                   GRID%CONNECTINFO(J)%ISTART_DONOR(2) = IPNTSDONOR(2)
-                  GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(3)
-                  GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(4)
+                  GRID%CONNECTINFO(J)%ISTART_DONOR(3) = IPNTSDONOR(3)
+                  GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(4)
+                  GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(5)
+                  GRID%CONNECTINFO(J)%IEND_DONOR(3)   = IPNTSDONOR(6)
                 ELSE
                   SELECT CASE(M)
                   CASE(1)
                     GRID%CONNECTINFO(J)%ISTART_DONOR(1) = IPNTSDONOR(1)+1
                     GRID%CONNECTINFO(J)%ISTART_DONOR(2) = IPNTSDONOR(2)
-                    GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(3)+1
-                    GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(4)
+                    GRID%CONNECTINFO(J)%ISTART_DONOR(3) = IPNTSDONOR(3)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(4)+1
+                    GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(5)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(3)   = IPNTSDONOR(6)
                   CASE(2)
                     GRID%CONNECTINFO(J)%ISTART_DONOR(1) = IPNTSDONOR(1)
                     GRID%CONNECTINFO(J)%ISTART_DONOR(2) = IPNTSDONOR(2)+1
-                    GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(3)
-                    GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(4)+1
+                    GRID%CONNECTINFO(J)%ISTART_DONOR(3) = IPNTSDONOR(3)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(4)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(5)+1
+                    GRID%CONNECTINFO(J)%IEND_DONOR(3)   = IPNTSDONOR(6)
+                  CASE(3)
+                    GRID%CONNECTINFO(J)%ISTART_DONOR(1) = IPNTSDONOR(1)
+                    GRID%CONNECTINFO(J)%ISTART_DONOR(2) = IPNTSDONOR(2)
+                    GRID%CONNECTINFO(J)%ISTART_DONOR(3) = IPNTSDONOR(3)+1
+                    GRID%CONNECTINFO(J)%IEND_DONOR(1)   = IPNTSDONOR(4)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(2)   = IPNTSDONOR(5)
+                    GRID%CONNECTINFO(J)%IEND_DONOR(3)   = IPNTSDONOR(6)+1
                   END SELECT
                 END IF
               END IF
@@ -237,16 +292,17 @@ MODULE GRID_MODULE
       IF(ALLOCATED(FAMBCNAME)) DEALLOCATE(FAMBCNAME)
       IF(ALLOCATED(XX)) DEALLOCATE(XX)
       IF(ALLOCATED(YY)) DEALLOCATE(YY)
+      IF(ALLOCATED(ZZ)) DEALLOCATE(ZZ)
 
       
       SELECT CASE(CONFIG%GETITURB())
       CASE(-3,-2)
-        GRID%NGRD = 3
-      CASE(-1,0)
         GRID%NGRD = 4
+      CASE(-1,0)
+        GRID%NGRD = 5
       END SELECT
       
-      ALLOCATE(GRID%GRD(GRID%NGRD,GRID%IMAX+1,GRID%JMAX+1))
+      ALLOCATE(GRID%GRD(GRID%NGRD,GRID%IMAX+1,GRID%JMAX+1,GRID%KMAX+1))
       
       CALL GRID%CALNORMAL() !! MUST BE CALLED BEFORE CALVOLUME !!
       CALL GRID%CALVOLUME() 
@@ -261,6 +317,7 @@ MODULE GRID_MODULE
       IF(ALLOCATED(GRID%X))           DEALLOCATE(GRID%X)
       IF(ALLOCATED(GRID%CX))          DEALLOCATE(GRID%CX)
       IF(ALLOCATED(GRID%EX))          DEALLOCATE(GRID%EX)
+      IF(ALLOCATED(GRID%TX))          DEALLOCATE(GRID%TX)
       IF(ALLOCATED(GRID%GRD))         DEALLOCATE(GRID%GRD)
       IF(ALLOCATED(GRID%BCINFO))      DEALLOCATE(GRID%BCINFO)
       IF(ALLOCATED(GRID%CONNECTINFO)) DEALLOCATE(GRID%CONNECTINFO)
@@ -273,63 +330,99 @@ MODULE GRID_MODULE
       INCLUDE 'mpif.h'
       CLASS(T_GRID), INTENT(INOUT) :: GRID
       TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: M,N,I,J,L,II,JJ,IS,IE,JS,JE
+      INTEGER :: M,N,I,J,K,L,II,JJ,KK,IS,IE,JS,JE,KS,KE
       INTEGER :: NUM
       INTEGER :: SENDNUM,RECVNUM
       INTEGER :: IER,REQUEST1,REQUEST2
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       INTEGER :: RECVCOUNT(0:CONFIG%GETSIZE()-1),DISP(0:CONFIG%GETSIZE()-1)
-      INTEGER, PARAMETER :: DIM = 2
-      REAL(8), DIMENSION(:), ALLOCATABLE :: SENDXB,SENDYB,RECVXB,RECVYB,SENDBUF,RECVBUF
-      REAL(8) :: XC,YC,YMIN,YTEMP
+      INTEGER, PARAMETER :: DIM = 3
+      REAL(8), DIMENSION(:), ALLOCATABLE :: SENDXB,SENDYB,SENDZB,RECVXB,RECVYB,RECVZB,SENDBUF,RECVBUF
+      REAL(8) :: XC,YC,ZC,YMIN,YTEMP
      
       SENDNUM = 0
      
       DO N = 1,GRID%NBC
         IF(TRIM(GRID%BCINFO(N)%BCNAME).EQ.'BCWallViscous') THEN
           IF(GRID%BCINFO(N)%ISTART(1).EQ.GRID%BCINFO(N)%IEND(1)) THEN
-            SENDNUM = SENDNUM + (GRID%BCINFO(N)%IEND(2)-GRID%BCINFO(N)%ISTART(2)+1)
+            SENDNUM = SENDNUM + (GRID%BCINFO(N)%IEND(2)-GRID%BCINFO(N)%ISTART(2)+1)*(GRID%BCINFO(N)%IEND(3)-GRID%BCINFO(N)%ISTART(3)+1)
           END IF
           IF(GRID%BCINFO(N)%ISTART(2).EQ.GRID%BCINFO(N)%IEND(2)) THEN
-            SENDNUM = SENDNUM + (GRID%BCINFO(N)%IEND(1)-GRID%BCINFO(N)%ISTART(1)+1)
-          END IF          
+            SENDNUM = SENDNUM + (GRID%BCINFO(N)%IEND(1)-GRID%BCINFO(N)%ISTART(1)+1)*(GRID%BCINFO(N)%IEND(3)-GRID%BCINFO(N)%ISTART(3)+1)
+          END IF
+          IF(GRID%BCINFO(N)%ISTART(3).EQ.GRID%BCINFO(N)%IEND(3)) THEN
+            SENDNUM = SENDNUM + (GRID%BCINFO(N)%IEND(1)-GRID%BCINFO(N)%ISTART(1)+1)*(GRID%BCINFO(N)%IEND(2)-GRID%BCINFO(N)%ISTART(2)+1)
+          END IF
         END IF
       END DO
       
-      ALLOCATE(SENDXB(SENDNUM),SENDYB(SENDNUM))
+      ALLOCATE(SENDXB(SENDNUM),SENDYB(SENDNUM),SENDZB(SENDNUM))
       M=0
       DO N = 1,GRID%NBC
         IF(TRIM(GRID%BCINFO(N)%BCNAME).EQ.'BCWallViscous') THEN
           IF(GRID%BCINFO(N)%ISTART(1).EQ.GRID%BCINFO(N)%IEND(1)) THEN
             IF(GRID%BCINFO(N)%ISTART(1).EQ.1) THEN
-              DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
-                M = M + 1
-                SENDXB(M) = 0.5D0*(GRID%X(1,2,J)+GRID%X(1,2,J+1))
-                SENDYB(M) = 0.5D0*(GRID%X(2,2,J)+GRID%X(2,2,J+1))
-              END DO            
+              DO K = GRID%BCINFO(N)%ISTART(3),GRID%BCINFO(N)%IEND(3)
+                DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,2,J,K)+GRID%X(1,2,J+1,K)+GRID%X(1,2,J,K+1)+GRID%X(1,2,J+1,K+1))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,2,J,K)+GRID%X(2,2,J+1,K)+GRID%X(2,2,J,K+1)+GRID%X(2,2,J+1,K+1))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,2,J,K)+GRID%X(3,2,J+1,K)+GRID%X(3,2,J,K+1)+GRID%X(3,2,J+1,K+1))
+                END DO
+              END DO
             ELSE
-              DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
-                M = M + 1
-                SENDXB(M) = 0.5D0*(GRID%X(1,GRID%IMAX+1,J)+GRID%X(1,GRID%IMAX+1,J+1))
-                SENDYB(M) = 0.5D0*(GRID%X(2,GRID%IMAX+1,J)+GRID%X(2,GRID%IMAX+1,J+1))
-              END DO             
+              DO K = GRID%BCINFO(N)%ISTART(3),GRID%BCINFO(N)%IEND(3)
+                DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,GRID%IMAX+1,J,K)+GRID%X(1,GRID%IMAX+1,J+1,K)+GRID%X(1,GRID%IMAX+1,J,K+1)+GRID%X(1,GRID%IMAX+1,J+1,K+1))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,GRID%IMAX+1,J,K)+GRID%X(2,GRID%IMAX+1,J+1,K)+GRID%X(2,GRID%IMAX+1,J,K+1)+GRID%X(2,GRID%IMAX+1,J+1,K+1))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,GRID%IMAX+1,J,K)+GRID%X(3,GRID%IMAX+1,J+1,K)+GRID%X(3,GRID%IMAX+1,J,K+1)+GRID%X(3,GRID%IMAX+1,J+1,K+1))
+                END DO
+              END DO           
             END IF
           END IF
           IF(GRID%BCINFO(N)%ISTART(2).EQ.GRID%BCINFO(N)%IEND(2)) THEN
             IF(GRID%BCINFO(N)%ISTART(2).EQ.1) THEN
-              DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
-                M = M + 1
-                SENDXB(M) = 0.5D0*(GRID%X(1,I,2)+GRID%X(1,I+1,2))
-                SENDYB(M) = 0.5D0*(GRID%X(2,I,2)+GRID%X(2,I+1,2))
+              DO K = GRID%BCINFO(N)%ISTART(3),GRID%BCINFO(N)%IEND(3)
+                DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,I,2,K)+GRID%X(1,I+1,2,K)+GRID%X(1,I,2,K+1)+GRID%X(1,I+1,2,K+1))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,I,2,K)+GRID%X(2,I+1,2,K)+GRID%X(2,I,2,K+1)+GRID%X(2,I+1,2,K+1))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,I,2,K)+GRID%X(3,I+1,2,K)+GRID%X(3,I,2,K+1)+GRID%X(3,I+1,2,K+1))
+                END DO
               END DO            
             ELSE
-              DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
-                M = M + 1
-                SENDXB(M) = 0.5D0*(GRID%X(1,I,GRID%JMAX+1)+GRID%X(1,I+1,GRID%JMAX+1))
-                SENDYB(M) = 0.5D0*(GRID%X(2,I,GRID%JMAX+1)+GRID%X(2,I+1,GRID%JMAX+1))
-              END DO             
+              DO K = GRID%BCINFO(N)%ISTART(3),GRID%BCINFO(N)%IEND(3)
+                DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,I,GRID%JMAX+1,K)+GRID%X(1,I+1,GRID%JMAX+1,K)+GRID%X(1,I,GRID%JMAX+1,K+1)+GRID%X(1,I+1,GRID%JMAX+1,K+1))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,I,GRID%JMAX+1,K)+GRID%X(2,I+1,GRID%JMAX+1,K)+GRID%X(2,I,GRID%JMAX+1,K+1)+GRID%X(2,I+1,GRID%JMAX+1,K+1))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,I,GRID%JMAX+1,K)+GRID%X(3,I+1,GRID%JMAX+1,K)+GRID%X(3,I,GRID%JMAX+1,K+1)+GRID%X(3,I+1,GRID%JMAX+1,K+1))
+                END DO
+              END DO          
             END IF
-          END IF          
+          END IF
+          IF(GRID%BCINFO(N)%ISTART(3).EQ.GRID%BCINFO(N)%IEND(3)) THEN
+            IF(GRID%BCINFO(N)%ISTART(3).EQ.1) THEN
+              DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
+                DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,I,J,2)+GRID%X(1,I+1,J,2)+GRID%X(1,I,J+1,2)+GRID%X(1,I+1,J+1,2))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,I,J,2)+GRID%X(2,I+1,J,2)+GRID%X(2,I,J+1,2)+GRID%X(2,I+1,J+1,2))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,I,J,2)+GRID%X(3,I+1,J,2)+GRID%X(3,I,J+1,2)+GRID%X(3,I+1,J+1,2))
+                END DO
+              END DO            
+            ELSE
+              DO J = GRID%BCINFO(N)%ISTART(2),GRID%BCINFO(N)%IEND(2)
+                DO I = GRID%BCINFO(N)%ISTART(1),GRID%BCINFO(N)%IEND(1)
+                  M = M + 1
+                  SENDXB(M) = 0.25D0*(GRID%X(1,I,J,GRID%KMAX+1)+GRID%X(1,I+1,J,GRID%KMAX+1)+GRID%X(1,I,J+1,GRID%KMAX+1)+GRID%X(1,I+1,J+1,GRID%KMAX+1))
+                  SENDYB(M) = 0.25D0*(GRID%X(2,I,J,GRID%KMAX+1)+GRID%X(2,I+1,J,GRID%KMAX+1)+GRID%X(2,I,J+1,GRID%KMAX+1)+GRID%X(2,I+1,J+1,GRID%KMAX+1))
+                  SENDZB(M) = 0.25D0*(GRID%X(3,I,J,GRID%KMAX+1)+GRID%X(3,I+1,J,GRID%KMAX+1)+GRID%X(3,I,J+1,GRID%KMAX+1)+GRID%X(3,I+1,J+1,GRID%KMAX+1))
+                END DO
+              END DO          
+            END IF
+          END IF      
         END IF
       END DO
       
@@ -345,46 +438,66 @@ MODULE GRID_MODULE
         RECVNUM = RECVNUM + RECVCOUNT(M)
       END DO
       
-      ALLOCATE(RECVXB(RECVNUM),RECVYB(RECVNUM))
+      ALLOCATE(RECVXB(RECVNUM),RECVYB(RECVNUM),RECVZB(RECVNUM))
 
       CALL MPI_ALLGATHERV(SENDXB,SENDNUM,MPI_REAL8,RECVXB,RECVCOUNT,DISP,MPI_REAL8,MPI_COMM_WORLD,IER)
       CALL MPI_ALLGATHERV(SENDYB,SENDNUM,MPI_REAL8,RECVYB,RECVCOUNT,DISP,MPI_REAL8,MPI_COMM_WORLD,IER)
+      CALL MPI_ALLGATHERV(SENDZB,SENDNUM,MPI_REAL8,RECVZB,RECVCOUNT,DISP,MPI_REAL8,MPI_COMM_WORLD,IER)
       
-      DO J=2,GRID%JMAX
-        DO I=2,GRID%IMAX
-          XC = 0.25D0*(GRID%X(1,I,J)+GRID%X(1,I+1,J)+GRID%X(1,I,J+1)+GRID%X(1,I+1,J+1))
-          YC = 0.25D0*(GRID%X(2,I,J)+GRID%X(2,I+1,J)+GRID%X(2,I,J+1)+GRID%X(2,I+1,J+1))
-          YMIN = 1.D6
-          DO M =1,RECVNUM
-            YTEMP = DSQRT((XC-RECVXB(M))**2+(YC-RECVYB(M))**2)
-            IF(YTEMP.LT.YMIN) THEN
-              YMIN = YTEMP
-            END IF
+      DO K=2,GRID%KMAX
+        DO J=2,GRID%JMAX
+          DO I=2,GRID%IMAX
+            XC = 0.125D0*(GRID%X(1,I,J,K)+GRID%X(1,I+1,J,K)+GRID%X(1,I,J+1,K)+GRID%X(1,I,J,K+1)+GRID%X(1,I+1,J+1,K)+GRID%X(1,I,J+1,K+1)++GRID%X(1,I+1,J,K+1)+GRID%X(1,I+1,J+1,K+1))
+            YC = 0.125D0*(GRID%X(2,I,J,K)+GRID%X(2,I+1,J,K)+GRID%X(2,I,J+1,K)+GRID%X(2,I,J,K+1)+GRID%X(2,I+1,J+1,K)+GRID%X(2,I,J+1,K+1)++GRID%X(2,I+1,J,K+1)+GRID%X(2,I+1,J+1,K+1))
+            ZC = 0.125D0*(GRID%X(3,I,J,K)+GRID%X(3,I+1,J,K)+GRID%X(3,I,J+1,K)+GRID%X(3,I,J,K+1)+GRID%X(3,I+1,J+1,K)+GRID%X(3,I,J+1,K+1)++GRID%X(3,I+1,J,K+1)+GRID%X(3,I+1,J+1,K+1))
+            YMIN = 1.D6
+            DO M =1,RECVNUM
+              YTEMP = DSQRT((XC-RECVXB(M))**2+(YC-RECVYB(M))**2+(ZC-RECVZB(M))**2)
+              IF(YTEMP.LT.YMIN) THEN
+                YMIN = YTEMP
+              END IF
+            END DO
+            GRID%GRD(5,I,J,K) = YMIN
           END DO
-          GRID%GRD(4,I,J) = YMIN
         END DO
       END DO
       
-      DEALLOCATE(SENDXB,SENDYB,RECVXB,RECVYB)
+      DEALLOCATE(SENDXB,SENDYB,SENDZB,RECVXB,RECVYB,RECVZB)
       
-      DO I=2,GRID%IMAX
-        GRID%GRD(4,I,1)      = GRID%GRD(4,I,2)
-        GRID%GRD(4,I,GRID%JMAX+1) = GRID%GRD(4,I,GRID%JMAX)
+      DO K=2,GRID%KMAX
+        DO I=2,GRID%IMAX
+          GRID%GRD(5,I,1,K)      = GRID%GRD(5,I,2,K)
+          GRID%GRD(5,I,GRID%JMAX+1,K) = GRID%GRD(5,I,GRID%JMAX,K)
+        END DO
       END DO
-      DO J=1,GRID%JMAX+1
-        GRID%GRD(4,1,J)      = GRID%GRD(4,2,J)
-        GRID%GRD(4,GRID%IMAX+1,J) = GRID%GRD(4,GRID%IMAX,J)
+      
+      DO K=2,GRID%KMAX
+        DO J=1,GRID%JMAX+1
+          GRID%GRD(5,1,J,K)      = GRID%GRD(5,2,J,K)
+          GRID%GRD(5,GRID%IMAX+1,J,K) = GRID%GRD(5,GRID%IMAX,J,K)
+        END DO
       END DO
 
+      DO J=1,GRID%JMAX+1
+        DO I=1,GRID%IMAX+1
+          GRID%GRD(5,I,J,1)      = GRID%GRD(5,I,J,2)
+          GRID%GRD(5,I,J,GRID%KMAX+1) = GRID%GRD(5,I,J,GRID%KMAX)
+        END DO
+      END DO
+      
       DO N=1,GRID%NCON
-        NUM = (ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
+        NUM = (ABS(GRID%CONNECTINFO(N)%ISTART(3)-GRID%CONNECTINFO(N)%IEND(3))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
         ALLOCATE(SENDBUF(NUM),RECVBUF(NUM))
         
         L = 0
-        DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-          DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-            L = L + 1
-            SENDBUF(L) = GRID%GRD(4,I,J)
+        DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+              L = L + 1
+              SENDBUF(L) = GRID%GRD(5,I,J,K)
+            END DO
           END DO
         END DO
         
@@ -399,7 +512,14 @@ MODULE GRID_MODULE
           IE = GRID%CONNECTINFO(N)%IEND_DONOR(1)
           JS = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
           JE = GRID%CONNECTINFO(N)%IEND_DONOR(2)
-    
+          KS = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+          KE = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+
+          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+            KS = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+            KE = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+          END IF
+          
           IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
             JS = GRID%CONNECTINFO(N)%IEND_DONOR(2)
             JE = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
@@ -411,12 +531,21 @@ MODULE GRID_MODULE
           END IF         
           
           L = 0
-          DO J=JS,JE
-            DO I=IS,IE
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(2)
-              L = L + 1
-              GRID%GRD(4,II,JJ) = RECVBUF(L)
+          DO K=KS,KE
+            DO J=JS,JE 
+              DO I=IS,IE
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(k-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(3)
+                L = L + 1
+                GRID%GRD(5,II,JJ,KK) = RECVBUF(L)
+              END DO
             END DO
           END DO
         ELSE ! NO MPI BOUNDARY
@@ -424,14 +553,22 @@ MODULE GRID_MODULE
           RECVBUF = SENDBUF
           
           L = 0
-          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(2)
-              L = L + 1
-              GRID%GRD(4,II,JJ) = RECVBUF(L)
+          DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+            DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+              DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+                L = L + 1
+                GRID%GRD(5,II,JJ,KK) = RECVBUF(L)
+              END DO
             END DO
-          END DO
           
         END IF
         DEALLOCATE(SENDBUF,RECVBUF)
@@ -443,72 +580,147 @@ MODULE GRID_MODULE
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       CLASS(T_GRID), INTENT(INOUT) :: GRID
-      INTEGER :: I,J,N,M,L,II,JJ,IS,IE,JS,JE
-      INTEGER :: NUM,SIGN
+      INTEGER :: I,J,K,N,M,L,II,JJ,KK,IS,IE,JS,JE,KS,KE
+      INTEGER :: NUM,SIGN1,SIGN2
       INTEGER :: IER,REQUEST1,REQUEST2
       INTEGER :: STATUS(MPI_STATUS_SIZE)
-      INTEGER, PARAMETER :: DIM = 2
+      INTEGER, PARAMETER :: DIM = 3
+      REAL(8) :: XC,YC,ZC,XE,YE,ZE,XS,YS,ZS
       REAL(8), DIMENSION(:), ALLOCATABLE :: SENDBUF,RECVBUF
       
-      ALLOCATE(GRID%CX(2,1:GRID%IMAX,1:GRID%JMAX+1),GRID%EX(2,1:GRID%IMAX+1,1:GRID%JMAX))
+      ALLOCATE(GRID%CX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
+      ALLOCATE(GRID%EX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
+      ALLOCATE(GRID%TX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
       
-      DO J=2,GRID%JMAX
-        DO I=1,GRID%IMAX
-          GRID%CX(1,I,J) = GRID%X(2,I+1,J+1) - GRID%X(2,I+1,J)
-          GRID%CX(2,I,J) = - GRID%X(1,I+1,J+1) + GRID%X(1,I+1,J)
+      DO K=2,GRID%KMAX
+        DO J=2,GRID%JMAX
+          DO I=1,GRID%IMAX
+            XE = GRID%X(1,I+1,J+1,K)   - GRID%X(1,I+1,J,K+1)
+            YE = GRID%X(2,I+1,J+1,K)   - GRID%X(2,I+1,J,K+1)
+            ZE = GRID%X(3,I+1,J+1,K)   - GRID%X(3,I+1,J,K+1)
+            XS = GRID%X(1,I+1,J+1,K+1) - GRID%X(1,I+1,J,K)
+            YS = GRID%X(2,I+1,J+1,K+1) - GRID%X(2,I+1,J,K)
+            ZS = GRID%X(3,I+1,J+1,K+1) - GRID%X(3,I+1,J,K)
+            GRID%CX(1,I,J,K) = 0.5D0*(YE*ZS - YS*ZE)
+            GRID%CX(2,I,J,K) = 0.5D0*(XS*ZE - XE*ZS)
+            GRID%CX(3,I,J,K) = 0.5D0*(XE*YS - XS*YE)
+          END DO
         END DO
       END DO
 
-      DO I=2,GRID%IMAX
-        DO J=1,GRID%JMAX
-          GRID%EX(1,I,J) = - GRID%X(2,I+1,J+1) + GRID%X(2,I,J+1)
-          GRID%EX(2,I,J) = GRID%X(1,I+1,J+1) - GRID%X(1,I,J+1)
+      DO K=2,GRID%KMAX
+        DO J=2,GRID%JMAX
+          DO I=1,GRID%IMAX
+            XC = GRID%X(1,I,J+1,K)   - GRID%X(1,I+1,J+1,K+1)
+            YC = GRID%X(2,I,J+1,K)   - GRID%X(2,I+1,J+1,K+1)
+            ZC = GRID%X(3,I,J+1,K)   - GRID%X(3,I+1,J+1,K+1)    
+            XS = GRID%X(1,I,J+1,K+1) - GRID%X(1,I+1,J+1,K)
+            YS = GRID%X(2,I,J+1,K+1) - GRID%X(2,I+1,J+1,K)
+            ZS = GRID%X(3,I,J+1,K+1) - GRID%X(3,I+1,J+1,K)
+            GRID%EX(1,I,J,K) = 0.5D0*(YC*ZS - YS*ZC)
+            GRID%EX(2,I,J,K) = 0.5D0*(XS*ZC - XC*ZS)
+            GRID%EX(3,I,J,K) = 0.5D0*(XC*YS - XS*YC)   
+          END DO
         END DO
       END DO
-      
+
+      DO K=2,GRID%KMAX
+        DO J=2,GRID%JMAX
+          DO I=1,GRID%IMAX
+            XC = GRID%X(1,I+1,J,K+1)   - GRID%X(1,I,J+1,K+1)
+            YC = GRID%X(2,I+1,J,K+1)   - GRID%X(2,I,J+1,K+1)
+            ZC = GRID%X(3,I+1,J,K+1)   - GRID%X(3,I,J+1,K+1)
+            XE = GRID%X(1,I+1,J+1,K+1) - GRID%X(1,I,J,K+1)
+            YE = GRID%X(2,I+1,J+1,K+1) - GRID%X(2,I,J,K+1)
+            ZE = GRID%X(3,I+1,J+1,K+1) - GRID%X(3,I,J,K+1)
+            GRID%TX(1,I,J,K) = 0.5D0*(YC*ZE - YE*ZC)
+            GRID%TX(2,I,J,K) = 0.5D0*(XE*ZC - XC*ZE)
+            GRID%TX(3,I,J,K) = 0.5D0*(XC*YE - XE*YC) 
+          END DO
+        END DO
+      END DO
+ 
       DO N = 1,GRID%NBC
-        IF(TRIM(GRID%BCINFO(N)%BCNAME).EQ.'DegeneratePoint') THEN
+        IF((TRIM(GRID%BCINFO(N)%BCNAME).EQ.'BCDegeneratePoint').OR.(TRIM(GRID%BCINFO(N)%BCNAME).EQ.'BCDegenerateLine')) THEN
           IF(GRID%BCINFO(N)%ISTART(1).EQ.GRID%BCINFO(N)%IEND(1)) THEN
             IF(GRID%BCINFO(N)%ISTART(1).EQ.1) THEN
-              GRID%CX(1,1,:) = 0.D0
-              GRID%CX(2,1,:) = 0.D0         
+              GRID%CX(1,1,:,:) = 0.D0
+              GRID%CX(2,1,:,:) = 0.D0
+              GRID%CX(3,1,:,:) = 0.D0
             ELSE
-              GRID%CX(1,GRID%IMAX,:) = 0.D0
-              GRID%CX(2,GRID%IMAX,:) = 0.D0           
+              GRID%CX(1,GRID%IMAX,:,:) = 0.D0
+              GRID%CX(2,GRID%IMAX,:,:) = 0.D0
+              GRID%CX(3,GRID%IMAX,:,:) = 0.D0
             END IF
           END IF
           IF(GRID%BCINFO(N)%ISTART(2).EQ.GRID%BCINFO(N)%IEND(2)) THEN
             IF(GRID%BCINFO(N)%ISTART(2).EQ.1) THEN
-              GRID%EX(1,:,1) = 0.D0
-              GRID%EX(2,:,1) = 0.D0           
+              GRID%EX(1,:,1,:) = 0.D0
+              GRID%EX(2,:,1,:) = 0.D0
+              GRID%EX(3,:,1,:) = 0.D0
             ELSE
-              GRID%EX(1,:,GRID%JMAX) = 0.D0
-              GRID%EX(2,:,GRID%JMAX) = 0.D0            
+              GRID%EX(1,:,GRID%JMAX,:) = 0.D0
+              GRID%EX(2,:,GRID%JMAX,:) = 0.D0
+              GRID%EX(3,:,GRID%JMAX,:) = 0.D0
             END IF
-          END IF            
+          END IF
+          IF(GRID%BCINFO(N)%ISTART(3).EQ.GRID%BCINFO(N)%IEND(3)) THEN
+            IF(GRID%BCINFO(N)%ISTART(3).EQ.1) THEN
+              GRID%TX(1,:,:,1) = 0.D0
+              GRID%TX(2,:,:,1) = 0.D0
+              GRID%TX(3,:,:,1) = 0.D0
+            ELSE
+              GRID%TX(1,:,:,GRID%KMAX) = 0.D0
+              GRID%TX(2,:,:,GRID%KMAX) = 0.D0
+              GRID%TX(3,:,:,GRID%KMAX) = 0.D0
+            END IF
+          END IF 
         END IF
       END DO
       
-      GRID%CX(:,:,1) = GRID%CX(:,:,2)
-      GRID%CX(:,:,GRID%JMAX+1) = GRID%CX(:,:,GRID%JMAX)
-      GRID%EX(:,1,:) = GRID%EX(:,2,:)
-      GRID%EX(:,GRID%IMAX+1,:) = GRID%EX(:,GRID%IMAX,:)
+      GRID%CX(:,:,1,:) = GRID%CX(:,:,2,:)
+      GRID%CX(:,:,GRID%JMAX+1,:) = GRID%CX(:,:,GRID%JMAX,:)
+      GRID%CX(:,:,:,1) = GRID%CX(:,:,:,2)
+      GRID%CX(:,:,:,GRID%KMAX+1) = GRID%CX(:,:,:,GRID%KMAX)
       
-        
+      GRID%EX(:,1,:,:) = GRID%EX(:,2,:,:)
+      GRID%EX(:,GRID%IMAX+1,:,:) = GRID%EX(:,GRID%IMAX,:,:)
+      GRID%EX(:,:,:,1) = GRID%EX(:,:,:,2)
+      GRID%EX(:,:,:,GRID%KMAX+1) = GRID%EX(:,:,:,GRID%KMAX)
+      
+      GRID%TX(:,1,:,:) = GRID%TX(:,2,:,:)
+      GRID%TX(:,GRID%IMAX+1,:,:) = GRID%TX(:,GRID%IMAX,:,:)
+      GRID%TX(:,:,1,:) = GRID%TX(:,:,2,:)
+      GRID%TX(:,:,GRID%JMAX+1,:) = GRID%TX(:,:,GRID%JMAX,:)
+      
       DO N=1,GRID%NCON
-        NUM = 2*(ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
+        NUM = 6*(ABS(GRID%CONNECTINFO(N)%ISTART(3)-GRID%CONNECTINFO(N)%IEND(3))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
         ALLOCATE(SENDBUF(NUM),RECVBUF(NUM))
         
         L = 0
-        DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-          DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-            DO M=1,2
-              L = L + 1
-              IF(GRID%CONNECTINFO(N)%ISTART(2).EQ.GRID%CONNECTINFO(N)%IEND(2)) THEN
-                SENDBUF(L) = GRID%CX(M,I,J)
-              ELSE IF(GRID%CONNECTINFO(N)%ISTART(1).EQ.GRID%CONNECTINFO(N)%IEND(1)) THEN
-                SENDBUF(L) = GRID%EX(M,I,J)         
-              END IF
+        DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+              DO M=1,DIM
+                IF(GRID%CONNECTINFO(N)%ISTART(1).EQ.GRID%CONNECTINFO(N)%IEND(1)) THEN
+                  L = L + 1
+                  SENDBUF(L) = GRID%EX(M,I,J,K)
+                  L = L + 1
+                  SENDBUF(L) = GRID%TX(M,I,J,K)
+                ELSE IF(GRID%CONNECTINFO(N)%ISTART(2).EQ.GRID%CONNECTINFO(N)%IEND(2)) THEN
+                  L = L + 1
+                  SENDBUF(L) = GRID%TX(M,I,J,K)
+                  L = L + 1
+                  SENDBUF(L) = GRID%CX(M,I,J,K)
+                ELSE IF(GRID%CONNECTINFO(N)%ISTART(3).EQ.GRID%CONNECTINFO(N)%IEND(3)) THEN
+                  L = L + 1
+                  SENDBUF(L) = GRID%CX(M,I,J,K)
+                  L = L + 1
+                  SENDBUF(L) = GRID%EX(M,I,J,K)
+                END IF
+              END DO
             END DO
           END DO
         END DO
@@ -520,63 +732,145 @@ MODULE GRID_MODULE
           CALL MPI_WAIT(REQUEST1,STATUS,IER)
           CALL MPI_WAIT(REQUEST2,STATUS,IER)
           
-          SIGN = 1
+          SIGN1 = 1
+          SIGN2 = 1
+
           IS = GRID%CONNECTINFO(N)%ISTART_DONOR(1)
           IE = GRID%CONNECTINFO(N)%IEND_DONOR(1)
           JS = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
           JE = GRID%CONNECTINFO(N)%IEND_DONOR(2)
-    
-          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
-            JS = GRID%CONNECTINFO(N)%IEND_DONOR(2)
-            JE = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
-            SIGN = -1*SIGN
+          KS = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+          KE = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+          
+          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+              JS = GRID%CONNECTINFO(N)%IEND_DONOR(2)
+              JE = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
+              SIGN1 = -1*SIGN1
+            END IF  
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+              KS = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+              KE = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+              SIGN2 = -1*SIGN2
+            END IF  
+          ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+              KS = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+              KE = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+              SIGN1 = -1*SIGN1
+            END IF 
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+              IS = GRID%CONNECTINFO(N)%IEND_DONOR(1)
+              IE = GRID%CONNECTINFO(N)%ISTART_DONOR(1)
+              SIGN2 = -1*SIGN2
+            END IF
+          ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+              IS = GRID%CONNECTINFO(N)%IEND_DONOR(1)
+              IE = GRID%CONNECTINFO(N)%ISTART_DONOR(1)
+              SIGN1 = -1*SIGN1
+            END IF
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+              JS = GRID%CONNECTINFO(N)%IEND_DONOR(2)
+              JE = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
+              SIGN2 = -1*SIGN2
+            END IF
           END IF
           
-          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
-            IS = GRID%CONNECTINFO(N)%IEND_DONOR(1)
-            IE = GRID%CONNECTINFO(N)%ISTART_DONOR(1)
-            SIGN = -1*SIGN
-          END IF        
-          
           L = 0
-          DO J=JS,JE
-            DO I=IS,IE
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(2)
-              DO M=1,2
-                L = L + 1
-                IF(GRID%CONNECTINFO(N)%ISTART(2).EQ.GRID%CONNECTINFO(N)%IEND(2)) THEN
-                  GRID%CX(M,II,JJ) = SIGN*RECVBUF(L)
-                ELSE IF(GRID%CONNECTINFO(N)%ISTART(1).EQ.GRID%CONNECTINFO(N)%IEND(1)) THEN
-                  GRID%EX(M,II,JJ) = SIGN*RECVBUF(L)
-                END IF
+          DO K=KS,KE
+            DO J=JS,JE
+              DO I=IS,IE
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(k-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(3)
+                DO M=1,DIM
+                  IF(GRID%CONNECTINFO(N)%ISTART(1).EQ.GRID%CONNECTINFO(N)%IEND(1)) THEN
+                    L = L + 1
+                    GRID%EX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%TX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  ELSE IF(GRID%CONNECTINFO(N)%ISTART(2).EQ.GRID%CONNECTINFO(N)%IEND(2)) THEN
+                    L = L + 1
+                    GRID%TX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%CX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  ELSE IF(GRID%CONNECTINFO(N)%ISTART(3).EQ.GRID%CONNECTINFO(N)%IEND(3)) THEN
+                    L = L + 1
+                    GRID%CX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%EX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  END IF
+                END DO
               END DO
             END DO
           END DO
         ELSE ! NO MPI BOUNDARY
           RECVBUF = SENDBUF
           
-          SIGN = 1
-          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
-            SIGN = -1*SIGN
-          END IF
+          SIGN1 = 1
+          SIGN2 = 1
           
-          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
-            SIGN = -1*SIGN
+          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+              SIGN1 = -1*SIGN1
+            END IF          
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+              SIGN2 = -1*SIGN2
+            END IF  
+          ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+              SIGN1 = -1*SIGN1
+            END IF 
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+              SIGN2 = -1*SIGN2
+            END IF
+          ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).GT.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+              SIGN1 = -1*SIGN1
+            END IF
+            IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+              SIGN2 = -1*SIGN2
+            END IF
           END IF
           
           L = 0
-          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(2)
-              DO M=1,2
-                L = L + 1
-                IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
-                  GRID%CX(M,II,JJ) = SIGN*RECVBUF(L)
-                ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
-                  GRID%EX(M,II,JJ) = SIGN*RECVBUF(L)           
-                END IF
+          DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+            DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+              DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+                DO M=1,DIM
+                  IF(GRID%CONNECTINFO(N)%ISTART_DONOR(1).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(1)) THEN
+                    L = L + 1
+                    GRID%EX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%TX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
+                    L = L + 1
+                    GRID%TX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%CX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  ELSE IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).EQ.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+                    L = L + 1
+                    GRID%CX(M,II,JJ,KK) = SIGN1*RECVBUF(L)
+                    L = L + 1
+                    GRID%EX(M,II,JJ,KK) = SIGN2*RECVBUF(L)
+                  END IF
+                END DO
               END DO
             END DO
           END DO
@@ -609,57 +903,187 @@ MODULE GRID_MODULE
       INCLUDE 'mpif.h'
       CLASS(T_GRID), INTENT(INOUT) :: GRID
       INTEGER :: I,J,N,L,II,JJ,IS,IE,JS,JE
-      REAL(8) :: XS,YS,XE,YE
+      REAL(8) :: PA(3),PB(3),PC(3),PD(3)
+      REAL(8) :: VOLP1,VOLP2,VOLP3,VOLP4,VOLP5,VOLP6
       INTEGER :: NUM
       INTEGER :: IER,REQUEST1,REQUEST2
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       REAL(8), DIMENSION(:), ALLOCATABLE :: SENDBUF,RECVBUF 
       
-      DO J=2,GRID%JMAX
-        DO I=2,GRID%IMAX
-          XS = (GRID%X(1,I+1,J)+GRID%X(1,I+1,J+1)-GRID%X(1,I,J)-GRID%X(1,I,J+1))*0.5D0
-          YS = (GRID%X(2,I+1,J)+GRID%X(2,I+1,J+1)-GRID%X(2,I,J)-GRID%X(2,I,J+1))*0.5D0
-          XE = (GRID%X(1,I,J+1)+GRID%X(1,I+1,J+1)-GRID%X(1,I,J)-GRID%X(1,I+1,J))*0.5D0
-          YE = (GRID%X(2,I,J+1)+GRID%X(2,I+1,J+1)-GRID%X(2,I,J)-GRID%X(2,I+1,J))*0.5D0
-          GRID%GRD(1,I,J)=(XS*YE-XE*YS)
-        
-          IF(GRID%GRD(1,I,J).LT.0.D0) WRITE(*,*) 'NEGATIVE VOLIAN',I,J,GRID%GRD(1,I,J)
-        
-          GRID%GRD(2,I,J) = 0.25D0*(GRID%X(1,I,J)+GRID%X(1,I+1,J)+GRID%X(1,I,J+1)+GRID%X(1,I+1,J+1))
-          GRID%GRD(3,I,J) = 0.25D0*(GRID%X(2,I,J)+GRID%X(2,I+1,J)+GRID%X(2,I,J+1)+GRID%X(2,I+1,J+1))        
+      DO K=2,GRID%KMAX
+        DO J=2,GRID%JMAX
+          DO I=2,GRID%IMAX
+            GRID%GRD(2,I,J,K) = 0.125D0*(GRID%X(1,I,J,K)+GRID%X(1,I+1,J,K)+GRID%X(1,I,J+1,K)+GRID%X(1,I,J,K+1) &
+                              + GRID%X(1,I+1,J+1,K)+GRID%X(1,I,J+1,K+1)+GRID%X(1,I+1,J,K+1)+GRID%X(1,I+1,J+1,K+1))
+            GRID%GRD(3,I,J,K) = 0.125D0*(GRID%X(2,I,J,K)+GRID%X(2,I+1,J,K)+GRID%X(2,I,J+1,K)+GRID%X(2,I,J,K+1) &
+                              + GRID%X(2,I+1,J+1,K)+GRID%X(2,I,J+1,K+1)+GRID%X(2,I+1,J,K+1)+GRID%X(2,I+1,J+1,K+1))
+            GRID%GRD(4,I,J,K) = 0.125D0*(GRID%X(3,I,J,K)+GRID%X(3,I+1,J,K)+GRID%X(3,I,J+1,K)+GRID%X(3,I,J,K+1) &
+                              + GRID%X(3,I+1,J+1,K)+GRID%X(3,I,J+1,K+1)+GRID%X(3,I+1,J,K+1)+GRID%X(3,I+1,J+1,K+1))
+                              
+            PA(1) = X(1,I,J,K) 
+            PB(1) = X(1,I+1,J,K)
+            PC(1) = X(1,I+1,J+1,K)
+            PD(1) = X(1,I,J+1,K)
+
+            PA(2) = X(2,I,J,K)
+            PB(2) = X(2,I+1,J,K)
+            PC(2) = X(2,I+1,J+1,K)
+            PD(2) = X(2,I,J+1,K)
+
+            PA(3) = X(3,I,J,K)
+            PB(3) = X(3,I+1,J,K)
+            PC(3) = X(3,I+1,J+1,K)
+            PD(3) = X(3,I,J+1,K)
+            
+            VOLP1 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            PA(1) = X(1,I,J,K+1) 
+            PB(1) = X(1,I+1,J,K+1)
+            PC(1) = X(1,I+1,J+1,K+1)
+            PD(1) = X(1,I,J+1,K+1)
+
+            PA(2) = X(2,I,J,K+1)
+            PB(2) = X(2,I+1,J,K+1)
+            PC(2) = X(2,I+1,J+1,K+1)
+            PD(2) = X(2,I,J+1,K+1)
+
+            PA(3) = X(3,I,J,K+1)
+            PB(3) = X(3,I+1,J,K+1)
+            PC(3) = X(3,I+1,J+1,K+1)
+            PD(3) = X(3,I,J+1,K+1)
+            
+            VOLP2 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            PA(1) = X(1,I,J,K) 
+            PB(1) = X(1,I+1,J,K)
+            PC(1) = X(1,I+1,J,K+1)
+            PD(1) = X(1,I,J,K+1)
+
+            PA(2) = X(2,I,J,K)
+            PB(2) = X(2,I+1,J,K)
+            PC(2) = X(2,I+1,J,K+1)
+            PD(2) = X(2,I,J,K+1)
+
+            PA(3) = X(3,I,J,K)
+            PB(3) = X(3,I+1,J,K)
+            PC(3) = X(3,I+1,J,K+1)
+            PD(3) = X(3,I,J,K+1)
+            
+            VOLP3 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            PA(1) = X(1,I,J+1,K) 
+            PB(1) = X(1,I+1,J+1,K)
+            PC(1) = X(1,I+1,J+1,K+1)
+            PD(1) = X(1,I,J+1,K+1)
+
+            PA(2) = X(2,I,J+1,K)
+            PB(2) = X(2,I+1,J+1,K)
+            PC(2) = X(2,I+1,J+1,K+1)
+            PD(2) = X(2,I,J+1,K+1)
+
+            PA(3) = X(3,I,J+1,K)
+            PB(3) = X(3,I+1,J+1,K)
+            PC(3) = X(3,I+1,J+1,K+1)
+            PD(3) = X(3,I,J+1,K+1)
+            
+            VOLP4 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            PA(1) = X(1,I,J,K) 
+            PB(1) = X(1,I,J+1,K)
+            PC(1) = X(1,I,J+1,K+1)
+            PD(1) = X(1,I,J,K+1)
+
+            PA(2) = X(2,I,J,K)
+            PB(2) = X(2,I,J+1,K)
+            PC(2) = X(2,I,J+1,K+1)
+            PD(2) = X(2,I,J,K+1)
+
+            PA(3) = X(3,I,J,K)
+            PB(3) = X(3,I,J+1,K)
+            PC(3) = X(3,I,J+1,K+1)
+            PD(3) = X(3,I,J,K+1)
+            
+            VOLP5 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            PA(1) = X(1,I+1,J,K) 
+            PB(1) = X(1,I+1,J+1,K)
+            PC(1) = X(1,I+1,J+1,K+1)
+            PD(1) = X(1,I+1,J,K+1)
+
+            PA(2) = X(2,I+1,J,K)
+            PB(2) = X(2,I+1,J+1,K)
+            PC(2) = X(2,I+1,J+1,K+1)
+            PD(2) = X(2,I+1,J,K+1)
+
+            PA(3) = X(3,I+1,J,K)
+            PB(3) = X(3,I+1,J+1,K)
+            PC(3) = X(3,I+1,J+1,K+1)
+            PD(3) = X(3,I+1,J,K+1)
+            
+            VOLP6 = PYRAMID(PA,PB,PC,PD,GRID%GRD(2,I,J,K),GRID%GRD(3,I,J,K),GRID%GRD(4,I,J,K))
+            
+            GRID%GRD(1,I,J,K) = (VOLP1+VOLP2+VOLP3+VOLP4+VOLP5+VOLP6)/6.D0
+            IF(GRID%GRD(1,I,J,K).LT.0.D0) WRITE(*,*) 'NEGATIVE VOLIAN',I,J,K,GRID%GRD(1,I,J,K)
+
+          END DO
         END DO
       END DO
 
-
-      DO I=2,GRID%IMAX
-        GRID%GRD(1,I,1) = GRID%GRD(1,I,2)
-        GRID%GRD(2,I,1) = 2.D0*GRID%GRD(2,I,2) - GRID%GRD(2,I,3)
-        GRID%GRD(3,I,1) = 2.D0*GRID%GRD(3,I,2) - GRID%GRD(3,I,3)
+      DO K=2,GRID%KMAX
+        DO I=2,GRID%IMAX
+          GRID%GRD(1,I,1,K) = GRID%GRD(1,I,2,K)
+          GRID%GRD(2,I,1,K) = 2.D0*GRID%GRD(2,I,2,K) - GRID%GRD(2,I,3,K)
+          GRID%GRD(3,I,1,K) = 2.D0*GRID%GRD(3,I,2,K) - GRID%GRD(3,I,3,K)
+          GRID%GRD(4,I,1,K) = 2.D0*GRID%GRD(4,I,2,K) - GRID%GRD(4,I,3,K)
+          
+          GRID%GRD(1,I,GRID%JMAX+1,K) = GRID%GRD(1,I,GRID%JMAX,K)
+          GRID%GRD(2,I,GRID%JMAX+1,K) = 2.D0*GRID%GRD(2,I,GRID%JMAX,K) - GRID%GRD(2,I,GRID%JMAX-1,K)
+          GRID%GRD(3,I,GRID%JMAX+1,K) = 2.D0*GRID%GRD(3,I,GRID%JMAX,K) - GRID%GRD(3,I,GRID%JMAX-1,K)
+          GRID%GRD(4,I,GRID%JMAX+1,K) = 2.D0*GRID%GRD(4,I,GRID%JMAX,K) - GRID%GRD(4,I,GRID%JMAX-1,K)
+        END DO
+      END DO
         
-        GRID%GRD(1,I,GRID%JMAX+1) = GRID%GRD(1,I,GRID%JMAX)
-        GRID%GRD(2,I,GRID%JMAX+1) = 2.D0*GRID%GRD(2,I,GRID%JMAX) - GRID%GRD(2,I,GRID%JMAX-1)
-        GRID%GRD(3,I,GRID%JMAX+1) = 2.D0*GRID%GRD(3,I,GRID%JMAX) - GRID%GRD(3,I,GRID%JMAX-1)
+      DO K=2,GRID%KMAX
+        DO J=1,GRID%JMAX+1
+          GRID%GRD(1,1,J,K) = GRID%GRD(1,2,J,K)
+          GRID%GRD(2,1,J,K) = 2.D0*GRID%GRD(2,2,J,K) - GRID%GRD(2,3,J,K)
+          GRID%GRD(3,1,J,K) = 2.D0*GRID%GRD(3,2,J,K) - GRID%GRD(3,3,J,K)
+          GRID%GRD(4,1,J,K) = 2.D0*GRID%GRD(4,2,J,K) - GRID%GRD(4,3,J,K)
+          
+          GRID%GRD(1,GRID%IMAX+1,J,K) = GRID%GRD(1,GRID%IMAX,J,K)
+          GRID%GRD(2,GRID%IMAX+1,J,K) = 2.D0*GRID%GRD(2,GRID%IMAX,J,K) - GRID%GRD(2,GRID%IMAX-1,J,K)
+          GRID%GRD(3,GRID%IMAX+1,J,K) = 2.D0*GRID%GRD(3,GRID%IMAX,J,K) - GRID%GRD(3,GRID%IMAX-1,J,K)
+          GRID%GRD(4,GRID%IMAX+1,J,K) = 2.D0*GRID%GRD(4,GRID%IMAX,J,K) - GRID%GRD(4,GRID%IMAX-1,J,K)
+        END DO
       END DO
 
       DO J=1,GRID%JMAX+1
-        GRID%GRD(1,1,J) = GRID%GRD(1,2,J)
-        GRID%GRD(2,1,J) = 2.D0*GRID%GRD(2,2,J) - GRID%GRD(2,3,J)
-        GRID%GRD(3,1,J) = 2.D0*GRID%GRD(3,2,J) - GRID%GRD(3,3,J)
-
-        GRID%GRD(1,GRID%IMAX+1,J) = GRID%GRD(1,GRID%IMAX,J)
-        GRID%GRD(2,GRID%IMAX+1,J) = 2.D0*GRID%GRD(2,GRID%IMAX,J) - GRID%GRD(2,GRID%IMAX-1,J)
-        GRID%GRD(3,GRID%IMAX+1,J) = 2.D0*GRID%GRD(3,GRID%IMAX,J) - GRID%GRD(3,GRID%IMAX-1,J)
+        DO I=1,GRID%IMAX+1
+          GRID%GRD(1,I,J,1) = GRID%GRD(1,I,J,2)
+          GRID%GRD(2,I,J,1) = 2.D0*GRID%GRD(2,I,J,2) - GRID%GRD(2,3,J,3)
+          GRID%GRD(3,I,J,1) = 2.D0*GRID%GRD(3,I,J,2) - GRID%GRD(3,3,J,3)
+          GRID%GRD(4,I,J,1) = 2.D0*GRID%GRD(4,I,J,2) - GRID%GRD(4,3,J,3)
+          
+          GRID%GRD(1,I,J,GRID%KMAX+1) = GRID%GRD(1,I,J,GRID%KMAX)
+          GRID%GRD(2,I,J,GRID%KMAX+1) = 2.D0*GRID%GRD(2,I,J,GRID%KMAX) - GRID%GRD(2,I,J,GRID%KMAX-1)
+          GRID%GRD(3,I,J,GRID%KMAX+1) = 2.D0*GRID%GRD(3,I,J,GRID%KMAX) - GRID%GRD(3,I,J,GRID%KMAX-1)
+          GRID%GRD(4,I,J,GRID%KMAX+1) = 2.D0*GRID%GRD(4,I,J,GRID%KMAX) - GRID%GRD(4,I,J,GRID%KMAX-1)
+        END DO
       END DO
-
+      
       DO N=1,GRID%NCON
-        NUM = (ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
+        NUM = (ABS(GRID%CONNECTINFO(N)%ISTART(3)-GRID%CONNECTINFO(N)%IEND(3))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(2)-GRID%CONNECTINFO(N)%IEND(2))+1)
+        NUM = NUM*(ABS(GRID%CONNECTINFO(N)%ISTART(1)-GRID%CONNECTINFO(N)%IEND(1))+1)
         ALLOCATE(SENDBUF(NUM),RECVBUF(NUM))
         
         L = 0
-        DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-          DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-            L = L + 1
-            SENDBUF(L) = GRID%GRD(1,I,J)
+        DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+              L = L + 1
+              SENDBUF(L) = GRID%GRD(1,I,J,K)
+            END DO
           END DO
         END DO
         
@@ -674,6 +1098,8 @@ MODULE GRID_MODULE
           IE = GRID%CONNECTINFO(N)%IEND_DONOR(1)
           JS = GRID%CONNECTINFO(N)%ISTART_DONOR(2)
           JE = GRID%CONNECTINFO(N)%IEND_DONOR(2)
+          KS = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+          KE = GRID%CONNECTINFO(N)%IEND_DONOR(3)
     
           IF(GRID%CONNECTINFO(N)%ISTART_DONOR(2).GT.GRID%CONNECTINFO(N)%IEND_DONOR(2)) THEN
             JS = GRID%CONNECTINFO(N)%IEND_DONOR(2)
@@ -684,14 +1110,28 @@ MODULE GRID_MODULE
             IS = GRID%CONNECTINFO(N)%IEND_DONOR(1)
             IE = GRID%CONNECTINFO(N)%ISTART_DONOR(1)
           END IF         
+
+          IF(GRID%CONNECTINFO(N)%ISTART_DONOR(3).GT.GRID%CONNECTINFO(N)%IEND_DONOR(3)) THEN
+            KS = GRID%CONNECTINFO(N)%IEND_DONOR(3)
+            KE = GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+          END IF 
           
           L = 0
-          DO J=JS,JE
-            DO I=IS,IE
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2))+GRID%CONNECTINFO(N)%ISTART(2)
-              L = L + 1
-              GRID%GRD(1,II,JJ) = RECVBUF(L)
+          DO K=JS,KE
+            DO J=JS,JE
+              DO I=IS,IE
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(k-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(I-GRID%CONNECTINFO(N)%ISTART_DONOR(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(J-GRID%CONNECTINFO(N)%ISTART_DONOR(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART_DONOR(3)) + GRID%CONNECTINFO(N)%ISTART(3)
+                L = L + 1
+                GRID%GRD(1,II,JJ,KK) = RECVBUF(L)
+              END DO
             END DO
           END DO
         ELSE ! NO MPI BOUNDARY
@@ -699,20 +1139,55 @@ MODULE GRID_MODULE
           RECVBUF = SENDBUF
           
           L = 0
-          DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
-            DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
-              II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(1)
-              JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1))+GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2))+GRID%CONNECTINFO(N)%ISTART_DONOR(2)
-              L = L + 1
-              GRID%GRD(1,II,JJ) = RECVBUF(L)
+          DO K=GRID%CONNECTINFO(N)%ISTART(3),GRID%CONNECTINFO(N)%IEND(3)
+            DO J=GRID%CONNECTINFO(N)%ISTART(2),GRID%CONNECTINFO(N)%IEND(2)
+              DO I=GRID%CONNECTINFO(N)%ISTART(1),GRID%CONNECTINFO(N)%IEND(1)
+                II = GRID%CONNECTINFO(N)%TRANSMAT(1,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(1,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(1)
+                JJ = GRID%CONNECTINFO(N)%TRANSMAT(2,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(2,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(2)
+                KK = GRID%CONNECTINFO(N)%TRANSMAT(3,1)*(I-GRID%CONNECTINFO(N)%ISTART(1)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,2)*(J-GRID%CONNECTINFO(N)%ISTART(2)) &
+                   + GRID%CONNECTINFO(N)%TRANSMAT(3,3)*(K-GRID%CONNECTINFO(N)%ISTART(3)) + GRID%CONNECTINFO(N)%ISTART_DONOR(3)
+                L = L + 1
+                GRID%GRD(1,II,JJ,KK) = RECVBUF(L)
+              END DO
             END DO
           END DO
-          
         END IF
         DEALLOCATE(SENDBUF,RECVBUF)
       END DO
       
     END SUBROUTINE CALVOLUME
+    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+    FUNCTION PYRAMID(PA,PB,PC,PD,XC,YC,ZC)
+      IMPLICIT NONE
+      REAL(8), INTENT(IN) :: PA(3) ,PB(3) ,PC(3) ,PD(3) 
+      REAL(8), INTENT(IN) :: XC,YC,ZC
+      REAL(8) :: PYRAMID
+      REAL(8) :: CSX,CSY,CSZ,VAX,VAY,VAZ,VBX,VBY,VBZ,VOLPX,VOLPY,VOLPZ
+      
+      CSX = 0.25D0*( PA(1)+PB(1)+PC(1)+PD(1) )
+      CSY = 0.25D0*( PA(2)+PB(2)+PC(2)+PD(2) )
+      CSZ = 0.25D0*( PA(3)+PB(3)+PC(3)+PD(3) )
+      
+      VAX = PC(1) - PA(1)
+      VAY = PC(2) - PA(2)
+      VAZ = PC(3) - PA(3)
+      
+      VBX = PD(1) - PB(1)
+      VBY = PD(2) - PB(2)
+      VBZ = PD(3) - PB(3)
+      
+      VOLPX = (XC - CSX)*(VAY*VBZ - VAZ*VBY)
+      VOLPY = (YC - CSY)*(VAZ*VBX - VAX*VBZ)
+      VOLPZ = (ZC - CSZ)*(VAX*VBY - VAY*VBX)
+      
+      !  MAKE RIGHT HAND RULE UNNECESSARY BY TAKE ABSOLUTE VALUE
+      VOL = DABS( VOLPX + VOLPY + VOLPZ )
+    END FUNCTION PYRAMID
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     FUNCTION GETIMAX(GRID)
       IMPLICIT NONE
@@ -729,7 +1204,15 @@ MODULE GRID_MODULE
       
       GETJMAX = GRID%JMAX
     END FUNCTION GETJMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC     
+    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+    FUNCTION GETKMAX(GRID)
+      IMPLICIT NONE
+      CLASS(T_GRID), INTENT(IN) :: GRID
+      INTEGER :: GETKMAX
+      
+      GETKMAX = GRID%KMAX
+    END FUNCTION GETKMAX
+    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
     FUNCTION GETNBC(GRID)
       IMPLICIT NONE
       CLASS(T_GRID), INTENT(IN) :: GRID
@@ -746,32 +1229,41 @@ MODULE GRID_MODULE
       GETNCON = GRID%NCON
     END FUNCTION GETNCON
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETX(GRID,I,J)
+    FUNCTION GETX(GRID,I,J,K)
       IMPLICIT NONE
       CLASS(T_GRID), INTENT(IN) :: GRID
-      REAL(8) :: GETX(2)
-      INTEGER, INTENT(IN) :: I,J
+      REAL(8) :: GETX(3)
+      INTEGER, INTENT(IN) :: I,J,K
       
-      GETX = GRID%X(:,I,J)
+      GETX = GRID%X(:,I,J,K)
     END FUNCTION GETX
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETCX(GRID,I,J)
+    FUNCTION GETCX(GRID,I,J,K)
       IMPLICIT NONE
       CLASS(T_GRID), INTENT(IN) :: GRID
-      REAL(8) :: GETCX(2)
-      INTEGER, INTENT(IN) :: I,J
+      REAL(8) :: GETCX(3)
+      INTEGER, INTENT(IN) :: I,J,K
       
-      GETCX = GRID%CX(:,I,J)
+      GETCX = GRID%CX(:,I,J,K)
     END FUNCTION GETCX
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETEX(GRID,I,J)
+    FUNCTION GETEX(GRID,I,J,K)
       IMPLICIT NONE
       CLASS(T_GRID), INTENT(IN) :: GRID
-      REAL(8) :: GETEX(2)
-      INTEGER, INTENT(IN) :: I,J
+      REAL(8) :: GETEX(3)
+      INTEGER, INTENT(IN) :: I,J,K
       
-      GETEX = GRID%EX(:,I,J)
+      GETEX = GRID%EX(:,I,J,K)
     END FUNCTION GETEX
+    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+    FUNCTION GETTX(GRID,I,J,K)
+      IMPLICIT NONE
+      CLASS(T_GRID), INTENT(IN) :: GRID
+      REAL(8) :: GETTX(3)
+      INTEGER, INTENT(IN) :: I,J,K
+      
+      GETTX = GRID%TX(:,I,J,K)
+    END FUNCTION GETTX
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     FUNCTION GETNGRD(GRID)
       IMPLICIT NONE
@@ -781,13 +1273,13 @@ MODULE GRID_MODULE
       GETNGRD = GRID%NGRD
     END FUNCTION GETNGRD
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETGRD(GRID,I,J)
+    FUNCTION GETGRD(GRID,I,J,K)
       IMPLICIT NONE
       CLASS(T_GRID), INTENT(IN) :: GRID
       REAL(8) :: GETGRD(GRID%NGRD)
-      INTEGER, INTENT(IN) :: I,J
+      INTEGER, INTENT(IN) :: I,J,K
       
-      GETGRD = GRID%GRD(:,I,J)
+      GETGRD = GRID%GRD(:,I,J,K)
     END FUNCTION GETGRD
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     FUNCTION GETBCNAME(GRID,I)
