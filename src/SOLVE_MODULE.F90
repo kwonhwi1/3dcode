@@ -19,7 +19,7 @@ MODULE SOLVE_MODULE
   TYPE T_SOLVE
     PRIVATE
     LOGICAL :: L_UPDATE,L_NSTEADY,L_INI
-    INTEGER :: NPV,NDV,IMAX,JMAX
+    INTEGER :: NPV,NDV,IMAX,JMAX,KMAX
     INTEGER :: NPMAX,NTMAX,NEXPORT
     REAL(8) :: PREF
     CLASS(T_UPDATE), ALLOCATABLE :: UPDATE
@@ -93,6 +93,7 @@ MODULE SOLVE_MODULE
      
       SOLVE%IMAX = GRID%GETIMAX()
       SOLVE%JMAX = GRID%GETJMAX()
+      SOLVE%KMAX = GRID%GETKMAX()
       SOLVE%NPV = VARIABLE%GETNPV()
       SOLVE%NDV = VARIABLE%GETNDV()
       
@@ -160,27 +161,29 @@ MODULE SOLVE_MODULE
       IMPLICIT NONE
       CLASS(T_SOLVE), INTENT(INOUT) :: SOLVE
       TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER :: I,J,N
+      INTEGER :: I,J,K,N
       REAL(8) :: QQ(SOLVE%NPV),DV(SOLVE%NDV),PV(SOLVE%NPV)
       
-      DO J=2,SOLVE%JMAX
-        DO I=2,SOLVE%IMAX
-          QQ = VARIABLE%GETQQ(1,I,J)
-          CALL VARIABLE%SETQQ(2,I,J,QQ)
-          DV = VARIABLE%GETDV(I,J)
-          PV = VARIABLE%GETPV(I,J)
-          QQ(1) = DV(1)
-          QQ(2) = DV(1)*PV(2)
-          QQ(3) = DV(1)*PV(3)
-          QQ(4) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2))-PV(1)-SOLVE%PREF
-          DO N=5,SOLVE%NPV
-            QQ(N) = DV(1)*PV(N)
+      DO K=2,SOLVE%KMAX
+        DO J=2,SOLVE%JMAX
+          DO I=2,SOLVE%IMAX
+            QQ = VARIABLE%GETQQ(1,I,J,K)
+            CALL VARIABLE%SETQQ(2,I,J,K,QQ)
+            DV = VARIABLE%GETDV(I,J,K)
+            PV = VARIABLE%GETPV(I,J,K)
+            QQ(1) = DV(1)
+            QQ(2) = DV(1)*PV(2)
+            QQ(3) = DV(1)*PV(3)
+            QQ(4) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2))-PV(1)-SOLVE%PREF
+            DO N=5,SOLVE%NPV
+              QQ(N) = DV(1)*PV(N)
+            END DO
+            
+            CALL VARIABLE%SETQQ(1,I,J,K,QQ)
+            
           END DO
-          
-          CALL VARIABLE%SETQQ(1,I,J,QQ)
-          
         END DO
-      END DO      
+      END DO
     END SUBROUTINE UNSTEADYUPDATE
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 END MODULE SOLVE_MODULE
