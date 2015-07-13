@@ -562,7 +562,7 @@ MODULE BC_MODULE
       TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
+      INTEGER :: I,J,K,M,II,JJ,KK
       REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
       REAL(8) :: NX(3),VAR
       
@@ -572,9 +572,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = GRID%GETCX(BCINFO%IEND(1),J,K)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
+              II = BCINFO%IEND(1)-I + BCINFO%IEND(1)+1
+              PV = VARIABLE%GETPV(II,J,K)
+              DV = VARIABLE%GETDV(II,J,K)
+              TV = VARIABLE%GETTV(II,J,K)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)
@@ -604,9 +605,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = - GRID%GETCX(BCINFO%ISTART(1)-1,J,K)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
+              II = BCINFO%ISTART(1)-I + BCINFO%ISTART(1)-1
+              PV = VARIABLE%GETPV(II,J,K)
+              DV = VARIABLE%GETDV(II,J,K)
+              TV = VARIABLE%GETTV(II,J,K)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)
@@ -636,9 +638,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = GRID%GETEX(I,BCINFO%IEND(2),K)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
+              JJ = BCINFO%IEND(2)-J + BCINFO%IEND(2)+1
+              PV = VARIABLE%GETPV(I,JJ,K)
+              DV = VARIABLE%GETDV(I,JJ,K)
+              TV = VARIABLE%GETTV(I,JJ,K)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)
@@ -668,9 +671,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = - GRID%GETEX(I,BCINFO%ISTART(2)-1,K)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
+              JJ = BCINFO%ISTART(2)-J + BCINFO%ISTART(2)-1
+              PV = VARIABLE%GETPV(I,JJ,K)
+              DV = VARIABLE%GETDV(I,JJ,K)
+              TV = VARIABLE%GETTV(I,JJ,K)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)
@@ -700,9 +704,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = GRID%GETTX(I,J,BCINFO%IEND(3))
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
+              KK = BCINFO%IEND(3)-K + BCINFO%IEND(3)+1
+              PV = VARIABLE%GETPV(I,J,KK)
+              DV = VARIABLE%GETDV(I,J,KK)
+              TV = VARIABLE%GETTV(I,J,KK)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)
@@ -732,9 +737,10 @@ MODULE BC_MODULE
           DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
             DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
               NX = - GRID%GETTX(I,J,BCINFO%ISTART(3)-1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
+              KK = BCINFO%ISTART(3)-K + BCINFO%ISTART(3)-1
+              PV = VARIABLE%GETPV(I,J,KK)
+              DV = VARIABLE%GETDV(I,J,KK)
+              TV = VARIABLE%GETTV(I,J,KK)
               DO M=1,VARIABLE%GETNPV()
                 SELECT CASE(M)
                 CASE(2)

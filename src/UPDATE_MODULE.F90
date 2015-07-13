@@ -761,7 +761,7 @@ MODULE UPDATE_MODULE
               END DO
             END DO
 
-            NX1 = GRID%GETEX(I,J,K-1)
+            NX1 = GRID%GETTX(I,J,K-1)
             GRD = GRID%GETGRD(I,J,K-1)
             PV = VARIABLE%GETPV(I,J,K-1)
             DV = VARIABLE%GETDV(I,J,K-1)
@@ -829,7 +829,7 @@ MODULE UPDATE_MODULE
               END DO
             END DO
 
-            NX1 = GRID%GETEX(I,J,K)
+            NX1 = GRID%GETTX(I,J,K)
             GRD = GRID%GETGRD(I,J,K+1)
             PV = VARIABLE%GETPV(I,J,K+1)
             DV = VARIABLE%GETDV(I,J,K+1)
