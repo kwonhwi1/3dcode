@@ -589,8 +589,8 @@ MODULE GRID_MODULE
       REAL(8), DIMENSION(:), ALLOCATABLE :: SENDBUF,RECVBUF
       
       ALLOCATE(GRID%CX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
-      ALLOCATE(GRID%EX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
-      ALLOCATE(GRID%TX(3,1:GRID%IMAX,1:GRID%JMAX+1,1:GRID%KMAX+1))
+      ALLOCATE(GRID%EX(3,1:GRID%IMAX+1,1:GRID%JMAX,1:GRID%KMAX+1))
+      ALLOCATE(GRID%TX(3,1:GRID%IMAX+1,1:GRID%JMAX+1,1:GRID%KMAX))
       
       DO K=2,GRID%KMAX
         DO J=2,GRID%JMAX
@@ -608,9 +608,9 @@ MODULE GRID_MODULE
         END DO
       END DO
 
-      DO K=2,GRID%KMAX
-        DO J=2,GRID%JMAX
-          DO I=1,GRID%IMAX
+      DO I=2,GRID%IMAX
+        DO K=2,GRID%KMAX
+          DO J=1,GRID%JMAX
             XC = GRID%X(1,I,J+1,K)   - GRID%X(1,I+1,J+1,K+1)
             YC = GRID%X(2,I,J+1,K)   - GRID%X(2,I+1,J+1,K+1)
             ZC = GRID%X(3,I,J+1,K)   - GRID%X(3,I+1,J+1,K+1)    
@@ -624,9 +624,9 @@ MODULE GRID_MODULE
         END DO
       END DO
 
-      DO K=2,GRID%KMAX
-        DO J=2,GRID%JMAX
-          DO I=1,GRID%IMAX
+      DO J=2,GRID%JMAX
+        DO I=2,GRID%IMAX
+          DO K=1,GRID%KMAX
             XC = GRID%X(1,I+1,J,K+1)   - GRID%X(1,I,J+1,K+1)
             YC = GRID%X(2,I+1,J,K+1)   - GRID%X(2,I,J+1,K+1)
             ZC = GRID%X(3,I+1,J,K+1)   - GRID%X(3,I,J+1,K+1)
