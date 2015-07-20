@@ -308,7 +308,7 @@ MODULE FLUX_MODULE
       END DO
       
       DO K=1,18
-        SDST(K) = FLUX%SDST(K)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
+        SDST(K) = FLUX%SDST(K)+FLUX%PREF!+0.5D0*RDV(1)*RDV(6)
       END DO
       
       FF = 1.D0 - DMIN1(SDST(9)/SDST(10),SDST(10)/SDST(9) &
@@ -318,7 +318,7 @@ MODULE FLUX_MODULE
                        ,SDST(4)/SDST(10),SDST(10)/SDST(4),SDST(10)/SDST(16),SDST(16)/SDST(10) )
       
       IF(UUU .NE. 0.D0) THEN
-        FF = (DABS(UUP)/DDD_CUT)**FF
+        FF = (DABS(UUU)/DSQRT(RDV(6)))**FF
       ELSE
         FF = 1.D0
       END IF
@@ -326,7 +326,7 @@ MODULE FLUX_MODULE
       GG = 1.D0 - DMIN1(SDST(9)/SDST(10),SDST(10)/SDST(9))
       
       IF(UUU .NE. 0.D0) THEN
-        GG = (DABS(UUP)/DDD_CUT)**GG
+        GG = (DABS(UUU)/DSQRT(RDV(6)))**GG
       ELSE
         GG = 1.D0
       END IF
