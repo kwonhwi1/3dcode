@@ -1,6 +1,5 @@
 MODULE LHS_MODULE
   USE CONFIG_MODULE
-  USE GRID_MODULE
   USE VARIABLE_MODULE
   IMPLICIT NONE
   PRIVATE
@@ -8,11 +7,12 @@ MODULE LHS_MODULE
   
   TYPE, ABSTRACT :: T_LHS
     PRIVATE
-    INTEGER :: NPV,NDV,NTV,NGRD,NSTEADY
+    INTEGER :: NSTEADY
     REAL(8) :: UREF,STR,DT_PHY
-    REAL(8), POINTER :: CX1(:),CX2(:),EX1(:),EX2(:),TX1(:),TX2(:)
-    REAL(8), POINTER :: PV(:),TV(:),DV(:),GRD(:),DT
-    REAL(8), POINTER :: C(:),T(:),C0(:),T0(:)
+    REAL(8), POINTER, PUBLIC :: CX1(:),CX2(:),EX1(:),EX2(:),TX1(:),TX2(:)
+    REAL(8), POINTER, PUBLIC :: PV(:),TV(:),DV(:),GRD(:),DT
+    REAL(8), POINTER, PUBLIC :: C(:),T(:)
+    REAL(8), POINTER :: C0(:),T0(:)
     REAL(8), DIMENSION(:,:), ALLOCATABLE :: X
     PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
     PROCEDURE(P_GETEIGENVIS), POINTER :: GETEIGENVIS
@@ -20,14 +20,6 @@ MODULE LHS_MODULE
     CONTAINS
       PROCEDURE :: CONSTRUCT
       PROCEDURE :: DESTRUCT
-      PROCEDURE :: SETNORM ! (CX1,CX2,EX1,EX2,TX1,TX2)
-      PROCEDURE :: SETGRD  ! VOL,XCEN,YCEN,ZCEN,YDNS
-      PROCEDURE :: SETPV   ! P,U,V,W,T,Y1,Y2,K,O
-      PROCEDURE :: SETDV   ! RHO,H,RHOL,RHOV,RHOG,SND2,DRDP,DRDT,DRDY1,DRDY2,DHDP,DHDT,DHDY1,DHDY2,DRDPV,DRDTV,DRDPL,DRDTL
-      PROCEDURE :: SETTV   ! VIS,COND,EMUT
-      PROCEDURE :: SETDT   ! DT
-      PROCEDURE :: SETC
-      PROCEDURE :: SETT
       PROCEDURE :: GETX
       PROCEDURE(P_INVERSE), DEFERRED :: INVERSE
   END TYPE T_LHS
@@ -66,11 +58,10 @@ MODULE LHS_MODULE
       REAL(8) :: EIGENVIS
     END FUNCTION P_GETEIGENVIS
     
-    FUNCTION P_EIGEN(LHS,NXL,NXR) RESULT(LAMDA)
+    FUNCTION P_EIGEN(LHS) RESULT(LAMDA)
       IMPORT T_LHS
       IMPLICIT NONE
       CLASS(T_LHS), INTENT(IN) :: LHS
-      REAL(8), POINTER, INTENT(IN) :: NXL(:),NXR(:)
       REAL(8) :: LAMDA
     END FUNCTION P_EIGEN
     
@@ -78,18 +69,12 @@ MODULE LHS_MODULE
   
   CONTAINS
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(LHS,CONFIG,GRID,VARIABLE)
+    SUBROUTINE CONSTRUCT(LHS,CONFIG,VARIABLE)
       IMPLICIT NONE
       CLASS(T_LHS), INTENT(OUT) :: LHS
       TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
       TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
 
-      LHS%NGRD = GRID%GETNGRD()
-      LHS%NPV  = VARIABLE%GETNPV()
-      LHS%NTV  = VARIABLE%GETNTV()
-      LHS%NDV  = VARIABLE%GETNDV()
-      
       LHS%UREF = CONFIG%GETUREF()
       LHS%STR  = CONFIG%GETSTR()
       LHS%DT_PHY = CONFIG%GETDT_PHY()
@@ -121,7 +106,7 @@ MODULE LHS_MODULE
         END SELECT
       END SELECT
       
-      ALLOCATE(LHS%X(LHS%NPV,LHS%NPV))
+      ALLOCATE(LHS%X(VARIABLE%GETNPV(),VARIABLE%GETNPV()))
       ALLOCATE(LHS%C0(4))
       ALLOCATE(LHS%T0(4))
       LHS%C0 = 0.D0
@@ -154,100 +139,27 @@ MODULE LHS_MODULE
       DEALLOCATE(LHS%X,LHS%C0,LHS%T0)
     END SUBROUTINE DESTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETNORM(LHS,CX1,CX2,EX1,EX2,TX1,TX2)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: CX1(3),CX2(3),EX1(3),EX2(3),TX1(3),TX2(3)
-      
-      LHS%CX1 => CX1
-      LHS%CX2 => CX2
-      LHS%EX1 => EX1
-      LHS%EX2 => EX2
-      LHS%TX1 => TX1
-      LHS%TX2 => TX2
-      
-    END SUBROUTINE SETNORM
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETGRD(LHS,GRD)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: GRD(LHS%NGRD)
-      
-      LHS%GRD => GRD
-      
-    END SUBROUTINE SETGRD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETPV(LHS,PV)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: PV(LHS%NPV)
-      
-      LHS%PV => PV
-      
-    END SUBROUTINE SETPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETDV(LHS,DV)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: DV(LHS%NDV)
-      
-      LHS%DV => DV
-      
-    END SUBROUTINE SETDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETTV(LHS,TV)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: TV(LHS%NTV)
-      
-      LHS%TV => TV
-      
-    END SUBROUTINE SETTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETDT(LHS,DT)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: DT
-      
-      LHS%DT => DT
-      
-    END SUBROUTINE SETDT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETC(LHS,C)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: C(4)
-      
-      LHS%C => C
-      
-    END SUBROUTINE SETC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETT(LHS,T)
-      IMPLICIT NONE
-      CLASS(T_LHS), INTENT(INOUT) :: LHS
-      REAL(8), INTENT(IN), TARGET :: T(4)
-      
-      LHS%T => T
-      
-    END SUBROUTINE SETT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE FLOWONLY(LHS)
       IMPLICIT NONE
       CLASS(T_LHS_FLOWONLY), INTENT(INOUT) :: LHS
-      REAL(8) :: UV2,SS,RR,HST,B1,DR,DHDP1
+      REAL(8) :: UV2,SS,RR,HST,B1,DR,DHDP1,DR1,DR2,HST1
       REAL(8) :: CROSS1,CROSS2,CROSS3,A,B
-      REAL(8) :: MM,KY1,KY2,X15,X55,X65
+      REAL(8) :: MM,KY1,KY2,X15,X55,X65,I_B1,Y1
       REAL(8) :: C(4)
 
-      A = LHS%GRD(1)/LHS%DT + LHS%EIGEN(LHS%CX1,LHS%CX2) + LHS%EIGEN(LHS%EX1,LHS%EX2) + LHS%EIGEN(LHS%TX1,LHS%TX2)
-      B = (DBLE(LHS%NSTEADY)*1.5D0*LHS%GRD(1)/LHS%DT_PHY + 2.D0*LHS%GETEIGENVIS()/LHS%GRD(1))/A      
-      C = LHS%C*LHS%GRD(1)/A
+      A = 1.D0/(LHS%GRD(1)/LHS%DT + LHS%EIGEN())
+      B = (DBLE(LHS%NSTEADY)*1.5D0*LHS%GRD(1)/LHS%DT_PHY + 2.D0*LHS%GETEIGENVIS()/LHS%GRD(1))*A      
+      C = LHS%C*LHS%GRD(1)*A
       
       B1 = 1.D0+B
+      I_B1 = 1.D0/(B1*LHS%DV(1))
       UV2 = LHS%PV(2)**2+LHS%PV(3)**2+LHS%PV(4)**2
       SS = LHS%DV(1)*LHS%DV(12)*(1.D0/LHS%GETSNDP2(UV2)+B/LHS%DV(6))
       RR = 1.D0/LHS%GETSNDP2(UV2)-1.D0/LHS%DV(6)+B1*LHS%DV(7)
+      HST1 = LHS%DV(2)-0.5D0*UV2-LHS%DV(14)*LHS%PV(7)
       HST = LHS%DV(2)-0.5D0*UV2-LHS%DV(13)*LHS%PV(6)-LHS%DV(14)*LHS%PV(7)
+      DR1 = LHS%DV(1)+LHS%DV(10)*LHS%PV(7)
+      DR2 = LHS%DV(1)+LHS%DV(9)*LHS%PV(6)
       DR = LHS%DV(1)+LHS%DV(9)*LHS%PV(6)+LHS%DV(10)*LHS%PV(7)
       DHDP1 = -1.D0 + LHS%DV(11)*LHS%DV(1)
       CROSS1 = LHS%DV(14)*LHS%DV(8)-LHS%DV(12)*LHS%DV(10)
@@ -255,96 +167,100 @@ MODULE LHS_MODULE
       CROSS3 = LHS%DV(13)*LHS%DV(8)-LHS%DV(12)*LHS%DV(9)
       KY1 = LHS%DV(13)*LHS%DV(1)*RR - LHS%DV(9)*B1*DHDP1
       KY2 = LHS%DV(14)*LHS%DV(1)*RR - LHS%DV(10)*B1*DHDP1
-      MM = SS*B1*LHS%DV(1)+C(1)*B1*LHS%DV(1)*CROSS3-C(2)*KY1+C(3)*SS
-      X15 = ( C(2)*LHS%DV(9)-LHS%DV(8)*(C(3)+B1*LHS%DV(1)))/MM
-      X55 = -(B1*C(1)*LHS%DV(9)-(C(3)+LHS%DV(1)*B1)*RR)/MM/B1
-      X65 =  (B1*C(1)*LHS%DV(8)-C(2)*RR)/MM/B1
+      MM = 1.D0/(SS*B1*LHS%DV(1)+C(1)*B1*LHS%DV(1)*CROSS3-C(2)*KY1+C(3)*SS)
+      X15 = ( C(2)*LHS%DV(9)-LHS%DV(8)*(C(3)+B1*LHS%DV(1)))*MM
+      X55 = -(B1*C(1)*LHS%DV(9)-(C(3)+LHS%DV(1)*B1)*RR)*MM/B1
+      X65 =  (B1*C(1)*LHS%DV(8)-C(2)*RR)*MM/B1
       
       LHS%X(1,1) = (B1*LHS%DV(1)*( LHS%DV(8)*HST + LHS%DV(12)*DR ) &
-               - C(2)*( LHS%DV(9)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(13)*(DR-LHS%DV(9)*LHS%PV(6)) )  &
-               + C(3)*( LHS%DV(8)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(12)*(DR-LHS%DV(9)*LHS%PV(6)) ) &
-               + C(4)*CROSS3*LHS%PV(7) )/MM
+                 - C(2)*( LHS%DV(9)*HST1 + LHS%DV(13)*DR1 ) &
+                 + C(3)*( LHS%DV(8)*HST1 + LHS%DV(12)*DR1 ) &
+                 + C(4)*CROSS3*LHS%PV(7) )*MM
       LHS%X(1,2) = -X15*LHS%PV(2)
       LHS%X(1,3) = -X15*LHS%PV(3)
       LHS%X(1,4) = -X15*LHS%PV(4)
       LHS%X(1,5) = X15
-      LHS%X(1,6) = B1*CROSS3*LHS%DV(1)/MM
-      LHS%X(1,7) = ( B1*LHS%DV(1)*CROSS1 + C(2)*CROSS2 + C(3)*CROSS1 - C(4)*CROSS3 )/MM
+      LHS%X(1,6) = B1*CROSS3*LHS%DV(1)*MM
+      LHS%X(1,7) = ( B1*LHS%DV(1)*CROSS1 + C(2)*CROSS2 + C(3)*CROSS1 - C(4)*CROSS3 )*MM
 
-      LHS%X(2,1) = -LHS%PV(2)/LHS%DV(1)/B1
-      LHS%X(2,2) = 1.D0/LHS%DV(1)/B1
+      LHS%X(2,1) = -LHS%PV(2)*I_B1
+      LHS%X(2,2) = I_B1
       LHS%X(2,3) = 0.D0
       LHS%X(2,4) = 0.D0
       LHS%X(2,5) = 0.D0
       LHS%X(2,6) = 0.D0
       LHS%X(2,7) = 0.D0
 
-      LHS%X(3,1) = -LHS%PV(3)/LHS%DV(1)/B1
+      LHS%X(3,1) = -LHS%PV(3)*I_B1
       LHS%X(3,2) = 0.D0
-      LHS%X(3,3) = 1.D0/LHS%DV(1)/B1
+      LHS%X(3,3) = I_B1
       LHS%X(3,4) = 0.D0
       LHS%X(3,5) = 0.D0
       LHS%X(3,6) = 0.D0
       LHS%X(3,7) = 0.D0
 
-      LHS%X(4,1) = -LHS%PV(4)/LHS%DV(1)/B1
+      LHS%X(4,1) = -LHS%PV(4)*I_B1
       LHS%X(4,2) = 0.D0
       LHS%X(4,3) = 0.D0
-      LHS%X(4,4) = 1.D0/LHS%DV(1)/B1
+      LHS%X(4,4) = I_B1
       LHS%X(4,5) = 0.D0
       LHS%X(4,6) = 0.D0
       LHS%X(4,7) = 0.D0
       
       LHS%X(5,1) = ( - B1*LHS%DV(1)*( HST*LHS%DV(1)*RR+B1*DHDP1*DR )   &
-                 + C(1)*B1*LHS%DV(1)*(LHS%DV(9)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(13)*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) &
-                 - C(3)*(LHS%DV(1)*RR*(HST+LHS%DV(13)*LHS%PV(6))+B1*DHDP1*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7)))               & 
-                 - C(4)*KY1*LHS%PV(7) )/MM/LHS%DV(1)/B1
+                 + C(1)*B1*LHS%DV(1)*(LHS%DV(9)*HST1 + LHS%DV(13)*DR2) &
+                 - C(3)*(LHS%DV(1)*RR*HST1+B1*DHDP1*DR2)               & 
+                 - C(4)*KY1*LHS%PV(7) )*MM*I_B1
       LHS%X(5,2) = -X55*LHS%PV(2)
       LHS%X(5,3) = -X55*LHS%PV(3)
       LHS%X(5,4) = -X55*LHS%PV(4)
       LHS%X(5,5) = X55
-      LHS%X(5,6) = -KY1/MM
-      LHS%X(5,7) = ( -LHS%DV(1)*B1*(KY2 + C(1)*CROSS2) - C(3)*KY2 + C(4)*KY1 )/MM/LHS%DV(1)/B1
+      LHS%X(5,6) = -KY1*MM
+      LHS%X(5,7) = ( -LHS%DV(1)*B1*(KY2 + C(1)*CROSS2) - C(3)*KY2 + C(4)*KY1 )*MM*I_B1
 
       
-      LHS%X(6,1) = ( - B1*LHS%DV(1)*SS*LHS%PV(6) - C(1)*B1*LHS%DV(1)*(LHS%DV(8)*(HST+LHS%DV(13)*LHS%PV(6))+LHS%DV(12)*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) &
-                 + C(2)*(LHS%DV(1)*RR*(HST+LHS%DV(13)*LHS%PV(6)) + B1*DHDP1*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) + C(4)*SS*LHS%PV(7) )/MM/LHS%DV(1)/B1
+      LHS%X(6,1) = ( - B1*LHS%DV(1)*SS*LHS%PV(6) - C(1)*B1*LHS%DV(1)*(LHS%DV(8)*HST1+LHS%DV(12)*DR2) &
+                 + C(2)*(LHS%DV(1)*RR*HST1 + B1*DHDP1*DR2) + C(4)*SS*LHS%PV(7) )*MM*I_B1
       LHS%X(6,2) = - X65*LHS%PV(2)
       LHS%X(6,3) = - X65*LHS%PV(3)
       LHS%X(6,4) = - X65*LHS%PV(4)
       LHS%X(6,5) = X65
-      LHS%X(6,6) = SS/MM
-      LHS%X(6,7) = ( -C(1)*B1*LHS%DV(1)*CROSS1 + C(2)*KY2 - C(4)*SS)/MM/LHS%DV(1)/B1
+      LHS%X(6,6) = SS*MM
+      LHS%X(6,7) = ( -C(1)*B1*LHS%DV(1)*CROSS1 + C(2)*KY2 - C(4)*SS)*MM*I_B1
 
-      LHS%X(7,1) = -LHS%PV(7)/LHS%DV(1)/B1
+      LHS%X(7,1) = -LHS%PV(7)*I_B1
       LHS%X(7,2) = 0.D0
       LHS%X(7,3) = 0.D0
       LHS%X(7,4) = 0.D0
       LHS%X(7,5) = 0.D0
       LHS%X(7,6) = 0.D0
-      LHS%X(7,7) = 1.D0/LHS%DV(1)/B1
+      LHS%X(7,7) = I_B1
       
-      LHS%X(:,:) = LHS%X(:,:)/A
+      LHS%X(:,:) = LHS%X(:,:)*A
     END SUBROUTINE FLOWONLY
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE FLOWTURBALL(LHS)
       IMPLICIT NONE
       CLASS(T_LHS_FLOWTURBALL), INTENT(INOUT) :: LHS
-      REAL(8) :: UV2,SS,RR,HST,B1,DR,DHDP1
+      REAL(8) :: UV2,SS,RR,HST,B1,DR,DHDP1,DR1,DR2,HST1
       REAL(8) :: CROSS1,CROSS2,CROSS3,A,B
-      REAL(8) :: MM,KY1,KY2,X15,X55,X65,TT
+      REAL(8) :: MM,KY1,KY2,X15,X55,X65,TT,I_B1,Y1
       REAL(8) :: C(4),T(4)
 
-      A = LHS%GRD(1)/LHS%DT + LHS%EIGEN(LHS%CX1,LHS%CX2) + LHS%EIGEN(LHS%EX1,LHS%EX2) + LHS%EIGEN(LHS%TX1,LHS%TX2)
-      B = (DBLE(LHS%NSTEADY)*1.5D0*LHS%GRD(1)/LHS%DT_PHY + 2.D0*LHS%GETEIGENVIS()/LHS%GRD(1))/A      
-      C = LHS%C*LHS%GRD(1)/A
-      T = LHS%T*LHS%GRD(1)/A
-
+      A = 1.D0/(LHS%GRD(1)/LHS%DT + LHS%EIGEN())
+      B = (DBLE(LHS%NSTEADY)*1.5D0*LHS%GRD(1)/LHS%DT_PHY + 2.D0*LHS%GETEIGENVIS()/LHS%GRD(1))*A      
+      C = LHS%C*LHS%GRD(1)*A
+      T = LHS%T*LHS%GRD(1)*A
+      
       B1 = 1.D0+B
+      I_B1 = 1.D0/(B1*LHS%DV(1))
       UV2 = LHS%PV(2)**2+LHS%PV(3)**2+LHS%PV(4)**2
       SS = LHS%DV(1)*LHS%DV(12)*(1.D0/LHS%GETSNDP2(UV2)+B/LHS%DV(6))
       RR = 1.D0/LHS%GETSNDP2(UV2)-1.D0/LHS%DV(6)+B1*LHS%DV(7)
+      HST1 = LHS%DV(2)-0.5D0*UV2-LHS%DV(14)*LHS%PV(7)
       HST = LHS%DV(2)-0.5D0*UV2-LHS%DV(13)*LHS%PV(6)-LHS%DV(14)*LHS%PV(7)
+      DR1 = LHS%DV(1)+LHS%DV(10)*LHS%PV(7)
+      DR2 = LHS%DV(1)+LHS%DV(9)*LHS%PV(6)
       DR = LHS%DV(1)+LHS%DV(9)*LHS%PV(6)+LHS%DV(10)*LHS%PV(7)
       DHDP1 = -1.D0 + LHS%DV(11)*LHS%DV(1)
       CROSS1 = LHS%DV(14)*LHS%DV(8)-LHS%DV(12)*LHS%DV(10)
@@ -352,27 +268,27 @@ MODULE LHS_MODULE
       CROSS3 = LHS%DV(13)*LHS%DV(8)-LHS%DV(12)*LHS%DV(9)
       KY1 = LHS%DV(13)*LHS%DV(1)*RR - LHS%DV(9)*B1*DHDP1
       KY2 = LHS%DV(14)*LHS%DV(1)*RR - LHS%DV(10)*B1*DHDP1
-      MM = SS*B1*LHS%DV(1)+C(1)*B1*LHS%DV(1)*CROSS3-C(2)*KY1+C(3)*SS
-      X15 = ( C(2)*LHS%DV(9)-LHS%DV(8)*(C(3)+B1*LHS%DV(1)))/MM
-      X55 = -(B1*C(1)*LHS%DV(9)-(C(3)+LHS%DV(1)*B1)*RR)/MM/B1
-      X65 =  (B1*C(1)*LHS%DV(8)-C(2)*RR)/MM/B1
-      TT = T(2)*T(3)-(T(1)+B1*LHS%DV(1))*(T(4)+B1*LHS%DV(1)) 
+      MM = 1.D0/(SS*B1*LHS%DV(1)+C(1)*B1*LHS%DV(1)*CROSS3-C(2)*KY1+C(3)*SS)
+      X15 = ( C(2)*LHS%DV(9)-LHS%DV(8)*(C(3)+B1*LHS%DV(1)))*MM
+      X55 = -(B1*C(1)*LHS%DV(9)-(C(3)+LHS%DV(1)*B1)*RR)*MM/B1
+      X65 =  (B1*C(1)*LHS%DV(8)-C(2)*RR)*MM/B1
+      TT = 1.D0/( T(2)*T(3)-(T(1)+B1*LHS%DV(1))*(T(4)+B1*LHS%DV(1)) )
 
       LHS%X(1,1) = (B1*LHS%DV(1)*( LHS%DV(8)*HST + LHS%DV(12)*DR ) &
-               - C(2)*( LHS%DV(9)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(13)*(DR-LHS%DV(9)*LHS%PV(6)) )  &
-               + C(3)*( LHS%DV(8)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(12)*(DR-LHS%DV(9)*LHS%PV(6)) ) &
-               + C(4)*CROSS3*LHS%PV(7) )/MM
+                 - C(2)*( LHS%DV(9)*HST1 + LHS%DV(13)*DR1 ) &
+                 + C(3)*( LHS%DV(8)*HST1 + LHS%DV(12)*DR1 ) &
+                 + C(4)*CROSS3*LHS%PV(7) )*MM
       LHS%X(1,2) = -X15*LHS%PV(2)
       LHS%X(1,3) = -X15*LHS%PV(3)
       LHS%X(1,4) = -X15*LHS%PV(4)
       LHS%X(1,5) = X15
-      LHS%X(1,6) = B1*CROSS3*LHS%DV(1)/MM
-      LHS%X(1,7) = ( B1*LHS%DV(1)*CROSS1 + C(2)*CROSS2 + C(3)*CROSS1 - C(4)*CROSS3 )/MM
+      LHS%X(1,6) = B1*CROSS3*LHS%DV(1)*MM
+      LHS%X(1,7) = ( B1*LHS%DV(1)*CROSS1 + C(2)*CROSS2 + C(3)*CROSS1 - C(4)*CROSS3 )*MM
       LHS%X(1,8) = 0.D0
       LHS%X(1,9) = 0.D0
       
-      LHS%X(2,1) = -LHS%PV(2)/LHS%DV(1)/B1
-      LHS%X(2,2) = 1.D0/LHS%DV(1)/B1
+      LHS%X(2,1) = -LHS%PV(2)*I_B1
+      LHS%X(2,2) = I_B1
       LHS%X(2,3) = 0.D0
       LHS%X(2,4) = 0.D0
       LHS%X(2,5) = 0.D0
@@ -381,20 +297,20 @@ MODULE LHS_MODULE
       LHS%X(2,8) = 0.D0
       LHS%X(2,9) = 0.D0
       
-      LHS%X(3,1) = -LHS%PV(3)/LHS%DV(1)/B1
+      LHS%X(3,1) = -LHS%PV(3)*I_B1
       LHS%X(3,2) = 0.D0
-      LHS%X(3,3) = 1.D0/LHS%DV(1)/B1
+      LHS%X(3,3) = I_B1
       LHS%X(3,4) = 0.D0
       LHS%X(3,5) = 0.D0
-      LHS%X(3,6) = 0.D0  
+      LHS%X(3,6) = 0.D0
       LHS%X(3,7) = 0.D0
       LHS%X(3,8) = 0.D0
       LHS%X(3,9) = 0.D0
       
-      LHS%X(4,1) = -LHS%PV(4)/LHS%DV(1)/B1
+      LHS%X(4,1) = -LHS%PV(4)*I_B1
       LHS%X(4,2) = 0.D0
       LHS%X(4,3) = 0.D0
-      LHS%X(4,4) = 1.D0/LHS%DV(1)/B1
+      LHS%X(4,4) = I_B1
       LHS%X(4,5) = 0.D0
       LHS%X(4,6) = 0.D0
       LHS%X(4,7) = 0.D0
@@ -402,76 +318,74 @@ MODULE LHS_MODULE
       LHS%X(4,9) = 0.D0
       
       LHS%X(5,1) = ( - B1*LHS%DV(1)*( HST*LHS%DV(1)*RR+B1*DHDP1*DR )   &
-                 + C(1)*B1*LHS%DV(1)*(LHS%DV(9)*(HST+LHS%DV(13)*LHS%PV(6)) + LHS%DV(13)*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) &
-                 - C(3)*(LHS%DV(1)*RR*(HST+LHS%DV(13)*LHS%PV(6))+B1*DHDP1*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7)))               & 
-                 - C(4)*KY1*LHS%PV(7) )/MM/LHS%DV(1)/B1
+                 + C(1)*B1*LHS%DV(1)*(LHS%DV(9)*HST1 + LHS%DV(13)*DR2) &
+                 - C(3)*(LHS%DV(1)*RR*HST1+B1*DHDP1*DR2)               & 
+                 - C(4)*KY1*LHS%PV(7) )*MM*I_B1
       LHS%X(5,2) = -X55*LHS%PV(2)
       LHS%X(5,3) = -X55*LHS%PV(3)
       LHS%X(5,4) = -X55*LHS%PV(4)
       LHS%X(5,5) = X55
-      LHS%X(5,6) = -KY1/MM
-      LHS%X(5,7) = ( -LHS%DV(1)*B1*(KY2 + C(1)*CROSS2) - C(3)*KY2 + C(4)*KY1 )/MM/LHS%DV(1)/B1
+      LHS%X(5,6) = -KY1*MM
+      LHS%X(5,7) = ( -LHS%DV(1)*B1*(KY2 + C(1)*CROSS2) - C(3)*KY2 + C(4)*KY1 )*MM*I_B1
       LHS%X(5,8) = 0.D0
       LHS%X(5,9) = 0.D0
         
-      LHS%X(6,1) = ( - B1*LHS%DV(1)*SS*LHS%PV(6) - C(1)*B1*LHS%DV(1)*(LHS%DV(8)*(HST+LHS%DV(13)*LHS%PV(6))+LHS%DV(12)*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) &
-                 + C(2)*(LHS%DV(1)*RR*(HST+LHS%DV(13)*LHS%PV(6)) + B1*DHDP1*(LHS%DV(1)+LHS%DV(10)*LHS%PV(7))) + C(4)*SS*LHS%PV(7) )/MM/LHS%DV(1)/B1
+      LHS%X(6,1) = ( - B1*LHS%DV(1)*SS*LHS%PV(6) - C(1)*B1*LHS%DV(1)*(LHS%DV(8)*HST1+LHS%DV(12)*DR2) &
+                 + C(2)*(LHS%DV(1)*RR*HST1 + B1*DHDP1*DR2) + C(4)*SS*LHS%PV(7) )*MM*I_B1
       LHS%X(6,2) = - X65*LHS%PV(2)
       LHS%X(6,3) = - X65*LHS%PV(3)
       LHS%X(6,4) = - X65*LHS%PV(4)
       LHS%X(6,5) = X65
-      LHS%X(6,6) = SS/MM
-      LHS%X(6,7) = ( -C(1)*B1*LHS%DV(1)*CROSS1 + C(2)*KY2 - C(4)*SS)/MM/LHS%DV(1)/B1
+      LHS%X(6,6) = SS*MM
+      LHS%X(6,7) = ( -C(1)*B1*LHS%DV(1)*CROSS1 + C(2)*KY2 - C(4)*SS)*MM*I_B1
       LHS%X(6,8) = 0.D0
       LHS%X(6,9) = 0.D0
         
-      LHS%X(7,1) = -LHS%PV(7)/LHS%DV(1)/B1
+      LHS%X(7,1) = -LHS%PV(7)*I_B1
       LHS%X(7,2) = 0.D0
       LHS%X(7,3) = 0.D0
       LHS%X(7,4) = 0.D0
       LHS%X(7,5) = 0.D0
       LHS%X(7,6) = 0.D0
-      LHS%X(7,7) = 1.D0/LHS%DV(1)/B1
+      LHS%X(7,7) = I_B1
       LHS%X(7,8) = 0.D0
       LHS%X(7,9) = 0.D0
        
-      LHS%X(8,1) = ( - LHS%PV(9)*T(2) + LHS%PV(8)*(B1*LHS%DV(1)+T(4)) )/TT
+      LHS%X(8,1) = ( - LHS%PV(9)*T(2) + LHS%PV(8)*(B1*LHS%DV(1)+T(4)) )*TT
       LHS%X(8,2) = 0.D0
       LHS%X(8,3) = 0.D0
       LHS%X(8,4) = 0.D0
       LHS%X(8,5) = 0.D0
       LHS%X(8,6) = 0.D0
       LHS%X(8,7) = 0.D0
-      LHS%X(8,8) = -(B1*LHS%DV(1)+T(4))/TT
-      LHS%X(8,9) = T(2)/TT
+      LHS%X(8,8) = -(B1*LHS%DV(1)+T(4))*TT
+      LHS%X(8,9) = T(2)*TT
 
-      LHS%X(9,1) = -( - LHS%PV(9)*(B1*LHS%DV(1)+T(1)) + LHS%PV(8)*T(3) )/TT
+      LHS%X(9,1) = ( LHS%PV(9)*(B1*LHS%DV(1)+T(1)) - LHS%PV(8)*T(3) )*TT
       LHS%X(9,2) = 0.D0
       LHS%X(9,3) = 0.D0
       LHS%X(9,4) = 0.D0
       LHS%X(9,5) = 0.D0
       LHS%X(9,6) = 0.D0
       LHS%X(9,7) = 0.D0
-      LHS%X(9,8) = T(3)/TT
-      LHS%X(9,9) = -(B1*LHS%DV(1)+T(1))/TT
+      LHS%X(9,8) = T(3)*TT
+      LHS%X(9,9) = -(B1*LHS%DV(1)+T(1))*TT
       
-      LHS%X(:,:) = LHS%X(:,:)/A      
+      LHS%X(:,:) = LHS%X(:,:)*A      
     END SUBROUTINE FLOWTURBALL
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION EIGEN_EXPLICIT(LHS,NXL,NXR) RESULT(LAMDA)
+    FUNCTION EIGEN_EXPLICIT(LHS) RESULT(LAMDA)
       IMPLICIT NONE
       CLASS(T_LHS), INTENT(IN) :: LHS
-      REAL(8), POINTER, INTENT(IN) :: NXL(:),NXR(:)
       REAL(8) :: LAMDA
 
       LAMDA = 0.D0
       
     END FUNCTION EIGEN_EXPLICIT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION EIGEN_IMPLICIT(LHS,NXL,NXR) RESULT(LAMDA)
+    FUNCTION EIGEN_IMPLICIT(LHS) RESULT(LAMDA)
       IMPLICIT NONE
       CLASS(T_LHS), INTENT(IN) :: LHS
-      REAL(8), POINTER, INTENT(IN) :: NXL(:),NXR(:)
       REAL(8) :: LAMDA
       REAL(8) :: UV2,SNDP2,OX,OY,OZ,DS,U,UP,D
       REAL(8), PARAMETER :: CAPPA = 1.05D0
@@ -479,14 +393,32 @@ MODULE LHS_MODULE
       UV2 = LHS%PV(2)**2+LHS%PV(3)**2+LHS%PV(4)**2
       SNDP2 = LHS%GETSNDP2(UV2)
       
-      OX = 0.5D0*(NXL(1)+NXR(1))
-      OY = 0.5D0*(NXL(2)+NXR(2))
-      OZ = 0.5D0*(NXL(3)+NXR(3))
+      OX = 0.5D0*(LHS%CX1(1)+LHS%CX2(1))
+      OY = 0.5D0*(LHS%CX1(2)+LHS%CX2(2))
+      OZ = 0.5D0*(LHS%CX1(3)+LHS%CX2(3))
       DS = OX**2+OY**2+OZ**2
       U  = OX*LHS%PV(2)+OY*LHS%PV(3)+OZ*LHS%PV(4)
       UP = (1.D0+SNDP2/LHS%DV(6))*U
       D  = DSQRT(U**2*(1.D0-SNDP2/LHS%DV(6))**2+4.D0*SNDP2*DS)
       LAMDA = CAPPA*(DABS(UP)+D)
+
+      OX = 0.5D0*(LHS%EX1(1)+LHS%EX2(1))
+      OY = 0.5D0*(LHS%EX1(2)+LHS%EX2(2))
+      OZ = 0.5D0*(LHS%EX1(3)+LHS%EX2(3))
+      DS = OX**2+OY**2+OZ**2
+      U  = OX*LHS%PV(2)+OY*LHS%PV(3)+OZ*LHS%PV(4)
+      UP = (1.D0+SNDP2/LHS%DV(6))*U
+      D  = DSQRT(U**2*(1.D0-SNDP2/LHS%DV(6))**2+4.D0*SNDP2*DS)
+      LAMDA = LAMDA+CAPPA*(DABS(UP)+D)
+      
+      OX = 0.5D0*(LHS%TX1(1)+LHS%TX2(1))
+      OY = 0.5D0*(LHS%TX1(2)+LHS%TX2(2))
+      OZ = 0.5D0*(LHS%TX1(3)+LHS%TX2(3))
+      DS = OX**2+OY**2+OZ**2
+      U  = OX*LHS%PV(2)+OY*LHS%PV(3)+OZ*LHS%PV(4)
+      UP = (1.D0+SNDP2/LHS%DV(6))*U
+      D  = DSQRT(U**2*(1.D0-SNDP2/LHS%DV(6))**2+4.D0*SNDP2*DS)
+      LAMDA = LAMDA+CAPPA*(DABS(UP)+D)
       
     END FUNCTION EIGEN_IMPLICIT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC

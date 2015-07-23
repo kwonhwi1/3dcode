@@ -112,23 +112,19 @@ MODULE UPDATE_MODULE
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-1)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-2)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       CASE(-3)
         UPDATE%L_TV = .FALSE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       END SELECT
       
       SELECT CASE(CONFIG%GETNCAV())
@@ -144,18 +140,13 @@ MODULE UPDATE_MODULE
       END IF
 
       IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
         UPDATE%L_LHS = .TRUE.
       END IF
       
       IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT(GRID,VARIABLE)
+        CALL UPDATE%EDDY%CONSTRUCT()
         UPDATE%L_EDDY = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(UPDATE%JAC)) THEN
-        CALL UPDATE%JAC%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        UPDATE%L_JAC = .TRUE.
       END IF
       
       ALLOCATE(UPDATE%RHS)
@@ -207,23 +198,19 @@ MODULE UPDATE_MODULE
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-1)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-2)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       CASE(-3)
         UPDATE%L_TV = .FALSE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       END SELECT
       
       SELECT CASE(CONFIG%GETNCAV())
@@ -239,18 +226,13 @@ MODULE UPDATE_MODULE
       END IF
 
       IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
         UPDATE%L_LHS = .TRUE.
       END IF
       
       IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT(GRID,VARIABLE)
+        CALL UPDATE%EDDY%CONSTRUCT()
         UPDATE%L_EDDY = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(UPDATE%JAC)) THEN
-        CALL UPDATE%JAC%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        UPDATE%L_JAC = .TRUE.
       END IF
       
       ALLOCATE(UPDATE%RHS)
@@ -307,23 +289,23 @@ MODULE UPDATE_MODULE
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
+        ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-1)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .TRUE.
         ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
         ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
+        ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
       CASE(-2)
         UPDATE%L_TV = .TRUE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
+        ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       CASE(-3)
         UPDATE%L_TV = .FALSE.
         UPDATE%L_TURB = .FALSE.
         ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
+        ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
       END SELECT
       
       SELECT CASE(CONFIG%GETNCAV())
@@ -339,17 +321,17 @@ MODULE UPDATE_MODULE
       END IF
 
       IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
         UPDATE%L_LHS = .TRUE.
       END IF
       
       IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT(GRID,VARIABLE)
+        CALL UPDATE%EDDY%CONSTRUCT()
         UPDATE%L_EDDY = .TRUE.
       END IF
       
       IF(ALLOCATED(UPDATE%JAC)) THEN
-        CALL UPDATE%JAC%CONSTRUCT(CONFIG,GRID,VARIABLE)
+        CALL UPDATE%JAC%CONSTRUCT(CONFIG,VARIABLE)
         UPDATE%L_JAC = .TRUE.
       END IF
       
@@ -392,11 +374,6 @@ MODULE UPDATE_MODULE
         DEALLOCATE(UPDATE%EDDY)
       END IF
 
-      IF(UPDATE%L_JAC) THEN
-        CALL UPDATE%JAC%DESTRUCT()
-        DEALLOCATE(UPDATE%JAC)
-      END IF
-      
       CALL UPDATE%RHS%DESTRUCT()
       DEALLOCATE(UPDATE%RHS)
 
@@ -424,11 +401,6 @@ MODULE UPDATE_MODULE
         DEALLOCATE(UPDATE%EDDY)
       END IF
 
-      IF(UPDATE%L_JAC) THEN
-        CALL UPDATE%JAC%DESTRUCT()
-        DEALLOCATE(UPDATE%JAC)
-      END IF
-      
       CALL UPDATE%RHS%DESTRUCT()
       DEALLOCATE(UPDATE%RHS)
 
@@ -480,11 +452,12 @@ MODULE UPDATE_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER :: I,J,K,N,L
-      REAL(8) :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8) :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8) :: GRD(UPDATE%NGRD),DT
+      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
+      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
+      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT
+      REAL(8), TARGET :: X(7,UPDATE%NPV)
       REAL(8) :: DPV(UPDATE%NPV)
-      REAL(8) :: X(7,UPDATE%NPV)
+
       
       CALL UPDATE%BC%SETBC(GRID,VARIABLE,EOS,PROP)
       CALL UPDATE%TIMESTEP%CALTIMESTEP(GRID,VARIABLE)
@@ -505,13 +478,19 @@ MODULE UPDATE_MODULE
             DV = VARIABLE%GETDV(I,J,K)
             TV = VARIABLE%GETTV(I,J,K)
             DT = UPDATE%TIMESTEP%GETDT(I,J,K)
+
             
-            CALL UPDATE%LHS%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-            CALL UPDATE%LHS%SETGRD(GRD)
-            CALL UPDATE%LHS%SETPV(PV)
-            CALL UPDATE%LHS%SETDV(DV)
-            CALL UPDATE%LHS%SETTV(TV)
-            CALL UPDATE%LHS%SETDT(DT)
+            UPDATE%LHS%CX1 => NX1
+            UPDATE%LHS%CX2 => NX2
+            UPDATE%LHS%EX1 => NX3
+            UPDATE%LHS%EX2 => NX4
+            UPDATE%LHS%TX1 => NX5
+            UPDATE%LHS%TX2 => NX6
+            UPDATE%LHS%GRD => GRD
+            UPDATE%LHS%PV => PV
+            UPDATE%LHS%DV => DV
+            UPDATE%LHS%TV => TV
+            UPDATE%LHS%DT => DT
             CALL UPDATE%LHS%INVERSE()
             
             DPV = 0.D0
@@ -524,6 +503,7 @@ MODULE UPDATE_MODULE
             PV = PV + DPV
             PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
             PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
+            PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
             IF(UPDATE%L_TURB) THEN
               PV(8) = DMAX1(PV(8),UPDATE%KREF)
               PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
@@ -545,27 +525,46 @@ MODULE UPDATE_MODULE
             DO N=1,UPDATE%NTV
               CALL VARIABLE%SETTV(N,I,J,K,TV(N))
             END DO
-            
-            IF(UPDATE%L_EDDY) THEN
+          END DO
+        END DO
+      END DO
+      
+      IF(UPDATE%L_EDDY) THEN
+        DO K=2,UPDATE%KMAX
+          DO J=2,UPDATE%JMAX
+            DO I=2,UPDATE%IMAX
+              NX1 = GRID%GETCX(I-1,J,K)
+              NX2 = GRID%GETCX(I,J,K)
+              NX3 = GRID%GETEX(I,J-1,K)
+              NX4 = GRID%GETEX(I,J,K)
+              NX5 = GRID%GETTX(I,J,K-1)
+              NX6 = GRID%GETTX(I,J,K)
+              GRD = GRID%GETGRD(I,J,K)
+              DV = VARIABLE%GETDV(I,J,K)
+              TV = VARIABLE%GETTV(I,J,K)
               X(1,:) = VARIABLE%GETPV(I-1,J,K)
               X(2,:) = VARIABLE%GETPV(I,J,K)
               X(3,:) = VARIABLE%GETPV(I+1,J,K)
               X(4,:) = VARIABLE%GETPV(I,J-1,K)
               X(5,:) = VARIABLE%GETPV(I,J+1,K)
               X(6,:) = VARIABLE%GETPV(I,J,K-1)
-              X(7,:) = VARIABLE%GETPV(I,J,K+1)              
-              CALL UPDATE%EDDY%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-              CALL UPDATE%EDDY%SETGRD(GRD)
-              CALL UPDATE%EDDY%SETPV(X)
-              CALL UPDATE%EDDY%SETDV(DV)
-              CALL UPDATE%EDDY%SETTV(TV)
+              X(7,:) = VARIABLE%GETPV(I,J,K+1)
+              UPDATE%EDDY%CX1 => NX1
+              UPDATE%EDDY%CX2 => NX2
+              UPDATE%EDDY%EX1 => NX3
+              UPDATE%EDDY%EX2 => NX4
+              UPDATE%EDDY%TX1 => NX5
+              UPDATE%EDDY%TX2 => NX6
+              UPDATE%EDDY%GRD => GRD
+              UPDATE%EDDY%PV => X
+              UPDATE%EDDY%DV => DV
+              UPDATE%EDDY%TV => TV
               TV(3) = UPDATE%EDDY%CALEDDY()
               CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-            END IF
-            
+            END DO
           END DO
         END DO
-      END DO
+      END IF
     END SUBROUTINE EULEREX
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE RK3RD(UPDATE,GRID,VARIABLE,EOS,PROP)
@@ -576,11 +575,12 @@ MODULE UPDATE_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER :: I,J,K,N,L,M
-      REAL(8) :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8) :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8) :: GRD(UPDATE%NGRD),DT
+      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
+      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
+      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT
+      REAL(8), TARGET :: X(7,UPDATE%NPV)
       REAL(8) :: DPV(UPDATE%NPV)
-      REAL(8) :: X(7,UPDATE%NPV)
+
       
       
       DO M=1,3
@@ -603,12 +603,17 @@ MODULE UPDATE_MODULE
               TV = VARIABLE%GETTV(I,J,K)
               DT = UPDATE%TIMESTEP%GETDT(I,J,K)
             
-              CALL UPDATE%LHS%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-              CALL UPDATE%LHS%SETGRD(GRD)
-              CALL UPDATE%LHS%SETPV(PV)
-              CALL UPDATE%LHS%SETDV(DV)
-              CALL UPDATE%LHS%SETTV(TV)
-              CALL UPDATE%LHS%SETDT(DT)
+              UPDATE%LHS%CX1 => NX1
+              UPDATE%LHS%CX2 => NX2
+              UPDATE%LHS%EX1 => NX3
+              UPDATE%LHS%EX2 => NX4
+              UPDATE%LHS%TX1 => NX5
+              UPDATE%LHS%TX2 => NX6
+              UPDATE%LHS%GRD => GRD
+              UPDATE%LHS%PV => PV
+              UPDATE%LHS%DV => DV
+              UPDATE%LHS%TV => TV
+              UPDATE%LHS%DT => DT
               CALL UPDATE%LHS%INVERSE()
             
               DPV = 0.D0
@@ -622,6 +627,7 @@ MODULE UPDATE_MODULE
           
               PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
               PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
+              PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
               IF(UPDATE%L_TURB) THEN
                 PV(8) = DMAX1(PV(8),UPDATE%KREF)
                 PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
@@ -644,26 +650,45 @@ MODULE UPDATE_MODULE
                 CALL VARIABLE%SETTV(N,I,J,K,TV(N))
               END DO
               
-              IF(UPDATE%L_EDDY) THEN
+            END DO
+          END DO
+        END DO
+        IF(UPDATE%L_EDDY) THEN
+          DO K=2,UPDATE%KMAX
+            DO J=2,UPDATE%JMAX
+              DO I=2,UPDATE%IMAX
+                NX1 = GRID%GETCX(I-1,J,K)
+                NX2 = GRID%GETCX(I,J,K)
+                NX3 = GRID%GETEX(I,J-1,K)
+                NX4 = GRID%GETEX(I,J,K)
+                NX5 = GRID%GETTX(I,J,K-1)
+                NX6 = GRID%GETTX(I,J,K)
+                GRD = GRID%GETGRD(I,J,K)
+                DV = VARIABLE%GETDV(I,J,K)
+                TV = VARIABLE%GETTV(I,J,K)
                 X(1,:) = VARIABLE%GETPV(I-1,J,K)
                 X(2,:) = VARIABLE%GETPV(I,J,K)
                 X(3,:) = VARIABLE%GETPV(I+1,J,K)
                 X(4,:) = VARIABLE%GETPV(I,J-1,K)
                 X(5,:) = VARIABLE%GETPV(I,J+1,K)
                 X(6,:) = VARIABLE%GETPV(I,J,K-1)
-                X(7,:) = VARIABLE%GETPV(I,J,K+1) 
-                CALL UPDATE%EDDY%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-                CALL UPDATE%EDDY%SETGRD(GRD)
-                CALL UPDATE%EDDY%SETPV(X)
-                CALL UPDATE%EDDY%SETDV(DV)
-                CALL UPDATE%EDDY%SETTV(TV)
+                X(7,:) = VARIABLE%GETPV(I,J,K+1)
+                UPDATE%EDDY%CX1 => NX1
+                UPDATE%EDDY%CX2 => NX2
+                UPDATE%EDDY%EX1 => NX3
+                UPDATE%EDDY%EX2 => NX4
+                UPDATE%EDDY%TX1 => NX5
+                UPDATE%EDDY%TX2 => NX6
+                UPDATE%EDDY%GRD => GRD
+                UPDATE%EDDY%PV => X
+                UPDATE%EDDY%DV => DV
+                UPDATE%EDDY%TV => TV
                 TV(3) = UPDATE%EDDY%CALEDDY()
                 CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-              END IF
-
+              END DO
             END DO
           END DO
-        END DO
+        END IF
       END DO
       
     END SUBROUTINE RK3RD
@@ -676,10 +701,10 @@ MODULE UPDATE_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER :: I,J,K,N,L
-      REAL(8) :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8) :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8) :: GRD(UPDATE%NGRD),DT,C(4),T(4)
-      REAL(8) :: X(7,UPDATE%NPV)
+      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
+      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
+      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT,C(4),T(4)
+      REAL(8), TARGET :: X(7,UPDATE%NPV)
             
       CALL UPDATE%BC%SETBC(GRID,VARIABLE,EOS,PROP)
       CALL UPDATE%TIMESTEP%CALTIMESTEP(GRID,VARIABLE)
@@ -702,20 +727,27 @@ MODULE UPDATE_MODULE
             TV = VARIABLE%GETTV(I,J,K)
             DT = UPDATE%TIMESTEP%GETDT(I,J,K)
             
-            CALL UPDATE%LHS%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-            CALL UPDATE%LHS%SETGRD(GRD)
-            CALL UPDATE%LHS%SETPV(PV)
-            CALL UPDATE%LHS%SETDV(DV)
-            CALL UPDATE%LHS%SETTV(TV)
-            CALL UPDATE%LHS%SETDT(DT)
+            UPDATE%LHS%CX1 => NX1
+            UPDATE%LHS%CX2 => NX2
+            UPDATE%LHS%EX1 => NX3
+            UPDATE%LHS%EX2 => NX4
+            UPDATE%LHS%TX1 => NX5
+            UPDATE%LHS%TX2 => NX6
+            UPDATE%LHS%GRD => GRD
+            UPDATE%LHS%PV => PV
+            UPDATE%LHS%DV => DV
+            UPDATE%LHS%TV => TV
+            UPDATE%LHS%DT => DT
+            
             IF(UPDATE%L_CAV) THEN
               C = UPDATE%RHS%GETICAV(I,J,K)
-              CALL UPDATE%LHS%SETC(C)
+              UPDATE%LHS%C => C
             END IF
             IF(UPDATE%L_TURB) THEN
               T = UPDATE%RHS%GETITT(I,J,K)
-              CALL UPDATE%LHS%SETT(T)
+              UPDATE%LHS%T => T
             END IF
+            
             CALL UPDATE%LHS%INVERSE()
             
             DO N=1,UPDATE%NPV
@@ -729,11 +761,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I-1,J,K)
             DV = VARIABLE%GETDV(I-1,J,K)
             TV = VARIABLE%GETTV(I-1,J,K)
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(1)
             
             DO N=1,UPDATE%NPV
@@ -748,11 +780,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I,J-1,K)
             DV = VARIABLE%GETDV(I,J-1,K)
             TV = VARIABLE%GETTV(I,J-1,K)          
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(1)
         
             DO N=1,UPDATE%NPV
@@ -766,11 +798,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I,J,K-1)
             DV = VARIABLE%GETDV(I,J,K-1)
             TV = VARIABLE%GETTV(I,J,K-1)          
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(1)
         
             DO N=1,UPDATE%NPV
@@ -780,14 +812,13 @@ MODULE UPDATE_MODULE
             END DO
             
             DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DQS(N,I,J,K) = UPDATE%DQS(N,I,J,K) + UPDATE%INV(N,L,I,J,K)*UPDATE%DCV(L,I,J,K)
-              END DO
+              UPDATE%DQS(N,I,J,K) = DOT_PRODUCT(UPDATE%INV(N,:,I,J,K),UPDATE%DCV(:,I,J,K))
             END DO
             
           END DO
         END DO
       END DO
+      
       UPDATE%DQS = 0.D0
       DO K=UPDATE%KMAX,2,-1
         DO J=UPDATE%JMAX,2,-1
@@ -798,11 +829,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I+1,J,K)
             DV = VARIABLE%GETDV(I+1,J,K)
             TV = VARIABLE%GETTV(I+1,J,K)
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(-1)
         
             DO N=1,UPDATE%NPV
@@ -816,11 +847,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I,J+1,K)
             DV = VARIABLE%GETDV(I,J+1,K)
             TV = VARIABLE%GETTV(I,J+1,K)          
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(-1)
             
             DO N=1,UPDATE%NPV
@@ -834,11 +865,11 @@ MODULE UPDATE_MODULE
             PV = VARIABLE%GETPV(I,J,K+1)
             DV = VARIABLE%GETDV(I,J,K+1)
             TV = VARIABLE%GETTV(I,J,K+1)          
-            CALL UPDATE%JAC%SETNORM(NX1)
-            CALL UPDATE%JAC%SETGRD(GRD)
-            CALL UPDATE%JAC%SETPV(PV)
-            CALL UPDATE%JAC%SETDV(DV)
-            CALL UPDATE%JAC%SETTV(TV)
+            UPDATE%JAC%NX => NX1
+            UPDATE%JAC%GRD => GRD
+            UPDATE%JAC%PV => PV
+            UPDATE%JAC%DV => DV
+            UPDATE%JAC%TV => TV
             CALL UPDATE%JAC%CALJAC(-1)
             
             DO N=1,UPDATE%NPV
@@ -848,14 +879,12 @@ MODULE UPDATE_MODULE
             END DO
             
             DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DQS(N,I,J,K) = UPDATE%DQS(N,I,J,K) + UPDATE%INV(N,L,I,J,K)*UPDATE%DCV(L,I,J,K)
-              END DO
+              UPDATE%DQS(N,I,J,K) = DOT_PRODUCT(UPDATE%INV(N,:,I,J,K),UPDATE%DCV(:,I,J,K))
             END DO
-            
           END DO
         END DO
       END DO
+      
       DO K=2,UPDATE%KMAX
         DO J=2,UPDATE%JMAX
           DO I=2,UPDATE%IMAX
@@ -863,6 +892,7 @@ MODULE UPDATE_MODULE
             
             PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
             PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
+            PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
             IF(UPDATE%L_TURB) THEN
               PV(8) = DMAX1(PV(8),UPDATE%KREF)
               PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
@@ -886,8 +916,13 @@ MODULE UPDATE_MODULE
             DO N=1,UPDATE%NTV
               CALL VARIABLE%SETTV(N,I,J,K,TV(N))
             END DO
-            
-            IF(UPDATE%L_EDDY) THEN
+          END DO
+        END DO
+      END DO
+      IF(UPDATE%L_EDDY) THEN
+        DO K=2,UPDATE%KMAX
+          DO J=2,UPDATE%JMAX
+            DO I=2,UPDATE%IMAX
               NX1 = GRID%GETCX(I-1,J,K)
               NX2 = GRID%GETCX(I,J,K)
               NX3 = GRID%GETEX(I,J-1,K)
@@ -895,28 +930,31 @@ MODULE UPDATE_MODULE
               NX5 = GRID%GETTX(I,J,K-1)
               NX6 = GRID%GETTX(I,J,K)
               GRD = GRID%GETGRD(I,J,K)
+              DV = VARIABLE%GETDV(I,J,K)
+              TV = VARIABLE%GETTV(I,J,K)
               X(1,:) = VARIABLE%GETPV(I-1,J,K)
               X(2,:) = VARIABLE%GETPV(I,J,K)
               X(3,:) = VARIABLE%GETPV(I+1,J,K)
               X(4,:) = VARIABLE%GETPV(I,J-1,K)
               X(5,:) = VARIABLE%GETPV(I,J+1,K)
               X(6,:) = VARIABLE%GETPV(I,J,K-1)
-              X(7,:) = VARIABLE%GETPV(I,J,K+1) 
-              DV = VARIABLE%GETDV(I,J,K)
-              TV = VARIABLE%GETTV(I,J,K)
-              CALL UPDATE%EDDY%SETNORM(NX1,NX2,NX3,NX4,NX5,NX6)
-              CALL UPDATE%EDDY%SETGRD(GRD)
-              CALL UPDATE%EDDY%SETPV(X)
-              CALL UPDATE%EDDY%SETDV(DV)
-              CALL UPDATE%EDDY%SETTV(TV)
+              X(7,:) = VARIABLE%GETPV(I,J,K+1)
+              UPDATE%EDDY%CX1 => NX1
+              UPDATE%EDDY%CX2 => NX2
+              UPDATE%EDDY%EX1 => NX3
+              UPDATE%EDDY%EX2 => NX4
+              UPDATE%EDDY%TX1 => NX5
+              UPDATE%EDDY%TX2 => NX6
+              UPDATE%EDDY%GRD => GRD
+              UPDATE%EDDY%PV => X
+              UPDATE%EDDY%DV => DV
+              UPDATE%EDDY%TV => TV
               TV(3) = UPDATE%EDDY%CALEDDY()
               CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-            END IF
-        
-            
+            END DO
           END DO
         END DO
-      END DO
+      END IF
     END SUBROUTINE LUSGS
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 END MODULE UPDATE_MODULE

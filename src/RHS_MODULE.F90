@@ -109,39 +109,6 @@ MODULE RHS_MODULE
       RHS%L_TURBSOURCE = .FALSE.
       RHS%L_VSFLUX     = .FALSE.
       RHS%L_UNSTEADY   = .FALSE.
-      
-      IF(ALLOCATED(RHS%FLUX)) THEN
-        CALL RHS%FLUX%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_FLUX = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(RHS%VSFLUX)) THEN
-        CALL RHS%VSFLUX%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        RHS%L_VSFLUX = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(RHS%MUSCL)) THEN
-        CALL RHS%MUSCL%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_MUSCL = .TRUE.
-      END IF
-   
-      IF(ALLOCATED(RHS%CAV)) THEN
-        CALL RHS%CAV%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        ALLOCATE(RHS%ICAV(0:4,2:GRID%GETIMAX(),2:GRID%GETJMAX(),2:GRID%GETKMAX()))
-        RHS%L_CAV = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(RHS%TURBSOURCE)) THEN
-        CALL RHS%TURBSOURCE%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        ALLOCATE(RHS%ITT(6,2:GRID%GETIMAX(),2:GRID%GETJMAX(),2:GRID%GETKMAX()))
-        ALLOCATE(RHS%OMEGA_CUT(2:GRID%GETIMAX(),2:GRID%GETJMAX(),2:GRID%GETKMAX()))
-        RHS%L_TURBSOURCE = .TRUE.
-      END IF
-      
-      IF(ALLOCATED(RHS%UNSTEADY)) THEN
-        CALL RHS%UNSTEADY%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        RHS%L_UNSTEADY   = .TRUE.
-      END IF
 
       RHS%NGRD = GRID%GETNGRD()
       RHS%IMAX = GRID%GETIMAX()
@@ -150,10 +117,48 @@ MODULE RHS_MODULE
       RHS%NPV = VARIABLE%GETNPV()
       RHS%NDV = VARIABLE%GETNDV()
       RHS%NTV = VARIABLE%GETNTV()
+      
+      
+      IF(ALLOCATED(RHS%FLUX)) THEN
+        CALL RHS%FLUX%CONSTRUCT(CONFIG,VARIABLE)
+        RHS%L_FLUX = .TRUE.
+        ALLOCATE(RHS%EA(RHS%NPV,RHS%IMAX),RHS%FA(RHS%NPV,RHS%JMAX),RHS%GA(RHS%NPV,RHS%KMAX))
+      END IF
+      
+      IF(ALLOCATED(RHS%VSFLUX)) THEN
+        CALL RHS%VSFLUX%CONSTRUCT(CONFIG,VARIABLE)
+        RHS%L_VSFLUX = .TRUE.
+        ALLOCATE(RHS%EVA(RHS%NPV,RHS%IMAX),RHS%FVA(RHS%NPV,RHS%JMAX),RHS%GVA(RHS%NPV,RHS%KMAX))
+      END IF
+      
+      IF(ALLOCATED(RHS%MUSCL)) THEN
+        CALL RHS%MUSCL%CONSTRUCT(CONFIG,VARIABLE)
+        RHS%L_MUSCL = .TRUE.
+      END IF
+   
+      IF(ALLOCATED(RHS%CAV)) THEN
+        CALL RHS%CAV%CONSTRUCT(CONFIG)
+        IF(CONFIG%GETTIMEMETHOD().EQ.3) THEN
+          ALLOCATE(RHS%ICAV(4,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
+        END IF
+        RHS%L_CAV = .TRUE.
+      END IF
+      
+      IF(ALLOCATED(RHS%TURBSOURCE)) THEN
+        CALL RHS%TURBSOURCE%CONSTRUCT(CONFIG)
+        IF(CONFIG%GETTIMEMETHOD().EQ.3) THEN
+          ALLOCATE(RHS%ITT(4,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
+        END IF
+        ALLOCATE(RHS%OMEGA_CUT(2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
+        RHS%L_TURBSOURCE = .TRUE.
+      END IF
+      
+      IF(ALLOCATED(RHS%UNSTEADY)) THEN
+        CALL RHS%UNSTEADY%CONSTRUCT(CONFIG,VARIABLE)
+        RHS%L_UNSTEADY   = .TRUE.
+      END IF
 
       ALLOCATE(RHS%RES(RHS%NPV,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
-      ALLOCATE(RHS%EA(RHS%NPV,RHS%IMAX),RHS%FA(RHS%NPV,RHS%JMAX),RHS%GA(RHS%NPV,RHS%KMAX))
-      ALLOCATE(RHS%EVA(RHS%NPV,RHS%IMAX),RHS%FVA(RHS%NPV,RHS%JMAX),RHS%GVA(RHS%NPV,RHS%KMAX))
 
     END SUBROUTINE CONSTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -164,23 +169,26 @@ MODULE RHS_MODULE
       IF(RHS%L_FLUX) THEN
         CALL RHS%FLUX%DESTRUCT()  
         DEALLOCATE(RHS%FLUX)
+        DEALLOCATE(RHS%EA,RHS%FA,RHS%GA)
       END IF
       IF(RHS%L_VSFLUX) THEN
         CALL RHS%VSFLUX%DESTRUCT()
         DEALLOCATE(RHS%VSFLUX)
+        DEALLOCATE(RHS%EVA,RHS%FVA,RHS%GVA)
       END IF
       IF(RHS%L_MUSCL) THEN
         CALL RHS%MUSCL%DESTRUCT()
         DEALLOCATE(RHS%MUSCL)
       END IF
-      
       IF(RHS%L_CAV) THEN
         CALL RHS%CAV%DESTRUCT()
-        DEALLOCATE(RHS%CAV,RHS%ICAV)
+        DEALLOCATE(RHS%CAV)
+        IF(ALLOCATED(RHS%ICAV)) DEALLOCATE(RHS%ICAV)
       END IF
       IF(RHS%L_TURBSOURCE) THEN
         CALL RHS%TURBSOURCE%DESTRUCT()
-        DEALLOCATE(RHS%TURBSOURCE,RHS%ITT,RHS%OMEGA_CUT)
+        DEALLOCATE(RHS%TURBSOURCE,RHS%OMEGA_CUT)
+        IF(ALLOCATED(RHS%ITT)) DEALLOCATE(RHS%ITT)
       END IF
       IF(RHS%L_UNSTEADY) THEN
         CALL RHS%UNSTEADY%DESTRUCT()
@@ -188,7 +196,6 @@ MODULE RHS_MODULE
       END IF
       
       DEALLOCATE(RHS%RES)
-      DEALLOCATE(RHS%EA,RHS%FA,RHS%GA,RHS%EVA,RHS%FVA,RHS%GVA)
       
     END SUBROUTINE DESTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -200,22 +207,23 @@ MODULE RHS_MODULE
       TYPE(T_EOS), INTENT(IN) :: EOS
       INTEGER :: I,J,K
       INTEGER :: II,JJ,KK,LL
-      REAL(8) :: NX(3)
-      REAL(8) :: EX1(3),EX2(3),EX3(3),EX4(3)
-      REAL(8) :: TX1(3),TX2(3),TX3(3),TX4(3)
-      REAL(8) :: GRDL(RHS%NGRD),GRDR(RHS%NGRD)
-      REAL(8) :: X(38,RHS%NPV)
-      REAL(8) :: PVL(RHS%NPV),PVR(RHS%NPV),PV(RHS%NPV)
-      REAL(8) :: DVL(RHS%NDV),DVR(RHS%NDV)
-      REAL(8) :: TVL(RHS%NTV),TVR(RHS%NTV)
-   
-      RHS%EVA = 0.D0
-      RHS%FVA = 0.D0
-      RHS%GVA = 0.D0
+      REAL(8), TARGET :: NX(3)
+      REAL(8), TARGET :: EX1(3),EX2(3),EX3(3),EX4(3)
+      REAL(8), TARGET :: TX1(3),TX2(3),TX3(3),TX4(3)
+      REAL(8), TARGET :: GRDL(RHS%NGRD),GRDR(RHS%NGRD)
+      REAL(8), TARGET :: X(38,RHS%NPV)
+      REAL(8), TARGET :: PVL(RHS%NPV),PVR(RHS%NPV)
+      REAL(8), TARGET :: DVL(RHS%NDV),DVR(RHS%NDV)
+      REAL(8), TARGET :: TVL(RHS%NTV),TVR(RHS%NTV)
+      TYPE(T_CAV_RESULT) :: CAV_RESULT
+      TYPE(T_TURB_RESULT) :: TURB_RESULT
       
       DO K=2,RHS%KMAX
         DO J=2,RHS%JMAX
           DO I=1,RHS%IMAX
+          
+            NX = GRID%GETCX(I,J,K)
+            
             LL = 0
             DO KK = -1,1
               DO JJ = -1,1
@@ -225,6 +233,7 @@ MODULE RHS_MODULE
                 END DO
               END DO
             END DO
+            
             IF(RHS%L_MUSCL) THEN
               DO KK=-1,1
                 DO JJ= -1,1
@@ -241,10 +250,12 @@ MODULE RHS_MODULE
               X(LL+1,:) = VARIABLE%GETPV(I-2,J,K)
               X(LL+2,:) = VARIABLE%GETPV(I+3,J,K)
               
-              CALL RHS%MUSCL%SETPV(X)
+              RHS%MUSCL%X => X
               CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
               IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
               IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
+              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
+              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
               
               IF(RHS%L_TURBSOURCE) THEN
                 IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
@@ -262,12 +273,12 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I+1,J,K)
             END IF
             
-            NX = GRID%GETCX(I,J,K)
-            
-            CALL RHS%FLUX%SETNORM(NX)
-            CALL RHS%FLUX%SETPV(PVL,PVR)
-            CALL RHS%FLUX%SETDV(DVL,DVR)
-            CALL RHS%FLUX%SETSDST(X(1:18,1))
+            RHS%FLUX%NX => NX  
+            RHS%FLUX%PVL => PVL 
+            RHS%FLUX%PVR => PVR
+            RHS%FLUX%DVL => DVL 
+            RHS%FLUX%DVR => DVR
+            RHS%FLUX%SDST => X(1:18,1)
             CALL RHS%FLUX%CALFLUX(EOS,RHS%EA(:,I))
             
             IF(RHS%L_VSFLUX) THEN
@@ -285,16 +296,29 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I+1,J,K)
               TVL = VARIABLE%GETTV(I,J,K)
               TVR = VARIABLE%GETTV(I+1,J,K)
-              CALL RHS%VSFLUX%SETNORM(NX,EX1,EX2,EX3,EX4,TX1,TX2,TX3,TX4)
-              CALL RHS%VSFLUX%SETGRD(GRDL,GRDR)
-              CALL RHS%VSFLUX%SETPV(X)
-              CALL RHS%VSFLUX%SETDV(DVL,DVR)
-              CALL RHS%VSFLUX%SETTV(TVL,TVR)
+              
+              RHS%VSFLUX%NX => NX 
+              RHS%VSFLUX%EX1 => EX1 
+              RHS%VSFLUX%EX2 => EX2 
+              RHS%VSFLUX%EX3 => EX3 
+              RHS%VSFLUX%EX4 => EX4 
+              RHS%VSFLUX%TX1 => TX1 
+              RHS%VSFLUX%TX2 => TX2 
+              RHS%VSFLUX%TX3 => TX3 
+              RHS%VSFLUX%TX4 => TX4 
+              RHS%VSFLUX%GRDL => GRDL
+              RHS%VSFLUX%GRDR => GRDR
+              RHS%VSFLUX%DVL => DVL
+              RHS%VSFLUX%DVR => DVR
+              RHS%VSFLUX%TVL => TVL
+              RHS%VSFLUX%TVR => TVR
+              RHS%VSFLUX%PV => X(1:18,:)
               CALL RHS%VSFLUX%CALFLUX(RHS%EVA(:,I))
             END IF
           END DO
           DO I=2,RHS%IMAX
-            RHS%RES(:,I,J,K) = -( RHS%EA(:,I) - RHS%EA(:,I-1) ) + (RHS%EVA(:,I) - RHS%EVA(:,I-1) )
+            RHS%RES(:,I,J,K) = -( RHS%EA(:,I) - RHS%EA(:,I-1) )
+            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%EVA(:,I) - RHS%EVA(:,I-1) )
           END DO
         END DO
       END DO
@@ -302,6 +326,9 @@ MODULE RHS_MODULE
       DO I=2,RHS%IMAX
         DO K=2,RHS%KMAX
           DO J=1,RHS%JMAX
+            
+            NX = GRID%GETEX(I,J,K)
+            
             LL = 0
             DO II = -1,1
               DO KK = -1,1
@@ -328,10 +355,12 @@ MODULE RHS_MODULE
               X(LL+1,:) = VARIABLE%GETPV(I,J-2,K)
               X(LL+2,:) = VARIABLE%GETPV(I,J+3,K)
               
-              CALL RHS%MUSCL%SETPV(X)
+              RHS%MUSCL%X => X
               CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
               IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
               IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
+              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
+              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
               
               IF(RHS%L_TURBSOURCE) THEN
                 IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
@@ -349,12 +378,13 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I,J+1,K)
             END IF
 
-            NX = GRID%GETEX(I,J,K)
-            
-            CALL RHS%FLUX%SETNORM(NX)
-            CALL RHS%FLUX%SETPV(PVL,PVR)
-            CALL RHS%FLUX%SETDV(DVL,DVR)
-            CALL RHS%FLUX%SETSDST(X(1:18,1))
+
+            RHS%FLUX%NX => NX  
+            RHS%FLUX%PVL => PVL 
+            RHS%FLUX%PVR => PVR
+            RHS%FLUX%DVL => DVL 
+            RHS%FLUX%DVR => DVR
+            RHS%FLUX%SDST => X(1:18,1)
             CALL RHS%FLUX%CALFLUX(EOS,RHS%FA(:,J))
             
             IF(RHS%L_VSFLUX) THEN
@@ -372,16 +402,31 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I,J+1,K)
               TVL = VARIABLE%GETTV(I,J,K)
               TVR = VARIABLE%GETTV(I,J+1,K)
-              CALL RHS%VSFLUX%SETNORM(NX,EX1,EX2,EX3,EX4,TX1,TX2,TX3,TX4)
-              CALL RHS%VSFLUX%SETGRD(GRDL,GRDR)
-              CALL RHS%VSFLUX%SETPV(X)
-              CALL RHS%VSFLUX%SETDV(DVL,DVR)
-              CALL RHS%VSFLUX%SETTV(TVL,TVR)
+
+              
+              
+              RHS%VSFLUX%NX => NX 
+              RHS%VSFLUX%EX1 => EX1 
+              RHS%VSFLUX%EX2 => EX2 
+              RHS%VSFLUX%EX3 => EX3 
+              RHS%VSFLUX%EX4 => EX4 
+              RHS%VSFLUX%TX1 => TX1 
+              RHS%VSFLUX%TX2 => TX2 
+              RHS%VSFLUX%TX3 => TX3 
+              RHS%VSFLUX%TX4 => TX4 
+              RHS%VSFLUX%GRDL => GRDL
+              RHS%VSFLUX%GRDR => GRDR
+              RHS%VSFLUX%DVL => DVL
+              RHS%VSFLUX%DVR => DVR
+              RHS%VSFLUX%TVL => TVL
+              RHS%VSFLUX%TVR => TVR
+              RHS%VSFLUX%PV => X(1:18,:)
               CALL RHS%VSFLUX%CALFLUX(RHS%FVA(:,J))
             END IF
           END DO
           DO J=2,RHS%JMAX
-            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) -( RHS%FA(:,J) - RHS%FA(:,J-1) ) + (RHS%FVA(:,J) - RHS%FVA(:,J-1) )
+            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) -( RHS%FA(:,J) - RHS%FA(:,J-1) )
+            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%FVA(:,J) - RHS%FVA(:,J-1) )
           END DO
         END DO
       END DO
@@ -389,6 +434,9 @@ MODULE RHS_MODULE
       DO J=2,RHS%JMAX
         DO I=2,RHS%IMAX
           DO K=1,RHS%KMAX
+          
+            NX = GRID%GETTX(I,J,K)
+            
             LL = 0
             DO JJ = -1,1
               DO II = -1,1
@@ -415,10 +463,12 @@ MODULE RHS_MODULE
               X(LL+1,:) = VARIABLE%GETPV(I,J,K-2)
               X(LL+2,:) = VARIABLE%GETPV(I,J,K+3)
               
-              CALL RHS%MUSCL%SETPV(X)
+              RHS%MUSCL%X => X
               CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
               IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
               IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
+              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
+              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
               
               IF(RHS%L_TURBSOURCE) THEN
                 IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
@@ -436,12 +486,14 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I,J,K+1)
             END IF
 
-            NX = GRID%GETTX(I,J,K)
             
-            CALL RHS%FLUX%SETNORM(NX)
-            CALL RHS%FLUX%SETPV(PVL,PVR)
-            CALL RHS%FLUX%SETDV(DVL,DVR)
-            CALL RHS%FLUX%SETSDST(X(1:18,1))
+            
+            RHS%FLUX%NX => NX  
+            RHS%FLUX%PVL => PVL 
+            RHS%FLUX%PVR => PVR
+            RHS%FLUX%DVL => DVL 
+            RHS%FLUX%DVR => DVR
+            RHS%FLUX%SDST => X(1:18,1)
             CALL RHS%FLUX%CALFLUX(EOS,RHS%GA(:,K))
             
             IF(RHS%L_VSFLUX) THEN
@@ -459,16 +511,29 @@ MODULE RHS_MODULE
               DVR = VARIABLE%GETDV(I,J,K+1)
               TVL = VARIABLE%GETTV(I,J,K)
               TVR = VARIABLE%GETTV(I,J,K+1)
-              CALL RHS%VSFLUX%SETNORM(NX,EX1,EX2,EX3,EX4,TX1,TX2,TX3,TX4)
-              CALL RHS%VSFLUX%SETGRD(GRDL,GRDR)
-              CALL RHS%VSFLUX%SETPV(X)
-              CALL RHS%VSFLUX%SETDV(DVL,DVR)
-              CALL RHS%VSFLUX%SETTV(TVL,TVR)
+
+              RHS%VSFLUX%NX => NX 
+              RHS%VSFLUX%EX1 => EX1 
+              RHS%VSFLUX%EX2 => EX2 
+              RHS%VSFLUX%EX3 => EX3 
+              RHS%VSFLUX%EX4 => EX4 
+              RHS%VSFLUX%TX1 => TX1 
+              RHS%VSFLUX%TX2 => TX2 
+              RHS%VSFLUX%TX3 => TX3 
+              RHS%VSFLUX%TX4 => TX4 
+              RHS%VSFLUX%GRDL => GRDL
+              RHS%VSFLUX%GRDR => GRDR
+              RHS%VSFLUX%DVL => DVL
+              RHS%VSFLUX%DVR => DVR
+              RHS%VSFLUX%TVL => TVL
+              RHS%VSFLUX%TVR => TVR
+              RHS%VSFLUX%PV => X(1:18,:)
               CALL RHS%VSFLUX%CALFLUX(RHS%GVA(:,K))
             END IF
           END DO
           DO K=2,RHS%KMAX
-            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) -( RHS%GA(:,K) - RHS%GA(:,K-1) ) + (RHS%GVA(:,K) - RHS%GVA(:,K-1) )
+            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) - ( RHS%GA(:,K) - RHS%GA(:,K-1) ) 
+            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%GVA(:,K) - RHS%GVA(:,K-1) )
           END DO
         END DO
       END DO
@@ -490,36 +555,43 @@ MODULE RHS_MODULE
             X(5,:) = VARIABLE%GETPV(I,J+1,K)
             X(6,:) = VARIABLE%GETPV(I,J,K-1)
             X(7,:) = VARIABLE%GETPV(I,J,K+1)
-            PV = X(2,:)
             DVL = VARIABLE%GETDV(I,J,K)
             TVL = VARIABLE%GETTV(I,J,K)
         
             IF(RHS%L_CAV) THEN
-              CALL RHS%CAV%SETGRD(GRDL)
-              CALL RHS%CAV%SETPV(PV)
-              CALL RHS%CAV%SETDV(DVL)
-              RHS%ICAV(:,I,J,K) = RHS%CAV%CAVSOURCE(EOS)
-              RHS%RES(6,I,J,K) = RHS%RES(6,I,J,K) + RHS%ICAV(0,I,J,K)
+              RHS%CAV%GRD => GRDL
+              RHS%CAV%PV => X(2,:)
+              RHS%CAV%DV => DVL
+              CAV_RESULT = RHS%CAV%CAVSOURCE(EOS)
+              RHS%RES(6,I,J,K) = RHS%RES(6,I,J,K) + CAV_RESULT%CAVSOURCE
+              IF(ALLOCATED(RHS%ICAV)) RHS%ICAV(:,I,J,K) = CAV_RESULT%ICAV(:)
             END IF
             
             IF(RHS%L_TURBSOURCE) THEN
-              CALL RHS%TURBSOURCE%SETNORM(EX1,EX2,EX3,EX4,TX1,TX2)
-              CALL RHS%TURBSOURCE%SETGRD(GRDL)
-              CALL RHS%TURBSOURCE%SETPV(X)
-              CALL RHS%TURBSOURCE%SETDV(DVL)
-              CALL RHS%TURBSOURCE%SETTV(TVL)
-              RHS%ITT(:,I,J,K) = RHS%TURBSOURCE%CALTURBSOURCE()
-              RHS%OMEGA_CUT(I,J,K) = RHS%TURBSOURCE%GETOMEGA_CUT()
-              RHS%RES(8:9,I,J,K) = RHS%RES(8:9,I,J,K) + RHS%ITT(1:2,I,J,K)
+              RHS%TURBSOURCE%CX1 => EX1
+              RHS%TURBSOURCE%CX2 => EX2
+              RHS%TURBSOURCE%EX1 => EX3
+              RHS%TURBSOURCE%EX2 => EX4
+              RHS%TURBSOURCE%TX1 => TX1
+              RHS%TURBSOURCE%TX2 => TX2
+              RHS%TURBSOURCE%GRD => GRDL
+              RHS%TURBSOURCE%PV => X(1:7,:)
+              RHS%TURBSOURCE%DV => DVL
+              RHS%TURBSOURCE%TV => TVL
+              TURB_RESULT = RHS%TURBSOURCE%CALTURBSOURCE()
+              RHS%OMEGA_CUT(I,J,K) = TURB_RESULT%OMEGA_CUT
+              RHS%RES(8:9,I,J,K) = RHS%RES(8:9,I,J,K) + TURB_RESULT%SOURCE(:)
+              IF(ALLOCATED(RHS%ITT)) RHS%ITT(:,I,J,K) = TURB_RESULT%ITT(:)
             END IF
             
             IF(RHS%L_UNSTEADY) THEN
               PVL = VARIABLE%GETQQ(1,I,J,K)
               PVR = VARIABLE%GETQQ(2,I,J,K)
-              CALL RHS%UNSTEADY%SETGRD(GRDL)
-              CALL RHS%UNSTEADY%SETPV(PV)
-              CALL RHS%UNSTEADY%SETDV(DVL)
-              CALL RHS%UNSTEADY%SETQQ(PVL,PVR)
+              RHS%UNSTEADY%GRD => GRDL
+              RHS%UNSTEADY%PV => X(2,:)
+              RHS%UNSTEADY%DV => DVL
+              RHS%UNSTEADY%QQ1 => PVL
+              RHS%UNSTEADY%QQ2 => PVR
               RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) - RHS%UNSTEADY%UNSTEADYSOURCE()
             END IF
             
@@ -544,7 +616,7 @@ MODULE RHS_MODULE
       INTEGER, INTENT(IN) :: I,J,K
       REAL(8) :: GETICAV(4)
       
-      GETICAV = RHS%ICAV(1:4,I,J,K)
+      GETICAV = RHS%ICAV(:,I,J,K)
       
     END FUNCTION GETICAV
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -554,7 +626,7 @@ MODULE RHS_MODULE
       INTEGER, INTENT(IN) :: I,J,K
       REAL(8) :: GETITT(4)
       
-      GETITT= RHS%ITT(3:6,I,J,K)
+      GETITT= RHS%ITT(:,I,J,K)
       
     END FUNCTION GETITT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC

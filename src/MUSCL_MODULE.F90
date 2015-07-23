@@ -8,13 +8,12 @@ MODULE MUSCL_MODULE
   TYPE, ABSTRACT :: T_MUSCL
     PRIVATE
     INTEGER :: NPV
-    REAL(8), POINTER :: X(:,:)
+    REAL(8), POINTER, PUBLIC :: X(:,:)
     REAL(8) :: R(2),R1(2),R2(2),ALP(2)
     PROCEDURE(P_LIMITER), POINTER :: LIMITER
     CONTAINS
       PROCEDURE :: CONSTRUCT                                !(ITURB,LIM)
       PROCEDURE :: DESTRUCT
-      PROCEDURE :: SETPV                                    !(X(14,NPV))
       PROCEDURE(P_INTERPOLATION), DEFERRED :: INTERPOLATION !(XL(NPV),XR(NPV))
   END TYPE T_MUSCL
 
@@ -88,23 +87,14 @@ MODULE MUSCL_MODULE
 
     END SUBROUTINE DESTRUCT
     !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETPV(MUSCL,X)
-      IMPLICIT NONE
-      CLASS(T_MUSCL), INTENT(INOUT) :: MUSCL
-      REAL(8), INTENT(IN), TARGET :: X(38,MUSCL%NPV)
-      
-      MUSCL%X => X
-      
-    END SUBROUTINE SETPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
     SUBROUTINE TVD(MUSCL,XL,XR)
       IMPLICIT NONE
       CLASS(T_TVD), INTENT(INOUT) :: MUSCL
       REAL(8), INTENT(OUT) :: XL(MUSCL%NPV),XR(MUSCL%NPV)
       INTEGER :: K
-      REAL(8) :: DQ,DQM,DQP,DQM1,DQP1
+      REAL(8) :: DQ,DQM,DQP,DQM1,DQP1,DQMM,DQPP
+      REAL(8), PARAMETER :: EPS = 1.D-16
 
-      
       DO K = 1, MUSCL%NPV    
         DQ   = MUSCL%X(10,K) - MUSCL%X(9,K)  !I+1/2
         DQM  = MUSCL%X(9,K)  - MUSCL%X(23,K) !I-1/2
@@ -112,23 +102,25 @@ MODULE MUSCL_MODULE
         DQP  = MUSCL%X(32,K) - MUSCL%X(10,K) !I+3/2
         DQP1 = MUSCL%X(38,K) - MUSCL%X(32,K) !I+5/2
 
-        IF(DABS(DQM).LE. 1.D-10) THEN
+        IF(DABS(DQM).LE.EPS) THEN
           MUSCL%R(1)  = 0.D0
           MUSCL%R1(1) = 0.D0
           MUSCL%R2(1) = 0.D0
         ELSE
-          MUSCL%R(1)  = DQ/DQM
-          MUSCL%R1(1) = DQM1/DQM ! INVERSE
-          MUSCL%R2(1) = DQP/DQM
+          DQMM = 1.D0/DQM
+          MUSCL%R(1)  = DQ*DQMM
+          MUSCL%R1(1) = DQM1*DQMM ! INVERSE
+          MUSCL%R2(1) = DQP*DQMM
         END IF
-        IF(DABS(DQP).LE.1.D-10) THEN
+        IF(DABS(DQP).LE.EPS) THEN
           MUSCL%R(2)  = 0.D0
           MUSCL%R1(2) = 0.D0
           MUSCL%R2(2) = 0.D0
         ELSE
-          MUSCL%R(2)  = DQ/DQP ! INVERSE
-          MUSCL%R1(2) = DQP1/DQP
-          MUSCL%R2(2) = DQM/DQP ! INVERSE
+          DQPP = 1.D0/DQP
+          MUSCL%R(2)  = DQ*DQPP ! INVERSE
+          MUSCL%R1(2) = DQP1*DQPP
+          MUSCL%R2(2) = DQM*DQPP ! INVERSE
         END IF
       
         MUSCL%ALP(1) = 2.D0
@@ -144,44 +136,46 @@ MODULE MUSCL_MODULE
       CLASS(T_MLP), INTENT(INOUT) :: MUSCL
       REAL(8), INTENT(OUT) :: XL(MUSCL%NPV),XR(MUSCL%NPV)
       INTEGER :: K
-      REAL(8) :: DQ,DQM,DQP,DQM1,DQP1
+      REAL(8) :: DQ,DQM,DQP,DQM1,DQP1,DQMM,DQPP
       REAL(8) :: RXY_L,RXY_R,RXZ_L,RXZ_R,QML,QMR,QMIN,QMAX
-      REAL(8), PARAMETER :: EPS = 1.D-2
+      REAL(8), PARAMETER :: EPS = 1.D-16, EPS2 = 1.D-2
 
-      DO K = 1, MUSCL%NPV     
+      DO K = 1, MUSCL%NPV    
         DQ   = MUSCL%X(10,K) - MUSCL%X(9,K)  !I+1/2
         DQM  = MUSCL%X(9,K)  - MUSCL%X(23,K) !I-1/2
         DQM1 = MUSCL%X(23,K) - MUSCL%X(37,K) !I-3/2
         DQP  = MUSCL%X(32,K) - MUSCL%X(10,K) !I+3/2
         DQP1 = MUSCL%X(38,K) - MUSCL%X(32,K) !I+5/2
 
-        IF(DABS(DQM).LE. 1.D-10) THEN
+        IF(DABS(DQM).LE.EPS) THEN
           MUSCL%R(1)  = 0.D0
           MUSCL%R1(1) = 0.D0
           MUSCL%R2(1) = 0.D0
         ELSE
-          MUSCL%R(1)  = DQ/DQM
-          MUSCL%R1(1) = DQM1/DQM ! INVERSE
-          MUSCL%R2(1) = DQP/DQM
+          DQMM = 1.D0/DQM
+          MUSCL%R(1)  = DQ*DQMM
+          MUSCL%R1(1) = DQM1*DQMM ! INVERSE
+          MUSCL%R2(1) = DQP*DQMM
         END IF
-        IF(DABS(DQP).LE.1.D-10) THEN
+        IF(DABS(DQP).LE.EPS) THEN
           MUSCL%R(2)  = 0.D0
           MUSCL%R1(2) = 0.D0
           MUSCL%R2(2) = 0.D0
         ELSE
-          MUSCL%R(2)  = DQ/DQP ! INVERSE
-          MUSCL%R1(2) = DQP1/DQP
-          MUSCL%R2(2) = DQM/DQP ! INVERSE
+          DQPP = 1.D0/DQP
+          MUSCL%R(2)  = DQ*DQPP ! INVERSE
+          MUSCL%R1(2) = DQP1*DQPP
+          MUSCL%R2(2) = DQM*DQPP ! INVERSE
         END IF
 
-        IF(DABS(MUSCL%X(10,K)-MUSCL%X(23,K)).LE.1.D-10) THEN
+        IF(DABS(MUSCL%X(10,K)-MUSCL%X(23,K)).LE.EPS) THEN
           RXY_L = 0.D0
           RXZ_L = 0.D0
         ELSE
           RXY_L = DABS((MUSCL%X(11,K)-MUSCL%X(7,K))/(MUSCL%X(10,K)-MUSCL%X(23,K)))
           RXZ_L = DABS((MUSCL%X(15,K)-MUSCL%X(3,K))/(MUSCL%X(10,K)-MUSCL%X(23,K)))
         END IF
-        IF(DABS(MUSCL%X(32,K)-MUSCL%X(9,K)).LE.1.D-10) THEN
+        IF(DABS(MUSCL%X(32,K)-MUSCL%X(9,K)).LE.EPS) THEN
           RXY_R = 0.D0
           RXZ_R = 0.D0
         ELSE      
@@ -189,7 +183,7 @@ MODULE MUSCL_MODULE
           RXZ_R = DABS((MUSCL%X(16,K)-MUSCL%X(4,K))/(MUSCL%X(32,K)-MUSCL%X(9,K)))
         END IF
         
-        IF((RXY_L.LT.EPS).AND.(RXZ_L.LT.EPS)) THEN
+        IF((RXY_L.LT.EPS2).AND.(RXZ_L.LT.EPS2)) THEN
           QMIN = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
                        MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K), &
                        MUSCL%X(19,K),MUSCL%X(20,K),MUSCL%X(21,K),MUSCL%X(22,K),MUSCL%X(23,K),MUSCL%X(24,K),MUSCL%X(25,K),MUSCL%X(26,K),MUSCL%X(27,K) )
@@ -211,7 +205,7 @@ MODULE MUSCL_MODULE
         END IF
         QML = DMIN1(DABS(QMAX-MUSCL%X(9,K)),DABS(QMIN-MUSCL%X(9,K)))
         
-        IF((RXY_R.LT.EPS).AND.(RXZ_R.LT.EPS)) THEN
+        IF((RXY_R.LT.EPS2).AND.(RXZ_R.LT.EPS2)) THEN
           QMIN = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
                        MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K), &
                        MUSCL%X(28,K),MUSCL%X(29,K),MUSCL%X(30,K),MUSCL%X(31,K),MUSCL%X(32,K),MUSCL%X(33,K),MUSCL%X(34,K),MUSCL%X(35,K),MUSCL%X(36,K) )
@@ -234,14 +228,18 @@ MODULE MUSCL_MODULE
         QMR = DMIN1(DABS(QMAX-MUSCL%X(10,K)),DABS(QMIN-MUSCL%X(10,K)))
         
         !IF(DQ.GT.0.D0) THEN
-        !  QML = DMAX1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K))
-        !  QMR = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K))        
+        !  QML = DMAX1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
+        !              MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K) )-MUSCL%X(9,K)
+        !  QMR = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
+        !              MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K) )-MUSCL%X(10,K))        
         !ELSE
-        !  QML = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K))
-        !  QMR = DMAX1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K))
+        !  QML = DMIN1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
+        !              MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K) )-MUSCL%X(9,K)
+        !  QMR = DMAX1(MUSCL%X(1,K),MUSCL%X(2,K),MUSCL%X(3,K),MUSCL%X(4,K),MUSCL%X(5,K),MUSCL%X(6,K),MUSCL%X(7,K),MUSCL%X(8,K),MUSCL%X(9,K),          &
+        !              MUSCL%X(10,K),MUSCL%X(11,K),MUSCL%X(12,K),MUSCL%X(13,K),MUSCL%X(14,K),MUSCL%X(15,K),MUSCL%X(16,K),MUSCL%X(17,K),MUSCL%X(18,K) )-MUSCL%X(10,K))
         !END IF
 
-        IF(DABS(DQ).LE.1.D-10) THEN
+        IF(DABS(DQ).LE.EPS) THEN
           MUSCL%ALP(1) = 2.D0
           MUSCL%ALP(2) = 2.D0
         ELSE
