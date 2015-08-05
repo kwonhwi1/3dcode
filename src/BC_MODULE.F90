@@ -19,7 +19,7 @@ MODULE BC_MODULE
   
   TYPE T_BC
     PRIVATE
-    INTEGER :: RANK,SIZE,NBC,NCON
+    INTEGER :: RANK,SIZE,ITURB,NBC,NCON
     INTEGER :: NPV,NTV,NDV,NGRD
     TYPE(T_REF) :: REF
     TYPE(T_BCINFO_P), DIMENSION(:), ALLOCATABLE :: BCINFO
@@ -63,7 +63,8 @@ MODULE BC_MODULE
       
       BC%RANK = CONFIG%GETRANK() 
       BC%SIZE = CONFIG%GETSIZE()
-
+      BC%ITURB = CONFIG%GETITURB()
+      
       BC%NBC = GRID%GETNBC()
       BC%NCON = GRID%GETNCON()
       BC%NPV = VARIABLE%GETNPV()
@@ -562,14 +563,76 @@ MODULE BC_MODULE
       TYPE(T_PROP), INTENT(IN) :: PROP
       INTEGER, INTENT(IN) :: I,J,K,II,JJ,KK
       INTEGER :: N
-      REAL(8) :: DQDX(BC%NPV),DQDY(BC%NPV),DQDZ(BC%NPV),PV(BC%NPV)
+      REAL(8) :: PV(BC%NPV),PVX(BC%NPV),PVY(BC%NPV),PVZ(BC%NPV)
       REAL(8) :: DV(BC%NDV),TV(BC%NTV)
-      REAL(8), PARAMETER :: C13 = 1.D0/3.D0
       
-      DQDX = C13*(VARIABLE%GETPV(I+II,J,K)-VARIABLE%GETPV(I,J,K))
-      DQDY = C13*(VARIABLE%GETPV(I,J+JJ,K)-VARIABLE%GETPV(I,J,K))
-      DQDZ = C13*(VARIABLE%GETPV(I,J,K+KK)-VARIABLE%GETPV(I,J,K))
+      PV = VARIABLE%GETPV(I,J,K)
+      PVX = VARIABLE%GETPV(I+II,J,K)
+      PVY = VARIABLE%GETPV(I,J+JJ,K)
+      PVZ = VARIABLE%GETPV(I,J,K+KK)
     
+      IF((-PV(2).EQ.PVX(2)).AND.(-PV(3).EQ.PVX(3)).AND.(-PV(4).EQ.PVX(4)) THEN
+        IF((-PV(2).EQ.PVY(2)).AND.(-PV(3).EQ.PVY(3)).AND.(-PV(4).EQ.PVY(4))) THEN
+          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
+!----------- WALL-WALL-WALL(X,Y,Z)
+            PV = VARIABLE%GETPV(I,J,K)
+            PV(2) = -PV(2)
+            PV(3) = -PV(3)
+            PV(4) = -PV(4)
+            IF(BC%ITURB.EQ.0) THEN
+              PV(8) = -PV(8)
+            ELSE IF(BC%ITURB.EQ.-1) THEN
+              PV(8) = -PV(8)
+              PV(9) = -PV(9)
+            END IF
+          ELSE
+!----------- WALL-WALL(X,Y)
+            IF(KK.EQ.0) THEN
+              PV = VARIABLE%GETPV(I,J,K)
+            ELSE
+            
+            END IF
+          END IF
+        ELSE 
+          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
+!----------- WALL-WALL(X,Z)
+            IF(JJ.EQ.0) THEN
+              PV = VARIABLE%GETPV(I,J,K)
+            ELSE
+            
+            END IF
+          ELSE 
+!----------- WALL(X)
+            IF((JJ.EQ.0).OR.(KK.EQ.0)) THEN
+              PV = VARIABLE%GETPV(I,J+JJ,K+KK)
+            ELSE
+            
+            END IF
+          END IF
+        END IF
+      ELSE
+        IF((-PV(2).EQ.PVY(2)).AND.(-PV(3).EQ.PVY(3)).AND.(-PV(4).EQ.PVY(4))) THEN
+          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
+!----------- WALL-WALL(Y,Z)
+            IF(II.EQ.0) THEN
+              PV = VARIABLE%GETPV(I,J,K) 
+            ELSE
+            
+            END IF
+          ELSE
+!----------- WALL(Y)
+            PV = VARIABLE%GETPV(I+II,J,K+KK)
+          END IF
+        ELSE 
+          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
+!----------- WALL(Z)
+            PV = VARIABLE%GETPV(I,J,K)
+          ELSE
+!----------- NO WALL
+            PV = 1.D0/3.D0*(PVX+PVY+PVZ)
+          END IF
+        END IF
+      END IF
       
       DO N=1,BC%NPV
         CALL VARIABLE%SETPV(N,I+II,J+JJ,K+KK,PV(N))
