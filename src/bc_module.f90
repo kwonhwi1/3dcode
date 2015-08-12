@@ -1,2890 +1,2899 @@
-MODULE BC_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_BC
+module bc_module
+  use config_module
+  use grid_module
+  use variable_module
+  use eos_module
+  use prop_module
+  implicit none
+  private
+  public :: t_bc
   
-  TYPE, EXTENDS(T_BCINFO) :: T_BCINFO_P
-    PROCEDURE(P_BCTYPE), POINTER :: BCTYPE
-    CHARACTER(4) :: FACE
-  END TYPE T_BCINFO_P
+  type, extends(t_bcinfo) :: t_bcinfo2
+    integer :: origin(3),dir(3)
+    character(4) :: face
+    procedure(p_bctype), pointer :: bctype
+  end type t_bcinfo2
   
-  TYPE T_REF
-    REAL(8), DIMENSION(:), ALLOCATABLE :: PV,TV,DV
-  END TYPE T_REF
+  type t_ref
+    real(8), dimension(:), allocatable :: pv,tv,dv
+  end type t_ref
   
-  TYPE T_BC
-    PRIVATE
-    INTEGER :: RANK,SIZE,ITURB,NBC,NCON
-    INTEGER :: NPV,NTV,NDV,NGRD
-    TYPE(T_REF) :: REF
-    TYPE(T_BCINFO_P), DIMENSION(:), ALLOCATABLE :: BCINFO
-    TYPE(T_CONNECTINFO), DIMENSION(:), ALLOCATABLE ::CONNECTINFO
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: SETBC
-      PROCEDURE, PRIVATE :: BCCORNER
-  END TYPE T_BC
+  type t_mpitemp
+    integer :: num
+    integer :: sendadress(21),recvadress(21)
+    real(8), dimension(:), allocatable :: sendbuf,recvbuf
+  end type t_moitemp
 
-  INTERFACE
-    SUBROUTINE P_BCTYPE(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPORT T_BCINFO_P
-      IMPORT T_REF
-      IMPORT T_GRID
-      IMPORT T_VARIABLE
-      IMPORT T_EOS
-      IMPORT T_PROP  
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-    END SUBROUTINE P_BCTYPE
-  END INTERFACE
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(BC,CONFIG,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BC), INTENT(OUT) :: BC
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: L,N,M
-      INTEGER, PARAMETER :: DIM = 3
-      
-      BC%RANK = CONFIG%GETRANK() 
-      BC%SIZE = CONFIG%GETSIZE()
-      BC%ITURB = CONFIG%GETITURB()
-      
-      BC%NBC = GRID%GETNBC()
-      BC%NCON = GRID%GETNCON()
-      BC%NPV = VARIABLE%GETNPV()
-      BC%NTV = VARIABLE%GETNTV()
-      BC%NDV = VARIABLE%GETNDV()
-      BC%NGRD = GRID%GETNGRD()
+  type t_bc
+    private
+    integer :: rank,size,iturb,nbc,ncon
+    integer :: npv,ntv,ndv,ngrd
+    type(t_ref) :: ref
+    type(t_bcinfo2), dimension(:), allocatable :: bcinfo
+    type(t_bcinfo2) :: corner(8),edge(12)
+    type(t_connectinfo), dimension(:), allocatable :: connectinfo
+    type(t_mpitemp), dimension(:), allocatable :: mpitemp
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: setbc
+      procedure, private :: bccorner
+  end type t_bc
 
-      ALLOCATE(BC%REF%PV(BC%NPV),BC%REF%DV(BC%NDV),BC%REF%TV(BC%NTV))
+  interface
+    subroutine p_bctype(bcinfo,ref,grid,variable,eos,prop)
+      import t_bcinfo2
+      import t_ref
+      import t_grid
+      import t_variable
+      import t_eos
+      import t_prop  
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+    end subroutine p_bctype
+  end interface
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(bc,config,grid,variable,eos,prop)
+      implicit none
+      class(t_bc), intent(out) :: bc
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: l,n,m
+      integer, parameter :: dim = 3
       
-      BC%REF%PV(1) = CONFIG%GETPREF()
-      BC%REF%PV(2) = CONFIG%GETUREF()*DCOS(CONFIG%GETAOA())
-      BC%REF%PV(3) = CONFIG%GETUREF()*DSIN(CONFIG%GETAOA())
-      BC%REF%PV(4) = 0.D0
-      BC%REF%PV(5) = CONFIG%GETTREF()
-      BC%REF%PV(6) = CONFIG%GETY1REF()
-      BC%REF%PV(7) = CONFIG%GETY2REF()
+      bc%rank = config%getrank() 
+      bc%size = config%getsize()
+      bc%iturb = config%getiturb()
       
-      CALL EOS%DETEOS(BC%REF%PV(1),BC%REF%PV(5),BC%REF%PV(6),BC%REF%PV(7),BC%REF%DV)
+      bc%nbc = grid%getnbc()
+      bc%ncon = grid%getncon()
+      bc%npv = variable%getnpv()
+      bc%ntv = variable%getntv()
+      bc%ndv = variable%getndv()
+      bc%ngrd = grid%getngrd()
+
+      allocate(bc%ref%pv(bc%npv),bc%ref%dv(bc%ndv),bc%ref%tv(bc%ntv))
       
-      IF(CONFIG%GETITURB().GE.-2) THEN
-        CALL PROP%DETPROP(BC%REF%DV(3),BC%REF%DV(4),BC%REF%DV(5),BC%REF%PV(5),BC%REF%PV(6),BC%REF%PV(7),BC%REF%TV(1:2))
-        IF(CONFIG%GETITURB().GE.-1) THEN
-          BC%REF%TV(3) = CONFIG%GETEMUTREF()
-          BC%REF%PV(8) = CONFIG%GETKREF()
-          BC%REF%PV(9) = CONFIG%GETOREF()
-        END IF
-      END IF
+      bc%ref%pv(1) = config%getpref()
+      bc%ref%pv(2) = config%geturef()*dcos(config%getaoa())
+      bc%ref%pv(3) = config%geturef()*dsin(config%getaoa())
+      bc%ref%pv(4) = 0.d0
+      bc%ref%pv(5) = config%gettref()
+      bc%ref%pv(6) = config%gety1ref()
+      bc%ref%pv(7) = config%gety2ref()
+      
+      call eos%deteos(bc%ref%pv(1),bc%ref%pv(5),bc%ref%pv(6),bc%ref%pv(7),bc%ref%dv)
+      
+      if(config%getiturb().ge.-2) then
+        call prop%detprop(bc%ref%dv(3),bc%ref%dv(4),bc%ref%dv(5),bc%ref%pv(5),bc%ref%pv(6),bc%ref%pv(7),bc%ref%tv(1:2))
+        if(config%getiturb().ge.-1) then
+          bc%ref%tv(3) = config%getemutref()
+          bc%ref%pv(8) = config%getkref()
+          bc%ref%pv(9) = config%getoref()
+        end if
+      end if
  
-      ALLOCATE(BC%BCINFO(BC%NBC),BC%CONNECTINFO(BC%NCON))
+      allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
       
-      DO N=1,BC%NBC
-        BC%BCINFO(N)%BCNAME = GRID%GETBCNAME(N)
-        DO M=1,DIM
-          BC%BCINFO(N)%ISTART(M) = GRID%GETBCISTART(N,M)
-          BC%BCINFO(N)%IEND(M)   = GRID%GETBCIEND(N,M)
-        END DO
+      do n=1,bc%nbc
+        bc%bcinfo(n)%bcname = grid%getbcname(n)
+        do m=1,dim
+          bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
+          bc%bcinfo(n)%iend(m)   = grid%getbciend(n,m)
+        end do
         
-        IF(BC%BCINFO(N)%ISTART(2).EQ.BC%BCINFO(N)%IEND(2)) THEN
-          IF(BC%BCINFO(N)%ISTART(2).EQ.1) THEN
-            BC%BCINFO(N)%FACE = 'JMIN'
-            BC%BCINFO(N)%ISTART(2) = BC%BCINFO(N)%ISTART(2)-2
-          ELSE
-            BC%BCINFO(N)%FACE = 'JMAX'
-            BC%BCINFO(N)%IEND(2) = BC%BCINFO(N)%IEND(2)+2
-          END IF
-        ELSE IF(BC%BCINFO(N)%ISTART(1).EQ.BC%BCINFO(N)%IEND(1)) THEN
-          IF(BC%BCINFO(N)%ISTART(1).EQ.1) THEN
-            BC%BCINFO(N)%FACE = 'IMIN'
-            BC%BCINFO(N)%ISTART(1) = BC%BCINFO(N)%ISTART(1)-2
-          ELSE
-            BC%BCINFO(N)%FACE = 'IMAX'
-            BC%BCINFO(N)%IEND(1) = BC%BCINFO(N)%IEND(1)+2
-          END IF
-        ELSE IF(BC%BCINFO(N)%ISTART(3).EQ.BC%BCINFO(N)%IEND(3)) THEN
-          IF(BC%BCINFO(N)%ISTART(3).EQ.1) THEN
-            BC%BCINFO(N)%FACE = 'KMIN'
-            BC%BCINFO(N)%ISTART(3) = BC%BCINFO(N)%ISTART(3)-2
-          ELSE
-            BC%BCINFO(N)%FACE = 'KMAX'
-            BC%BCINFO(N)%IEND(3) = BC%BCINFO(N)%IEND(3)+2
-          END IF 
-        END IF
+        if(bc%bcinfo(n)%istart(2).eq.bc%bcinfo(n)%iend(2)) then
+          if(bc%bcinfo(n)%istart(2).eq.1) then
+            bc%bcinfo(n)%face = 'jmin'
+            bc%bcinfo(n)%istart(2) = bc%bcinfo(n)%istart(2)-2
+          else
+            bc%bcinfo(n)%face = 'jmax'
+            bc%bcinfo(n)%iend(2) = bc%bcinfo(n)%iend(2)+2
+          end if
+        else if(bc%bcinfo(n)%istart(1).eq.bc%bcinfo(n)%iend(1)) then
+          if(bc%bcinfo(n)%istart(1).eq.1) then
+            bc%bcinfo(n)%face = 'imin'
+            bc%bcinfo(n)%istart(1) = bc%bcinfo(n)%istart(1)-2
+          else
+            bc%bcinfo(n)%face = 'imax'
+            bc%bcinfo(n)%iend(1) = bc%bcinfo(n)%iend(1)+2
+          end if
+        else if(bc%bcinfo(n)%istart(3).eq.bc%bcinfo(n)%iend(3)) then
+          if(bc%bcinfo(n)%istart(3).eq.1) then
+            bc%bcinfo(n)%face = 'kmin'
+            bc%bcinfo(n)%istart(3) = bc%bcinfo(n)%istart(3)-2
+          else
+            bc%bcinfo(n)%face = 'kmax'
+            bc%bcinfo(n)%iend(3) = bc%bcinfo(n)%iend(3)+2
+          end if 
+        end if
         
-        IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCWallInviscid') THEN
-          BC%BCINFO(N)%BCTYPE => BCWALLINVISCID
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCWallViscous') THEN
-          SELECT CASE(CONFIG%GETITURB())
-          CASE(-1)
-            BC%BCINFO(N)%BCTYPE => BCWALLVISCOUSKE
-          CASE(0)
-            BC%BCINFO(N)%BCTYPE => BCWALLVISCOUSKW
-          CASE DEFAULT
-            BC%BCINFO(N)%BCTYPE => BCWALLVISCOUS
-          END SELECT
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCInflow') THEN
-          BC%BCINFO(N)%BCTYPE => BCINFLOW
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCInflowSubsonic') THEN
-          BC%BCINFO(N)%BCTYPE => BCINFLOWSUBSONIC
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCInflowSupersonic') THEN
-          BC%BCINFO(N)%BCTYPE => BCINFLOWSUPERSONIC
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCOutflow') THEN
-          BC%BCINFO(N)%BCTYPE => BCOUTFLOW
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCOutflowSubsonic') THEN
-          BC%BCINFO(N)%BCTYPE => BCOUTFLOWSUBSONIC
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCOutflowSupersonic') THEN
-          BC%BCINFO(N)%BCTYPE => BCOUTFLOWSUPERSONIC
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCFarfield') THEN
-          BC%BCINFO(N)%BCTYPE => BCFARFIELD
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCDegeneratePoint') THEN
-          BC%BCINFO(N)%BCTYPE => BCDEGENERATEPOINT
-        ELSE IF(TRIM(BC%BCINFO(N)%BCNAME).EQ.'BCSymmetryPlane') THEN
-          BC%BCINFO(N)%BCTYPE => BCDEGENERATEPOINT
-        ELSE
-          BC%BCINFO(N)%BCTYPE => NULL()
-          WRITE(*,*) 'ERROR, CHECK BC NAME'
-          STOP
-        END IF
-      END DO
+        if(trim(bc%bcinfo(n)%bcname).eq.'bcwallinviscid') then
+          bc%bcinfo(n)%bctype => bcwallinviscid
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcwallviscous') then
+          select case(config%getiturb())
+          case(-1)
+            bc%bcinfo(n)%bctype => bcwallviscouske
+          case(0)
+            bc%bcinfo(n)%bctype => bcwallviscouskw
+          case default
+            bc%bcinfo(n)%bctype => bcwallviscous
+          end select
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflow') then
+          bc%bcinfo(n)%bctype => bcinflow
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflowsubsonic') then
+          bc%bcinfo(n)%bctype => bcinflowsubsonic
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflowsupersonic') then
+          bc%bcinfo(n)%bctype => bcinflowsupersonic
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcoutflow') then
+          bc%bcinfo(n)%bctype => bcoutflow
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcoutflowsubsonic') then
+          bc%bcinfo(n)%bctype => bcoutflowsubsonic
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcoutflowsupersonic') then
+          bc%bcinfo(n)%bctype => bcoutflowsupersonic
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcfarfield') then
+          bc%bcinfo(n)%bctype => bcfarfield
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcdegeneratepoint') then
+          bc%bcinfo(n)%bctype => bcdegeneratepoint
+        else if(trim(bc%bcinfo(n)%bcname).eq.'bcsymmetryplane') then
+          bc%bcinfo(n)%bctype => bcdegeneratepoint
+        else
+          bc%bcinfo(n)%bctype => null()
+          write(*,*) 'error, check bc name'
+          stop
+        end if
+      end do
 
-      DO N=1,BC%NCON
-        BC%CONNECTINFO(N)%DONOR = GRID%GETCONNECTDONOR(N)
+      do n=1,bc%ncon
+        bc%connectinfo(n)%donor = grid%getconnectdonor(n)
         
-        DO M=1,DIM
-          BC%CONNECTINFO(N)%ISTART(M) = GRID%GETCONNECTISTART(N,M)
-          BC%CONNECTINFO(N)%IEND(M)   = GRID%GETCONNECTIEND(N,M)
-          BC%CONNECTINFO(N)%ISTART_DONOR(M) = GRID%GETCONNECTISTART_DONOR(N,M)
-          BC%CONNECTINFO(N)%IEND_DONOR(M)   = GRID%GETCONNECTIEND_DONOR(N,M)
-          DO L=1,DIM
-            BC%CONNECTINFO(N)%TRANSMAT(M,L) = GRID%GETCONNECTTRANSMAT(N,M,L)
-          END DO
-        END DO
+        do m=1,dim
+          bc%connectinfo(n)%istart(m) = grid%getconnectistart(n,m)
+          bc%connectinfo(n)%iend(m)   = grid%getconnectiend(n,m)
+          bc%connectinfo(n)%istart_donor(m) = grid%getconnectistart_donor(n,m)
+          bc%connectinfo(n)%iend_donor(m)   = grid%getconnectiend_donor(n,m)
+          do l=1,dim
+            bc%connectinfo(n)%transmat(m,l) = grid%getconnecttransmat(n,m,l)
+          end do
+        end do
 
-        IF(BC%CONNECTINFO(N)%ISTART(2).EQ.BC%CONNECTINFO(N)%IEND(2)) THEN
-          IF(BC%CONNECTINFO(N)%ISTART(2).EQ.2) THEN
-            BC%CONNECTINFO(N)%IEND(2) = BC%CONNECTINFO(N)%IEND(2) + 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) - 2
-            END IF
-          ELSE
-            BC%CONNECTINFO(N)%ISTART(2) = BC%CONNECTINFO(N)%ISTART(2) - 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) - 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,2).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,2).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) + 2
-            END IF
-          END IF
-        ELSE IF(BC%CONNECTINFO(N)%ISTART(1).EQ.BC%CONNECTINFO(N)%IEND(1)) THEN
-          IF(BC%CONNECTINFO(N)%ISTART(1).EQ.2) THEN
-            BC%CONNECTINFO(N)%IEND(1) = BC%CONNECTINFO(N)%IEND(1) + 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) - 2
-            END IF
-          ELSE
-            BC%CONNECTINFO(N)%ISTART(1) = BC%CONNECTINFO(N)%ISTART(1) - 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) - 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,1).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,1).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) + 2
-            END IF
-          END IF
-        ELSE IF(BC%CONNECTINFO(N)%ISTART(3).EQ.BC%CONNECTINFO(N)%IEND(3)) THEN
-          IF(BC%CONNECTINFO(N)%ISTART(3).EQ.2) THEN
-            BC%CONNECTINFO(N)%IEND(3) = BC%CONNECTINFO(N)%IEND(3) + 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(1) = BC%CONNECTINFO(N)%IEND_DONOR(1) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(2) = BC%CONNECTINFO(N)%IEND_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) + 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%IEND_DONOR(3) = BC%CONNECTINFO(N)%IEND_DONOR(3) - 2
-            END IF
-          ELSE
-            BC%CONNECTINFO(N)%ISTART(3) = BC%CONNECTINFO(N)%ISTART(3) - 2
-            IF(BC%CONNECTINFO(N)%TRANSMAT(1,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) - 2 
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(1,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(1) = BC%CONNECTINFO(N)%ISTART_DONOR(1) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(2,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(2) = BC%CONNECTINFO(N)%ISTART_DONOR(2) + 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,3).EQ.1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) - 2
-            ELSE IF(BC%CONNECTINFO(N)%TRANSMAT(3,3).EQ.-1) THEN
-              BC%CONNECTINFO(N)%ISTART_DONOR(3) = BC%CONNECTINFO(N)%ISTART_DONOR(3) + 2
-            END IF
-          END IF
-        END IF
-      END DO
+        if(bc%connectinfo(n)%istart(2).eq.bc%connectinfo(n)%iend(2)) then
+          if(bc%connectinfo(n)%istart(2).eq.2) then
+            bc%connectinfo(n)%iend(2) = bc%connectinfo(n)%iend(2) + 2
+            if(bc%connectinfo(n)%transmat(1,2).eq.1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+            else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
+            else if(bc%connectinfo(n)%transmat(2,2).eq.1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+            else if(bc%connectinfo(n)%transmat(2,2).eq.-1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(3,2).eq.1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+            else if(bc%connectinfo(n)%transmat(3,2).eq.-1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
+            end if
+          else
+            bc%connectinfo(n)%istart(2) = bc%connectinfo(n)%istart(2) - 2
+            if(bc%connectinfo(n)%transmat(1,2).eq.1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+            else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
+            else if(bc%connectinfo(n)%transmat(2,2).eq.1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(2,2).eq.-1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) + 2
+            else if(bc%connectinfo(n)%transmat(3,2).eq.1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) - 2
+            else if(bc%connectinfo(n)%transmat(3,2).eq.-1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
+            end if
+          end if
+        else if(bc%connectinfo(n)%istart(1).eq.bc%connectinfo(n)%iend(1)) then
+          if(bc%connectinfo(n)%istart(1).eq.2) then
+            bc%connectinfo(n)%iend(1) = bc%connectinfo(n)%iend(1) + 2
+            if(bc%connectinfo(n)%transmat(1,1).eq.1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+            else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
+            else if(bc%connectinfo(n)%transmat(2,1).eq.1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+            else if(bc%connectinfo(n)%transmat(2,1).eq.-1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(3,1).eq.1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+            else if(bc%connectinfo(n)%transmat(3,1).eq.-1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
+            end if
+          else
+            bc%connectinfo(n)%istart(1) = bc%connectinfo(n)%istart(1) - 2
+            if(bc%connectinfo(n)%transmat(1,1).eq.1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+            else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
+            else if(bc%connectinfo(n)%transmat(2,1).eq.1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(2,1).eq.-1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) + 2
+            else if(bc%connectinfo(n)%transmat(3,1).eq.1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) - 2
+            else if(bc%connectinfo(n)%transmat(3,1).eq.-1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
+            end if
+          end if
+        else if(bc%connectinfo(n)%istart(3).eq.bc%connectinfo(n)%iend(3)) then
+          if(bc%connectinfo(n)%istart(3).eq.2) then
+            bc%connectinfo(n)%iend(3) = bc%connectinfo(n)%iend(3) + 2
+            if(bc%connectinfo(n)%transmat(1,3).eq.1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+            else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
+            else if(bc%connectinfo(n)%transmat(2,3).eq.1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+            else if(bc%connectinfo(n)%transmat(2,3).eq.-1) then
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(3,3).eq.1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+            else if(bc%connectinfo(n)%transmat(3,3).eq.-1) then
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
+            end if
+          else
+            bc%connectinfo(n)%istart(3) = bc%connectinfo(n)%istart(3) - 2
+            if(bc%connectinfo(n)%transmat(1,3).eq.1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+            else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
+            else if(bc%connectinfo(n)%transmat(2,3).eq.1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) - 2
+            else if(bc%connectinfo(n)%transmat(2,3).eq.-1) then
+              bc%connectinfo(n)%istart_donor(2) = bc%connectinfo(n)%istart_donor(2) + 2
+            else if(bc%connectinfo(n)%transmat(3,3).eq.1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) - 2
+            else if(bc%connectinfo(n)%transmat(3,3).eq.-1) then
+              bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
+            end if
+          end if
+        end if
+      end do
 
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(BC)
-      IMPLICIT NONE
-      CLASS(T_BC), INTENT(INOUT) :: BC
-      INTEGER :: N
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(bc)
+      implicit none
+      class(t_bc), intent(inout) :: bc
+      integer :: n
       
-      DO N=1,BC%NBC
-        IF(ASSOCIATED(BC%BCINFO(N)%BCTYPE)) NULLIFY(BC%BCINFO(N)%BCTYPE)
-      END DO
+      do n=1,bc%nbc
+        if(associated(bc%bcinfo(n)%bctype)) nullify(bc%bcinfo(n)%bctype)
+      end do
       
-      DEALLOCATE(BC%REF%PV,BC%REF%DV,BC%REF%TV)
-      DEALLOCATE(BC%BCINFO,BC%CONNECTINFO)
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETBC(BC,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_BC), INTENT(INOUT) :: BC
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,N,M,L
-      INTEGER :: II,JJ,KK,NUM
-      INTEGER :: IER,REQUEST1,REQUEST2,REQUEST3,REQUEST4
-      INTEGER :: STATUS(MPI_STATUS_SIZE)
-      INTEGER :: SENDADRESS(21),RECVADRESS(21)
-      REAL(8) :: PV(BC%NPV),DV(BC%NDV),TV(BC%NTV)
-      REAL(8), DIMENSION(:), ALLOCATABLE :: SENDBUF,RECVBUF
+      deallocate(bc%ref%pv,bc%ref%dv,bc%ref%tv)
+      deallocate(bc%bcinfo,bc%connectinfo)
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setbc(bc,grid,variable,eos,prop)
+      implicit none
+      include 'mpif.h'
+      class(t_bc), intent(inout) :: bc
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,n,m,l
+      integer :: ii,jj,kk,num
+      integer :: ier,request1,request2,request3,request4
+      integer :: status(mpi_status_size)
+      integer :: sendadress(21),recvadress(21)
+      real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
+      real(8), dimension(:), allocatable :: sendbuf,recvbuf
       
-      DO N=1,BC%NBC
-        CALL BC%BCINFO(N)%BCTYPE(BC%REF,GRID,VARIABLE,EOS,PROP)
-      END DO
+      do n=1,bc%nbc
+        call bc%bcinfo(n)%bctype(bc%ref,grid,variable,eos,prop)
+      end do
       
-      DO N=1,BC%NCON
-        NUM = (ABS(BC%CONNECTINFO(N)%ISTART(2)-BC%CONNECTINFO(N)%IEND(2))+1) &
-             *(ABS(BC%CONNECTINFO(N)%ISTART(1)-BC%CONNECTINFO(N)%IEND(1))+1) &
-             *(ABS(BC%CONNECTINFO(N)%ISTART(3)-BC%CONNECTINFO(N)%IEND(3))+1)*(BC%NPV+BC%NTV+BC%NDV)
-        ALLOCATE(SENDBUF(NUM))
-        L = 0
-        DO K=BC%CONNECTINFO(N)%ISTART(3),BC%CONNECTINFO(N)%IEND(3)
-          DO J=BC%CONNECTINFO(N)%ISTART(2),BC%CONNECTINFO(N)%IEND(2)
-            DO I=BC%CONNECTINFO(N)%ISTART(1),BC%CONNECTINFO(N)%IEND(1)
-              PV = VARIABLE%GETPV(I,J,K)
-              TV = VARIABLE%GETTV(I,J,K)
-              DV = VARIABLE%GETDV(I,J,K)
-              DO M=1,BC%NPV
-                L = L + 1
-                SENDBUF(L) = PV(M)
-              END DO
-              DO M=1,BC%NTV
-                L = L + 1
-                SENDBUF(L) = TV(M)
-              END DO
-              DO M=1,BC%NDV
-                L = L + 1
-                SENDBUF(L) = DV(M)
-              END DO            
-            END DO
-          END DO
-        END DO
+      do n=1,bc%ncon
+        num = (abs(bc%connectinfo(n)%istart(2)-bc%connectinfo(n)%iend(2))+1) &
+             *(abs(bc%connectinfo(n)%istart(1)-bc%connectinfo(n)%iend(1))+1) &
+             *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1)*(bc%npv+bc%ntv+bc%ndv)
+        allocate(sendbuf(num))
+        l = 0
+        do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+          do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+            do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+              pv = variable%getpv(i,j,k)
+              tv = variable%gettv(i,j,k)
+              dv = variable%getdv(i,j,k)
+              do m=1,bc%npv
+                l = l + 1
+                sendbuf(l) = pv(m)
+              end do
+              do m=1,bc%ntv
+                l = l + 1
+                sendbuf(l) = tv(m)
+              end do
+              do m=1,bc%ndv
+                l = l + 1
+                sendbuf(l) = dv(m)
+              end do            
+            end do
+          end do
+        end do
           
-        IF(BC%RANK.NE.BC%CONNECTINFO(N)%DONOR) THEN 
-          SENDADRESS = (/BC%CONNECTINFO(N)%ISTART(1),BC%CONNECTINFO(N)%IEND(1), &
-                         BC%CONNECTINFO(N)%ISTART(2),BC%CONNECTINFO(N)%IEND(2), &
-                         BC%CONNECTINFO(N)%ISTART(3),BC%CONNECTINFO(N)%IEND(3), &
-                         BC%CONNECTINFO(N)%ISTART_DONOR(1),BC%CONNECTINFO(N)%IEND_DONOR(1), &
-                         BC%CONNECTINFO(N)%ISTART_DONOR(2),BC%CONNECTINFO(N)%IEND_DONOR(2), &
-                         BC%CONNECTINFO(N)%ISTART_DONOR(3),BC%CONNECTINFO(N)%IEND_DONOR(3), &  
-                         BC%CONNECTINFO(N)%TRANSMAT(1,1),BC%CONNECTINFO(N)%TRANSMAT(1,2),BC%CONNECTINFO(N)%TRANSMAT(1,3), &
-                         BC%CONNECTINFO(N)%TRANSMAT(2,1),BC%CONNECTINFO(N)%TRANSMAT(2,2),BC%CONNECTINFO(N)%TRANSMAT(2,3), &
-                         BC%CONNECTINFO(N)%TRANSMAT(3,1),BC%CONNECTINFO(N)%TRANSMAT(3,2),BC%CONNECTINFO(N)%TRANSMAT(3,3)/)
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then 
+          sendadress = (/bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1), &
+                         bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2), &
+                         bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3), &
+                         bc%connectinfo(n)%istart_donor(1),bc%connectinfo(n)%iend_donor(1), &
+                         bc%connectinfo(n)%istart_donor(2),bc%connectinfo(n)%iend_donor(2), &
+                         bc%connectinfo(n)%istart_donor(3),bc%connectinfo(n)%iend_donor(3), &  
+                         bc%connectinfo(n)%transmat(1,1),bc%connectinfo(n)%transmat(1,2),bc%connectinfo(n)%transmat(1,3), &
+                         bc%connectinfo(n)%transmat(2,1),bc%connectinfo(n)%transmat(2,2),bc%connectinfo(n)%transmat(2,3), &
+                         bc%connectinfo(n)%transmat(3,1),bc%connectinfo(n)%transmat(3,2),bc%connectinfo(n)%transmat(3,3)/)
                      
 
-          CALL MPI_ISEND(SENDADRESS,21,MPI_INTEGER,BC%CONNECTINFO(N)%DONOR,BC%RANK+10000,MPI_COMM_WORLD,REQUEST1,IER)
-          CALL MPI_ISEND(SENDBUF,NUM,MPI_REAL8,BC%CONNECTINFO(N)%DONOR,BC%RANK,MPI_COMM_WORLD,REQUEST2,IER)
-          CALL MPI_WAIT(REQUEST1,STATUS,IER)
-          CALL MPI_WAIT(REQUEST2,STATUS,IER)
-        ELSE  
-          L = 0
-          DO K=BC%CONNECTINFO(N)%ISTART(3),BC%CONNECTINFO(N)%IEND(3)
-            DO J=BC%CONNECTINFO(N)%ISTART(2),BC%CONNECTINFO(N)%IEND(2)
-              DO I=BC%CONNECTINFO(N)%ISTART(1),BC%CONNECTINFO(N)%IEND(1)
-                II = BC%CONNECTINFO(N)%TRANSMAT(1,1)*(I-BC%CONNECTINFO(N)%ISTART(1)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(1,2)*(J-BC%CONNECTINFO(N)%ISTART(2)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(1,3)*(K-BC%CONNECTINFO(N)%ISTART(3)) + BC%CONNECTINFO(N)%ISTART_DONOR(1)
-                JJ = BC%CONNECTINFO(N)%TRANSMAT(2,1)*(I-BC%CONNECTINFO(N)%ISTART(1)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(2,2)*(J-BC%CONNECTINFO(N)%ISTART(2)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(2,3)*(K-BC%CONNECTINFO(N)%ISTART(3)) + BC%CONNECTINFO(N)%ISTART_DONOR(2)
-                KK = BC%CONNECTINFO(N)%TRANSMAT(3,1)*(I-BC%CONNECTINFO(N)%ISTART(1)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(3,2)*(J-BC%CONNECTINFO(N)%ISTART(2)) &
-                   + BC%CONNECTINFO(N)%TRANSMAT(3,3)*(K-BC%CONNECTINFO(N)%ISTART(3)) + BC%CONNECTINFO(N)%ISTART_DONOR(3)
-                DO M=1,BC%NPV
-                  L = L + 1
-                  CALL VARIABLE%SETPV(M,II,JJ,KK,SENDBUF(L))
-                END DO
-                DO M=1,BC%NTV
-                  L = L + 1
-                  CALL VARIABLE%SETTV(M,II,JJ,KK,SENDBUF(L))
-                END DO
-                DO M=1,BC%NDV
-                  L = L + 1
-                  CALL VARIABLE%SETDV(M,II,JJ,KK,SENDBUF(L))
-                END DO
-              END DO
-            END DO
-          END DO
-        END IF
-        DEALLOCATE(SENDBUF)
-      END DO
+          call mpi_isend(sendadress,21,mpi_integer,bc%connectinfo(n)%donor,bc%rank+10000,mpi_comm_world,request1,ier)
+          call mpi_isend(sendbuf,num,mpi_real8,bc%connectinfo(n)%donor,bc%rank,mpi_comm_world,request2,ier)
+          call mpi_wait(request1,status,ier)
+          call mpi_wait(request2,status,ier)
+        else  
+          l = 0
+          do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+            do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+              do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+                ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                   + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                   + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(1)
+                jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                   + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                   + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(2)
+                kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                   + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                   + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(3)
+                do m=1,bc%npv
+                  l = l + 1
+                  call variable%setpv(m,ii,jj,kk,sendbuf(l))
+                end do
+                do m=1,bc%ntv
+                  l = l + 1
+                  call variable%settv(m,ii,jj,kk,sendbuf(l))
+                end do
+                do m=1,bc%ndv
+                  l = l + 1
+                  call variable%setdv(m,ii,jj,kk,sendbuf(l))
+                end do
+              end do
+            end do
+          end do
+        end if
+        deallocate(sendbuf)
+      end do
 
-      DO N=1,BC%NCON
-        NUM = (ABS(BC%CONNECTINFO(N)%ISTART(2)-BC%CONNECTINFO(N)%IEND(2))+1) &
-             *(ABS(BC%CONNECTINFO(N)%ISTART(1)-BC%CONNECTINFO(N)%IEND(1))+1) &
-             *(ABS(BC%CONNECTINFO(N)%ISTART(3)-BC%CONNECTINFO(N)%IEND(3))+1)*(BC%NPV+BC%NTV+BC%NDV)
-        ALLOCATE(RECVBUF(NUM))
-        IF(BC%RANK.NE.BC%CONNECTINFO(N)%DONOR) THEN 
-          CALL MPI_IRECV(RECVADRESS,21,MPI_INTEGER,BC%CONNECTINFO(N)%DONOR,BC%CONNECTINFO(N)%DONOR+10000,MPI_COMM_WORLD,REQUEST3,IER)
-          CALL MPI_IRECV(RECVBUF,NUM,MPI_REAL8,BC%CONNECTINFO(N)%DONOR,BC%CONNECTINFO(N)%DONOR,MPI_COMM_WORLD,REQUEST4,IER)
-          CALL MPI_WAIT(REQUEST3,STATUS,IER)
-          CALL MPI_WAIT(REQUEST4,STATUS,IER)
+      do n=1,bc%ncon
+        num = (abs(bc%connectinfo(n)%istart(2)-bc%connectinfo(n)%iend(2))+1) &
+             *(abs(bc%connectinfo(n)%istart(1)-bc%connectinfo(n)%iend(1))+1) &
+             *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1)*(bc%npv+bc%ntv+bc%ndv)
+        allocate(recvbuf(num))
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then 
+          call mpi_irecv(recvadress,21,mpi_integer,bc%connectinfo(n)%donor,bc%connectinfo(n)%donor+10000,mpi_comm_world,request3,ier)
+          call mpi_irecv(recvbuf,num,mpi_real8,bc%connectinfo(n)%donor,bc%connectinfo(n)%donor,mpi_comm_world,request4,ier)
+          call mpi_wait(request3,status,ier)
+          call mpi_wait(request4,status,ier)
       
-          L = 0
-          DO K=RECVADRESS(5),RECVADRESS(6)
-            DO J=RECVADRESS(3),RECVADRESS(4)
-              DO I=RECVADRESS(1),RECVADRESS(2)
-                II = RECVADRESS(13)*(I-RECVADRESS(1)) + RECVADRESS(14)*(J-RECVADRESS(3)) + RECVADRESS(15)*(k-RECVADRESS(5)) + RECVADRESS(7)
-                JJ = RECVADRESS(16)*(I-RECVADRESS(1)) + RECVADRESS(17)*(J-RECVADRESS(3)) + RECVADRESS(18)*(K-RECVADRESS(5)) + RECVADRESS(9)
-                KK = RECVADRESS(19)*(I-RECVADRESS(1)) + RECVADRESS(20)*(J-RECVADRESS(3)) + RECVADRESS(21)*(K-RECVADRESS(5)) + RECVADRESS(11)
-                DO M=1,BC%NPV
-                  L = L + 1
-                  CALL VARIABLE%SETPV(M,II,JJ,KK,RECVBUF(L))
-                END DO
-                DO M=1,BC%NTV
-                  L = L + 1
-                  CALL VARIABLE%SETTV(M,II,JJ,KK,RECVBUF(L))
-                END DO
-                DO M=1,BC%NDV
-                  L = L + 1
-                  CALL VARIABLE%SETDV(M,II,JJ,KK,RECVBUF(L))
-                END DO
-              END DO
-            END DO
-          END DO
-        END IF
-        DEALLOCATE(RECVBUF)
-      END DO
+          l = 0
+          do k=recvadress(5),recvadress(6)
+            do j=recvadress(3),recvadress(4)
+              do i=recvadress(1),recvadress(2)
+                ii = recvadress(13)*(i-recvadress(1)) + recvadress(14)*(j-recvadress(3)) + recvadress(15)*(k-recvadress(5)) + recvadress(7)
+                jj = recvadress(16)*(i-recvadress(1)) + recvadress(17)*(j-recvadress(3)) + recvadress(18)*(k-recvadress(5)) + recvadress(9)
+                kk = recvadress(19)*(i-recvadress(1)) + recvadress(20)*(j-recvadress(3)) + recvadress(21)*(k-recvadress(5)) + recvadress(11)
+                do m=1,bc%npv
+                  l = l + 1
+                  call variable%setpv(m,ii,jj,kk,recvbuf(l))
+                end do
+                do m=1,bc%ntv
+                  l = l + 1
+                  call variable%settv(m,ii,jj,kk,recvbuf(l))
+                end do
+                do m=1,bc%ndv
+                  l = l + 1
+                  call variable%setdv(m,ii,jj,kk,recvbuf(l))
+                end do
+              end do
+            end do
+          end do
+        end if
+        deallocate(recvbuf)
+      end do
       
-      DO I=2,GRID%GETIMAX()
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,2,2,0,-1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,1,2,0,-1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,2,1,0,-1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,1,1,0,-1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()  ,2,0,1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()+1,2,0,1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()  ,1,0,1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()+1,1,0,1,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,2,GRID%GETKMAX()  ,0,-1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,1,GRID%GETKMAX()  ,0,-1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,2,GRID%GETKMAX()+1,0,-1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,1,GRID%GETKMAX()+1,0,-1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()  ,GRID%GETKMAX()  ,0,1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()+1,GRID%GETKMAX()  ,0,1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()  ,GRID%GETKMAX()+1,0,1,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,I,GRID%GETJMAX()+1,GRID%GETKMAX()+1,0,1,1)
-      END DO
-      DO J=2,GRID%GETJMAX()
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,J,2,-1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,J,2,-1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,J,1,-1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,J,1,-1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,J,2,1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,J,2,1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,J,1,1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,J,1,1,0,-1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,J,GRID%GETKMAX()  ,-1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,J,GRID%GETKMAX()  ,-1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,J,GRID%GETKMAX()+1,-1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,J,GRID%GETKMAX()+1,-1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,J,GRID%GETKMAX()  ,1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,J,GRID%GETKMAX()  ,1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,J,GRID%GETKMAX()+1,1,0,1)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,J,GRID%GETKMAX()+1,1,0,1)
-      END DO
-      DO K=2,GRID%GETKMAX()
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,2,K,-1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,2,K,-1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,1,K,-1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,1,K,-1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,2,K,1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,2,K,1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,1,K,1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,1,K,1,-1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()  ,K,-1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()  ,K,-1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()+1,K,-1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()+1,K,-1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()  ,K,1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()  ,K,1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()+1,K,1,1,0)
-        CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()+1,K,1,1,0)
-      END DO
+      do i=2,grid%getimax()
+        call bc%bccorner(grid,variable,eos,prop,i,2,2,0,-1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,1,2,0,-1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,2,1,0,-1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,1,1,0,-1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()  ,2,0,1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()+1,2,0,1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()  ,1,0,1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()+1,1,0,1,-1)
+        call bc%bccorner(grid,variable,eos,prop,i,2,grid%getkmax()  ,0,-1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,1,grid%getkmax()  ,0,-1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,2,grid%getkmax()+1,0,-1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,1,grid%getkmax()+1,0,-1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()  ,grid%getkmax()  ,0,1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()+1,grid%getkmax()  ,0,1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()  ,grid%getkmax()+1,0,1,1)
+        call bc%bccorner(grid,variable,eos,prop,i,grid%getjmax()+1,grid%getkmax()+1,0,1,1)
+      end do
+      do j=2,grid%getjmax()
+        call bc%bccorner(grid,variable,eos,prop,2,j,2,-1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,1,j,2,-1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,2,j,1,-1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,1,j,1,-1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,j,2,1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,j,2,1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,j,1,1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,j,1,1,0,-1)
+        call bc%bccorner(grid,variable,eos,prop,2,j,grid%getkmax()  ,-1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,1,j,grid%getkmax()  ,-1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,2,j,grid%getkmax()+1,-1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,1,j,grid%getkmax()+1,-1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,j,grid%getkmax()  ,1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,j,grid%getkmax()  ,1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,j,grid%getkmax()+1,1,0,1)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,j,grid%getkmax()+1,1,0,1)
+      end do
+      do k=2,grid%getkmax()
+        call bc%bccorner(grid,variable,eos,prop,2,2,k,-1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,1,2,k,-1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,2,1,k,-1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,1,1,k,-1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,2,k,1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,2,k,1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,1,k,1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,1,k,1,-1,0)
+        call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()  ,k,-1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()  ,k,-1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()+1,k,-1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()+1,k,-1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()  ,k,1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()  ,k,1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()+1,k,1,1,0)
+        call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()+1,k,1,1,0)
+      end do
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,2,2,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,2,2,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,1,2,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,2,1,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,1,2,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,1,1,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,2,1,-1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,1,1,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,2,2,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,2,2,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,1,2,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,2,1,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,1,2,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,1,1,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,2,1,-1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,1,1,-1,-1,-1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,2,2,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,2,2,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,1,2,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,2,1,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,1,2,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,1,1,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,2,1,1,-1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,1,1,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,2,2,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,2,2,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,1,2,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,2,1,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,1,2,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,1,1,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,2,1,1,-1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,1,1,1,-1,-1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()  ,2,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()  ,2,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()+1,2,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()  ,1,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()+1,2,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()+1,1,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()  ,1,-1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()+1,1,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()  ,2,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()  ,2,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()+1,2,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()  ,1,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()+1,2,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()+1,1,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()  ,1,-1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()+1,1,-1,1,-1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,2,GRID%GETKMAX()  ,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,2,GRID%GETKMAX()  ,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,1,GRID%GETKMAX()  ,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,2,GRID%GETKMAX()+1,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,1,GRID%GETKMAX()  ,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,1,GRID%GETKMAX()+1,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,2,GRID%GETKMAX()+1,-1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,1,GRID%GETKMAX()+1,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,2,grid%getkmax()  ,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,2,grid%getkmax()  ,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,1,grid%getkmax()  ,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,2,grid%getkmax()+1,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,1,grid%getkmax()  ,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,1,grid%getkmax()+1,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,2,grid%getkmax()+1,-1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,1,grid%getkmax()+1,-1,-1,1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()  ,2,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()  ,2,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()+1,2,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()  ,1,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()+1,2,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()+1,1,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()  ,1,1,1,-1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()+1,1,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()  ,2,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()  ,2,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()+1,2,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()  ,1,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()+1,2,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()+1,1,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()  ,1,1,1,-1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()+1,1,1,1,-1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()  ,GRID%GETKMAX()  ,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()  ,GRID%GETKMAX()  ,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()+1,GRID%GETKMAX()  ,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()  ,GRID%GETKMAX()+1,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()+1,GRID%GETKMAX()  ,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,2,GRID%GETJMAX()+1,GRID%GETKMAX()+1,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()  ,GRID%GETKMAX()+1,-1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,1,GRID%GETJMAX()+1,GRID%GETKMAX()+1,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()  ,grid%getkmax()  ,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()  ,grid%getkmax()  ,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()+1,grid%getkmax()  ,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()  ,grid%getkmax()+1,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()+1,grid%getkmax()  ,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,2,grid%getjmax()+1,grid%getkmax()+1,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()  ,grid%getkmax()+1,-1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,1,grid%getjmax()+1,grid%getkmax()+1,-1,1,1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,2,GRID%GETKMAX()  ,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,2,GRID%GETKMAX()  ,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,1,GRID%GETKMAX()  ,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,2,GRID%GETKMAX()+1,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,1,GRID%GETKMAX()  ,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,1,GRID%GETKMAX()+1,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,2,GRID%GETKMAX()+1,1,-1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,1,GRID%GETKMAX()+1,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,2,grid%getkmax()  ,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,2,grid%getkmax()  ,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,1,grid%getkmax()  ,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,2,grid%getkmax()+1,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,1,grid%getkmax()  ,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,1,grid%getkmax()+1,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,2,grid%getkmax()+1,1,-1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,1,grid%getkmax()+1,1,-1,1)
       
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()  ,GRID%GETKMAX()  ,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()  ,GRID%GETKMAX()  ,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()+1,GRID%GETKMAX()  ,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()  ,GRID%GETKMAX()+1,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()+1,GRID%GETKMAX()  ,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()  ,GRID%GETJMAX()+1,GRID%GETKMAX()+1,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()  ,GRID%GETKMAX()+1,1,1,1)
-      CALL BC%BCCORNER(GRID,VARIABLE,EOS,PROP,GRID%GETIMAX()+1,GRID%GETJMAX()+1,GRID%GETKMAX()+1,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()  ,grid%getkmax()  ,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()  ,grid%getkmax()  ,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()+1,grid%getkmax()  ,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()  ,grid%getkmax()+1,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()+1,grid%getkmax()  ,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()  ,grid%getjmax()+1,grid%getkmax()+1,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()  ,grid%getkmax()+1,1,1,1)
+      call bc%bccorner(grid,variable,eos,prop,grid%getimax()+1,grid%getjmax()+1,grid%getkmax()+1,1,1,1)
       
-    END SUBROUTINE SETBC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCCORNER(BC,GRID,VARIABLE,EOS,PROP,I,J,K,II,JJ,KK)
-      IMPLICIT NONE
-      CLASS(T_BC), INTENT(IN) :: BC
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER, INTENT(IN) :: I,J,K,II,JJ,KK
-      INTEGER :: N
-      REAL(8) :: PV(BC%NPV),PVX(BC%NPV),PVY(BC%NPV),PVZ(BC%NPV)
-      REAL(8) :: DV(BC%NDV),TV(BC%NTV)
+    end subroutine setbc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bccorner(bc,grid,variable,eos,prop,i,j,k,ii,jj,kk)
+      implicit none
+      class(t_bc), intent(in) :: bc
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(in) :: i,j,k,ii,jj,kk
+      integer :: n
+      real(8) :: pv(bc%npv),pvx(bc%npv),pvy(bc%npv),pvz(bc%npv)
+      real(8) :: dv(bc%ndv),tv(bc%ntv)
       
-      PV = VARIABLE%GETPV(I,J,K)
-      PVX = VARIABLE%GETPV(I+II,J,K)
-      PVY = VARIABLE%GETPV(I,J+JJ,K)
-      PVZ = VARIABLE%GETPV(I,J,K+KK)
+      pv = variable%getpv(i,j,k)
+      pvx = variable%getpv(i+ii,j,k)
+      pvy = variable%getpv(i,j+jj,k)
+      pvz = variable%getpv(i,j,k+kk)
     
-      IF((-PV(2).EQ.PVX(2)).AND.(-PV(3).EQ.PVX(3)).AND.(-PV(4).EQ.PVX(4)) THEN
-        IF((-PV(2).EQ.PVY(2)).AND.(-PV(3).EQ.PVY(3)).AND.(-PV(4).EQ.PVY(4))) THEN
-          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
-!----------- WALL-WALL-WALL(X,Y,Z)
-            PV = VARIABLE%GETPV(I,J,K)
-            PV(2) = -PV(2)
-            PV(3) = -PV(3)
-            PV(4) = -PV(4)
-            IF(BC%ITURB.EQ.0) THEN
-              PV(8) = -PV(8)
-            ELSE IF(BC%ITURB.EQ.-1) THEN
-              PV(8) = -PV(8)
-              PV(9) = -PV(9)
-            END IF
-          ELSE
-!----------- WALL-WALL(X,Y)
-            IF(KK.EQ.0) THEN
-              PV = VARIABLE%GETPV(I,J,K)
-            ELSE
+      if((-pv(2).eq.pvx(2)).and.(-pv(3).eq.pvx(3)).and.(-pv(4).eq.pvx(4)) then
+        if((-pv(2).eq.pvy(2)).and.(-pv(3).eq.pvy(3)).and.(-pv(4).eq.pvy(4))) then
+          if((-pv(2).eq.pvz(2)).and.(-pv(3).eq.pvz(3)).and.(-pv(4).eq.pvz(4))) then
+!----------- wall-wall-wall(x,y,z)
+            pv = variable%getpv(i,j,k)
+            pv(2) = -pv(2)
+            pv(3) = -pv(3)
+            pv(4) = -pv(4)
+            if(bc%iturb.eq.0) then
+              pv(8) = -pv(8)
+            else if(bc%iturb.eq.-1) then
+              pv(8) = -pv(8)
+              pv(9) = -pv(9)
+            end if
+          else
+!----------- wall-wall(x,y)
+            if(kk.eq.0) then
+              pv = variable%getpv(i,j,k)
+            else
             
-            END IF
-          END IF
-        ELSE 
-          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
-!----------- WALL-WALL(X,Z)
-            IF(JJ.EQ.0) THEN
-              PV = VARIABLE%GETPV(I,J,K)
-            ELSE
+            end if
+          end if
+        else 
+          if((-pv(2).eq.pvz(2)).and.(-pv(3).eq.pvz(3)).and.(-pv(4).eq.pvz(4))) then
+!----------- wall-wall(x,z)
+            if(jj.eq.0) then
+              pv = variable%getpv(i,j,k)
+            else
             
-            END IF
-          ELSE 
-!----------- WALL(X)
-            IF((JJ.EQ.0).OR.(KK.EQ.0)) THEN
-              PV = VARIABLE%GETPV(I,J+JJ,K+KK)
-            ELSE
+            end if
+          else 
+!----------- wall(x)
+            if((jj.eq.0).or.(kk.eq.0)) then
+              pv = variable%getpv(i,j+jj,k+kk)
+            else
             
-            END IF
-          END IF
-        END IF
-      ELSE
-        IF((-PV(2).EQ.PVY(2)).AND.(-PV(3).EQ.PVY(3)).AND.(-PV(4).EQ.PVY(4))) THEN
-          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
-!----------- WALL-WALL(Y,Z)
-            IF(II.EQ.0) THEN
-              PV = VARIABLE%GETPV(I,J,K) 
-            ELSE
+            end if
+          end if
+        end if
+      else
+        if((-pv(2).eq.pvy(2)).and.(-pv(3).eq.pvy(3)).and.(-pv(4).eq.pvy(4))) then
+          if((-pv(2).eq.pvz(2)).and.(-pv(3).eq.pvz(3)).and.(-pv(4).eq.pvz(4))) then
+!----------- wall-wall(y,z)
+            if(ii.eq.0) then
+              pv = variable%getpv(i,j,k) 
+            else
             
-            END IF
-          ELSE
-!----------- WALL(Y)
-            PV = VARIABLE%GETPV(I+II,J,K+KK)
-          END IF
-        ELSE 
-          IF((-PV(2).EQ.PVZ(2)).AND.(-PV(3).EQ.PVZ(3)).AND.(-PV(4).EQ.PVZ(4))) THEN
-!----------- WALL(Z)
-            PV = VARIABLE%GETPV(I,J,K)
-          ELSE
-!----------- NO WALL
-            PV = 1.D0/3.D0*(PVX+PVY+PVZ)
-          END IF
-        END IF
-      END IF
+            end if
+          else
+!----------- wall(y)
+            pv = variable%getpv(i+ii,j,k+kk)
+          end if
+        else 
+          if((-pv(2).eq.pvz(2)).and.(-pv(3).eq.pvz(3)).and.(-pv(4).eq.pvz(4))) then
+!----------- wall(z)
+            pv = variable%getpv(i,j,k)
+          else
+!----------- no wall
+            pv = 1.d0/3.d0*(pvx+pvy+pvz)
+          end if
+        end if
+      end if
       
-      DO N=1,BC%NPV
-        CALL VARIABLE%SETPV(N,I+II,J+JJ,K+KK,PV(N))
-      END DO
+      do n=1,bc%npv
+        call variable%setpv(n,i+ii,j+jj,k+kk,pv(n))
+      end do
       
-      CALL EOS%DETEOS(PV(1)+BC%REF%PV(1),PV(5),PV(6),PV(7),DV)
+      call eos%deteos(pv(1)+bc%ref%pv(1),pv(5),pv(6),pv(7),dv)
       
-      DO N=1,BC%NDV
-        CALL VARIABLE%SETDV(N,I+II,J+JJ,K+KK,DV(N))
-      END DO
+      do n=1,bc%ndv
+        call variable%setdv(n,i+ii,j+jj,k+kk,dv(n))
+      end do
       
-      IF(BC%NTV.NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
+      if(bc%ntv.ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
       
-      DO N=1,BC%NTV
-        CALL VARIABLE%SETTV(N,I+II,J+JJ,K+KK,TV(N))
-      END DO
+      do n=1,bc%ntv
+        call variable%settv(n,i+ii,j+jj,k+kk,tv(n))
+      end do
       
 
-    END SUBROUTINE BCCORNER
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCWALLINVISCID(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M,II,JJ,KK
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
-      REAL(8) :: NX(3),VAR
+    end subroutine bccorner
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcwallinviscid(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: nx(3),var
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETCX(BCINFO%IEND(1),J,K)
-              II = BCINFO%IEND(1)-I + BCINFO%IEND(1)+1
-              PV = VARIABLE%GETPV(II,J,K)
-              DV = VARIABLE%GETDV(II,J,K)
-              TV = VARIABLE%GETTV(II,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETCX(BCINFO%ISTART(1)-1,J,K)
-              II = BCINFO%ISTART(1)-I + BCINFO%ISTART(1)-1
-              PV = VARIABLE%GETPV(II,J,K)
-              DV = VARIABLE%GETDV(II,J,K)
-              TV = VARIABLE%GETTV(II,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETEX(I,BCINFO%IEND(2),K)
-              JJ = BCINFO%IEND(2)-J + BCINFO%IEND(2)+1
-              PV = VARIABLE%GETPV(I,JJ,K)
-              DV = VARIABLE%GETDV(I,JJ,K)
-              TV = VARIABLE%GETTV(I,JJ,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETEX(I,BCINFO%ISTART(2)-1,K)
-              JJ = BCINFO%ISTART(2)-J + BCINFO%ISTART(2)-1
-              PV = VARIABLE%GETPV(I,JJ,K)
-              DV = VARIABLE%GETDV(I,JJ,K)
-              TV = VARIABLE%GETTV(I,JJ,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETTX(I,J,BCINFO%IEND(3))
-              KK = BCINFO%IEND(3)-K + BCINFO%IEND(3)+1
-              PV = VARIABLE%GETPV(I,J,KK)
-              DV = VARIABLE%GETDV(I,J,KK)
-              TV = VARIABLE%GETTV(I,J,KK)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETTX(I,J,BCINFO%ISTART(3)-1)
-              KK = BCINFO%ISTART(3)-K + BCINFO%ISTART(3)-1
-              PV = VARIABLE%GETPV(I,J,KK)
-              DV = VARIABLE%GETDV(I,J,KK)
-              TV = VARIABLE%GETTV(I,J,KK)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getcx(bcinfo%iend(1),j,k)
+              ii = bcinfo%iend(1)-i + bcinfo%iend(1)+1
+              pv = variable%getpv(ii,j,k)
+              dv = variable%getdv(ii,j,k)
+              tv = variable%gettv(ii,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getcx(bcinfo%istart(1)-1,j,k)
+              ii = bcinfo%istart(1)-i + bcinfo%istart(1)-1
+              pv = variable%getpv(ii,j,k)
+              dv = variable%getdv(ii,j,k)
+              tv = variable%gettv(ii,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getex(i,bcinfo%iend(2),k)
+              jj = bcinfo%iend(2)-j + bcinfo%iend(2)+1
+              pv = variable%getpv(i,jj,k)
+              dv = variable%getdv(i,jj,k)
+              tv = variable%gettv(i,jj,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getex(i,bcinfo%istart(2)-1,k)
+              jj = bcinfo%istart(2)-j + bcinfo%istart(2)-1
+              pv = variable%getpv(i,jj,k)
+              dv = variable%getdv(i,jj,k)
+              tv = variable%gettv(i,jj,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%gettx(i,j,bcinfo%iend(3))
+              kk = bcinfo%iend(3)-k + bcinfo%iend(3)+1
+              pv = variable%getpv(i,j,kk)
+              dv = variable%getdv(i,j,kk)
+              tv = variable%gettv(i,j,kk)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%gettx(i,j,bcinfo%istart(3)-1)
+              kk = bcinfo%istart(3)-k + bcinfo%istart(3)-1
+              pv = variable%getpv(i,j,kk)
+              dv = variable%getdv(i,j,kk)
+              tv = variable%gettv(i,j,kk)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
     
-    END SUBROUTINE BCWALLINVISCID
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCWALLVISCOUS(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcwallinviscid
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcwallviscous(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCWALLVISCOUS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCWALLVISCOUSKE(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcwallviscous
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcwallviscouske(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
 
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8,9)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8,9)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCWALLVISCOUSKE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCWALLVISCOUSKW(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV()),GRD(GRID%GETNGRD())
-      REAL(8) :: X(3),X1(3),X2(3),X3(3),VAR,XCC,YCC,ZCC
+    end subroutine bcwallviscouske
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcwallviscouskw(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv()),grd(grid%getngrd())
+      real(8) :: x(3),x1(3),x2(3),x3(3),var,xcc,ycc,zcc
 
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(BCINFO%IEND(1)+1,J,K)
-                  X1 = GRID%GETX(BCINFO%IEND(1)+1,J+1,K)
-                  X2 = GRID%GETX(BCINFO%IEND(1)+1,J,K+1)
-                  X3 = GRID%GETX(BCINFO%IEND(1)+1,J+1,K+1)
-                  GRD = GRID%GETGRD(BCINFO%IEND(1)+1,J,K)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(BCINFO%ISTART(1),J,K)
-                  X1 = GRID%GETX(BCINFO%ISTART(1),J+1,K)
-                  X2 = GRID%GETX(BCINFO%ISTART(1),J,K+1)
-                  X3 = GRID%GETX(BCINFO%ISTART(1),J+1,K+1)
-                  GRD = GRID%GETGRD(BCINFO%ISTART(1)-1,J,K)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(I,BCINFO%IEND(2)+1,K)
-                  X1 = GRID%GETX(I+1,BCINFO%IEND(2)+1,K)
-                  X2 = GRID%GETX(I,BCINFO%IEND(2)+1,K+1)
-                  X3 = GRID%GETX(I+1,BCINFO%IEND(2)+1,K+1)
-                  GRD = GRID%GETGRD(I,BCINFO%IEND(2)+1,K)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(I,BCINFO%ISTART(2),K)
-                  X1 = GRID%GETX(I+1,BCINFO%ISTART(2),K)
-                  X2 = GRID%GETX(I,BCINFO%ISTART(2),K+1)
-                  X3 = GRID%GETX(I+1,BCINFO%ISTART(2),K+1)
-                  GRD = GRID%GETGRD(I,BCINFO%ISTART(2)-1,K)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(I,J,BCINFO%IEND(3)+1)
-                  X1 = GRID%GETX(I+1,J,BCINFO%IEND(3)+1)
-                  X2 = GRID%GETX(I,J+1,BCINFO%IEND(3)+1)
-                  X3 = GRID%GETX(I+1,J+1,BCINFO%IEND(3)+1)
-                  GRD = GRID%GETGRD(I,J,BCINFO%IEND(3)+1)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2,3,4,8)
-                  CALL VARIABLE%SETPV(M,I,J,K,-PV(M))
-                CASE(9)
-                  X = GRID%GETX(I,J,BCINFO%ISTART(3))
-                  X1 = GRID%GETX(I+1,J,BCINFO%ISTART(3))
-                  X2 = GRID%GETX(I,J+1,BCINFO%ISTART(3))
-                  X3 = GRID%GETX(I+1,J+1,BCINFO%ISTART(3))
-                  GRD = GRID%GETGRD(I,J,BCINFO%ISTART(3)-1)
-                  XCC = 0.25D0*(X(1)+X1(1)+X2(1)+X3(1))
-                  YCC = 0.25D0*(X(2)+X1(2)+X2(2)+X3(2))
-                  ZCC = 0.25D0*(X(3)+X1(3)+X2(3)+X3(3))
-                  VAR = 1600.D0*TV(1)/DV(1)/((GRD(2)-XCC)**2+(GRD(3)-YCC)**2+(GRD(4)-ZCC)**2)-PV(M)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(bcinfo%iend(1)+1,j,k)
+                  x1 = grid%getx(bcinfo%iend(1)+1,j+1,k)
+                  x2 = grid%getx(bcinfo%iend(1)+1,j,k+1)
+                  x3 = grid%getx(bcinfo%iend(1)+1,j+1,k+1)
+                  grd = grid%getgrd(bcinfo%iend(1)+1,j,k)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(bcinfo%istart(1),j,k)
+                  x1 = grid%getx(bcinfo%istart(1),j+1,k)
+                  x2 = grid%getx(bcinfo%istart(1),j,k+1)
+                  x3 = grid%getx(bcinfo%istart(1),j+1,k+1)
+                  grd = grid%getgrd(bcinfo%istart(1)-1,j,k)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(i,bcinfo%iend(2)+1,k)
+                  x1 = grid%getx(i+1,bcinfo%iend(2)+1,k)
+                  x2 = grid%getx(i,bcinfo%iend(2)+1,k+1)
+                  x3 = grid%getx(i+1,bcinfo%iend(2)+1,k+1)
+                  grd = grid%getgrd(i,bcinfo%iend(2)+1,k)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(i,bcinfo%istart(2),k)
+                  x1 = grid%getx(i+1,bcinfo%istart(2),k)
+                  x2 = grid%getx(i,bcinfo%istart(2),k+1)
+                  x3 = grid%getx(i+1,bcinfo%istart(2),k+1)
+                  grd = grid%getgrd(i,bcinfo%istart(2)-1,k)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(i,j,bcinfo%iend(3)+1)
+                  x1 = grid%getx(i+1,j,bcinfo%iend(3)+1)
+                  x2 = grid%getx(i,j+1,bcinfo%iend(3)+1)
+                  x3 = grid%getx(i+1,j+1,bcinfo%iend(3)+1)
+                  grd = grid%getgrd(i,j,bcinfo%iend(3)+1)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2,3,4,8)
+                  call variable%setpv(m,i,j,k,-pv(m))
+                case(9)
+                  x = grid%getx(i,j,bcinfo%istart(3))
+                  x1 = grid%getx(i+1,j,bcinfo%istart(3))
+                  x2 = grid%getx(i,j+1,bcinfo%istart(3))
+                  x3 = grid%getx(i+1,j+1,bcinfo%istart(3))
+                  grd = grid%getgrd(i,j,bcinfo%istart(3)-1)
+                  xcc = 0.25d0*(x(1)+x1(1)+x2(1)+x3(1))
+                  ycc = 0.25d0*(x(2)+x1(2)+x2(2)+x3(2))
+                  zcc = 0.25d0*(x(3)+x1(3)+x2(3)+x3(3))
+                  var = 1600.d0*tv(1)/dv(1)/((grd(2)-xcc)**2+(grd(3)-ycc)**2+(grd(4)-zcc)**2)-pv(m)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
       
       
-    END SUBROUTINE BCWALLVISCOUSKW
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCINFLOW(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K
+    end subroutine bcwallviscouskw
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcinflow(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      END SELECT
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCINFLOW
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCINFLOWSUBSONIC(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcinflow
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcinflowsubsonic(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              call variable%setpv(1,i,j,k,pv(1))
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCINFLOWSUBSONIC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCINFLOWSUPERSONIC(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      REAL(8) :: TV(VARIABLE%GETNTV())
-      INTEGER :: I,J,K,M
+    end subroutine bcinflowsubsonic
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcinflowsupersonic(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      real(8) :: tv(variable%getntv())
+      integer :: i,j,k,m
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K) 
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1) 
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                SELECT CASE(M)
-                CASE(3)
-                  CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                CASE DEFAULT
-                  CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                END SELECT
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k) 
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1) 
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,ref%pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,ref%dv(m))
+              end do
+              do m=1,variable%getntv()
+                select case(m)
+                case(3)
+                  call variable%settv(m,i,j,k,tv(m))
+                case default
+                  call variable%settv(m,i,j,k,ref%tv(m))
+                end select
+              end do
+            end do
+          end do
+        end do
+      end select
 
       
-    END SUBROUTINE BCINFLOWSUPERSONIC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCOUTFLOW(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K
+    end subroutine bcinflowsupersonic
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcoutflow(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
             
-            END DO
-          END DO
-        END DO
-      END SELECT
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCOUTFLOW
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCOUTFLOWSUBSONIC(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcoutflow
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcoutflowsubsonic(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              DO M=2,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              call variable%setpv(1,i,j,k,0.d0)
+              do m=2,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
       
-    END SUBROUTINE BCOUTFLOWSUBSONIC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCOUTFLOWSUPERSONIC(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcoutflowsubsonic
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcoutflowsupersonic(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
     
-    END SUBROUTINE BCOUTFLOWSUPERSONIC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCFARFIELD(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: NX(3),VEL
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcoutflowsupersonic
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcfarfield(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: nx(3),vel
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETCX(BCINFO%IEND(1),J,K)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETCX(BCINFO%ISTART(1)-1,J,K)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETEX(I,BCINFO%IEND(2),K)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETEX(I,BCINFO%ISTART(2)-1,K)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETEX(I,J,BCINFO%IEND(3))
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETEX(I,J,BCINFO%ISTART(3)-1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              VEL = (PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/DSQRT(NX(1)**2+NX(2)**2+NX(3)**2)
-              IF(VEL/DSQRT(DV(6)).GE.0.D0) THEN !OUT
-                IF(VEL/DSQRT(DV(6)).GE.1.D0) THEN !SUPER                
-                  DO M=1,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                  END DO
-                  CALL EOS%DETEOS(REF%PV(1),PV(5),PV(6),PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              ELSE ! IN
-                IF(VEL/DSQRT(DV(6)).LE.-1.D0) THEN !SUPER
-                  CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,REF%DV(M))
-                  END DO
-                  DO M=1,VARIABLE%GETNTV()
-                    SELECT CASE(M)
-                    CASE(3)
-                      CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                    CASE DEFAULT
-                      CALL VARIABLE%SETTV(M,I,J,K,REF%TV(M))
-                    END SELECT
-                  END DO
-                ELSE !SUB
-                  CALL VARIABLE%SETPV(1,I,J,K,PV(1))
-                  DO M=2,VARIABLE%GETNPV()
-                    CALL VARIABLE%SETPV(M,I,J,K,REF%PV(M))
-                  END DO
-                  CALL EOS%DETEOS(PV(1)+REF%PV(1),REF%PV(5),REF%PV(6),REF%PV(7),DV)
-                  DO M=1,VARIABLE%GETNDV()
-                    CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-                  END DO
-                  IF(VARIABLE%GETNTV().NE.0) CALL PROP%DETPROP(DV(3),DV(4),DV(5),REF%PV(5),REF%PV(6),REF%PV(7),TV(1:2))
-                  DO M=1,VARIABLE%GETNTV()
-                    CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-                  END DO
-                END IF
-              END IF
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getcx(bcinfo%iend(1),j,k)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getcx(bcinfo%istart(1)-1,j,k)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getex(i,bcinfo%iend(2),k)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getex(i,bcinfo%istart(2)-1,k)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getex(i,j,bcinfo%iend(3))
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getex(i,j,bcinfo%istart(3)-1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              if(vel/dsqrt(dv(6)).ge.0.d0) then !out
+                if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+                  do m=1,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,pv(m))
+                  end do
+                  call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              else ! in
+                if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+                  call variable%setpv(1,i,j,k,0.d0)
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,ref%dv(m))
+                  end do
+                  do m=1,variable%getntv()
+                    select case(m)
+                    case(3)
+                      call variable%settv(m,i,j,k,tv(m))
+                    case default
+                      call variable%settv(m,i,j,k,ref%tv(m))
+                    end select
+                  end do
+                else !sub
+                  call variable%setpv(1,i,j,k,pv(1))
+                  do m=2,variable%getnpv()
+                    call variable%setpv(m,i,j,k,ref%pv(m))
+                  end do
+                  call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+                  do m=1,variable%getndv()
+                    call variable%setdv(m,i,j,k,dv(m))
+                  end do
+                  if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+                  do m=1,variable%getntv()
+                    call variable%settv(m,i,j,k,tv(m))
+                  end do
+                end if
+              end if
+            end do
+          end do
+        end do
+      end select
     
-    END SUBROUTINE BCFARFIELD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCDEGENERATEPOINT(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
+    end subroutine bcfarfield
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcdegeneratepoint(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%IEND(1)+1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%IEND(1)+1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%IEND(1)+1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(BCINFO%ISTART(1)-1,J,K)
-              DV = VARIABLE%GETDV(BCINFO%ISTART(1)-1,J,K)
-              TV = VARIABLE%GETTV(BCINFO%ISTART(1)-1,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%IEND(2)+1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%IEND(2)+1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%IEND(2)+1,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,BCINFO%ISTART(2)-1,K)
-              DV = VARIABLE%GETDV(I,BCINFO%ISTART(2)-1,K)
-              TV = VARIABLE%GETTV(I,BCINFO%ISTART(2)-1,K)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%IEND(3)+1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%IEND(3)+1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%IEND(3)+1)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              PV = VARIABLE%GETPV(I,J,BCINFO%ISTART(3)-1)
-              DV = VARIABLE%GETDV(I,J,BCINFO%ISTART(3)-1)
-              TV = VARIABLE%GETTV(I,J,BCINFO%ISTART(3)-1)
-              DO M=1,VARIABLE%GETNPV()
-                CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%iend(1)+1,j,k)
+              dv = variable%getdv(bcinfo%iend(1)+1,j,k)
+              tv = variable%gettv(bcinfo%iend(1)+1,j,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(bcinfo%istart(1)-1,j,k)
+              dv = variable%getdv(bcinfo%istart(1)-1,j,k)
+              tv = variable%gettv(bcinfo%istart(1)-1,j,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%iend(2)+1,k)
+              dv = variable%getdv(i,bcinfo%iend(2)+1,k)
+              tv = variable%gettv(i,bcinfo%iend(2)+1,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,bcinfo%istart(2)-1,k)
+              dv = variable%getdv(i,bcinfo%istart(2)-1,k)
+              tv = variable%gettv(i,bcinfo%istart(2)-1,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%iend(3)+1)
+              dv = variable%getdv(i,j,bcinfo%iend(3)+1)
+              tv = variable%gettv(i,j,bcinfo%iend(3)+1)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              pv = variable%getpv(i,j,bcinfo%istart(3)-1)
+              dv = variable%getdv(i,j,bcinfo%istart(3)-1)
+              tv = variable%gettv(i,j,bcinfo%istart(3)-1)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
     
-    END SUBROUTINE BCDEGENERATEPOINT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE BCSYMMETRYPLANE(BCINFO,REF,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_BCINFO_P), INTENT(IN) :: BCINFO
-      TYPE(T_REF), INTENT(IN) :: REF
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,M,II,JJ,KK
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV()),TV(VARIABLE%GETNTV())
-      REAL(8) :: VAR,NX(3)
+    end subroutine bcdegeneratepoint
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcsymmetryplane(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: var,nx(3)
       
-      SELECT CASE(BCINFO%FACE)
-      CASE('IMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETCX(BCINFO%IEND(1),J,K)
-              II = BCINFO%IEND(1)-I + BCINFO%IEND(1)+1
-              PV = VARIABLE%GETPV(II,J,K)
-              DV = VARIABLE%GETDV(II,J,K)
-              TV = VARIABLE%GETTV(II,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('IMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETCX(BCINFO%ISTART(1)-1,J,K)
-              II = BCINFO%ISTART(1)-I + BCINFO%ISTART(1)-1
-              PV = VARIABLE%GETPV(II,J,K)
-              DV = VARIABLE%GETDV(II,J,K)
-              TV = VARIABLE%GETTV(II,J,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETEX(I,BCINFO%IEND(2),K)
-              JJ = BCINFO%IEND(2)-J + BCINFO%IEND(2)+1
-              PV = VARIABLE%GETPV(I,JJ,K)
-              DV = VARIABLE%GETDV(I,JJ,K)
-              TV = VARIABLE%GETTV(I,JJ,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('JMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETEX(I,BCINFO%ISTART(2)-1,K)
-              JJ = BCINFO%ISTART(2)-J + BCINFO%ISTART(2)-1
-              PV = VARIABLE%GETPV(I,JJ,K)
-              DV = VARIABLE%GETDV(I,JJ,K)
-              TV = VARIABLE%GETTV(I,JJ,K)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMIN')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = GRID%GETTX(I,J,BCINFO%IEND(3))
-              KK = BCINFO%IEND(3)-K + BCINFO%IEND(3)+1
-              PV = VARIABLE%GETPV(I,J,KK)
-              DV = VARIABLE%GETDV(I,J,KK)
-              TV = VARIABLE%GETTV(I,J,KK)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      CASE('KMAX')
-        DO K=BCINFO%ISTART(3),BCINFO%IEND(3)
-          DO J=BCINFO%ISTART(2),BCINFO%IEND(2)
-            DO I=BCINFO%ISTART(1),BCINFO%IEND(1)
-              NX = - GRID%GETTX(I,J,BCINFO%ISTART(3)-1)
-              KK = BCINFO%ISTART(3)-K + BCINFO%ISTART(3)-1
-              PV = VARIABLE%GETPV(I,J,KK)
-              DV = VARIABLE%GETDV(I,J,KK)
-              TV = VARIABLE%GETTV(I,J,KK)
-              DO M=1,VARIABLE%GETNPV()
-                SELECT CASE(M)
-                CASE(2)
-                  VAR = PV(2)-2.D0*NX(1)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(3)
-                  VAR = PV(3)-2.D0*NX(2)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE(4)
-                  VAR = PV(4)-2.D0*NX(3)*(PV(2)*NX(1)+PV(3)*NX(2)+PV(4)*NX(3))/(NX(1)**2+NX(2)**2+NX(3)**2)
-                  CALL VARIABLE%SETPV(M,I,J,K,VAR)
-                CASE DEFAULT
-                  CALL VARIABLE%SETPV(M,I,J,K,PV(M))
-                END SELECT
-              END DO
-              DO M=1,VARIABLE%GETNDV()
-                CALL VARIABLE%SETDV(M,I,J,K,DV(M))
-              END DO
-              DO M=1,VARIABLE%GETNTV()
-                CALL VARIABLE%SETTV(M,I,J,K,TV(M))
-              END DO
-            END DO
-          END DO
-        END DO
-      END SELECT
-    END SUBROUTINE BCSYMMETRYPLANE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE BC_MODULE
+      select case(bcinfo%face)
+      case('imin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getcx(bcinfo%iend(1),j,k)
+              ii = bcinfo%iend(1)-i + bcinfo%iend(1)+1
+              pv = variable%getpv(ii,j,k)
+              dv = variable%getdv(ii,j,k)
+              tv = variable%gettv(ii,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('imax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getcx(bcinfo%istart(1)-1,j,k)
+              ii = bcinfo%istart(1)-i + bcinfo%istart(1)-1
+              pv = variable%getpv(ii,j,k)
+              dv = variable%getdv(ii,j,k)
+              tv = variable%gettv(ii,j,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%getex(i,bcinfo%iend(2),k)
+              jj = bcinfo%iend(2)-j + bcinfo%iend(2)+1
+              pv = variable%getpv(i,jj,k)
+              dv = variable%getdv(i,jj,k)
+              tv = variable%gettv(i,jj,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%getex(i,bcinfo%istart(2)-1,k)
+              jj = bcinfo%istart(2)-j + bcinfo%istart(2)-1
+              pv = variable%getpv(i,jj,k)
+              dv = variable%getdv(i,jj,k)
+              tv = variable%gettv(i,jj,k)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = grid%gettx(i,j,bcinfo%iend(3))
+              kk = bcinfo%iend(3)-k + bcinfo%iend(3)+1
+              pv = variable%getpv(i,j,kk)
+              dv = variable%getdv(i,j,kk)
+              tv = variable%gettv(i,j,kk)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)
+              nx = - grid%gettx(i,j,bcinfo%istart(3)-1)
+              kk = bcinfo%istart(3)-k + bcinfo%istart(3)-1
+              pv = variable%getpv(i,j,kk)
+              dv = variable%getdv(i,j,kk)
+              tv = variable%gettv(i,j,kk)
+              do m=1,variable%getnpv()
+                select case(m)
+                case(2)
+                  var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(3)
+                  var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case(4)
+                  var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                  call variable%setpv(m,i,j,k,var)
+                case default
+                  call variable%setpv(m,i,j,k,pv(m))
+                end select
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+      end select
+    end subroutine bcsymmetryplane
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module bc_module

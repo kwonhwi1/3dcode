@@ -1,522 +1,522 @@
-MODULE CONFIG_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_CONFIG
+module config_module
+  use eos_module
+  use prop_module
+  implicit none
+  private
+  public :: t_config
   
-  TYPE T_CONFIG
-    PRIVATE
-    LOGICAL, PUBLIC :: STATUS
-    CHARACTER(3) :: CPUNUM
-    CHARACTER(30) :: NAME
-    INTEGER :: RANK,SIZE
-    INTEGER :: IREAD,RSTNUM
-    INTEGER :: NSTEADY,NPMAX,NTMAX,BOND
-    REAL(8) :: DT_PHY
-    INTEGER :: NEXPORT,NPRINT
-    INTEGER :: ITURB,TCOMP
-    INTEGER :: NSCHEME,PRECD,NMUSCL,NLIM
-    INTEGER :: TIMEMETHOD,LOCAL,PREC
-    REAL(8) :: CFL
-    INTEGER :: FLUID,FLUID_EOSTYPE,NGAS,GAS_EOSTYPE,MIXINGRULE
-    INTEGER :: NCAV
-    REAL(8) :: C_V,C_C
-    REAL(8) :: PREF,UREF,AOA,TREF,Y1REF,Y2REF
-    REAL(8) :: L_CHORD,L_CHARACTER,SCALE
-    REAL(8) :: STR,PI
-    REAL(8) :: DVREF(18),TVREF(2)
-    REAL(8) :: KREF,OREF,EMUTREF
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: GETRANK
-      PROCEDURE :: GETSIZE
-      PROCEDURE :: GETNAME
-      PROCEDURE :: GETIREAD
-      PROCEDURE :: GETNSTEADY
-      PROCEDURE :: GETNPMAX
-      PROCEDURE :: GETNTMAX
-      PROCEDURE :: GETBOND
-      PROCEDURE :: GETDT_PHY
-      PROCEDURE :: GETNEXPORT
-      PROCEDURE :: GETNPRINT
-      PROCEDURE :: GETRSTNUM
-      PROCEDURE :: GETITURB
-      PROCEDURE :: GETNSCHEME
-      PROCEDURE :: GETPRECD
-      PROCEDURE :: GETNMUSCL
-      PROCEDURE :: GETNLIM
-      PROCEDURE :: GETTIMEMETHOD
-      PROCEDURE :: GETLOCAL
-      PROCEDURE :: GETPREC
-      PROCEDURE :: GETNCAV
-      PROCEDURE :: GETTCOMP
-      PROCEDURE :: GETC_V
-      PROCEDURE :: GETC_C
-      PROCEDURE :: GETCFL
-      PROCEDURE :: GETPREF
-      PROCEDURE :: GETUREF
-      PROCEDURE :: GETAOA
-      PROCEDURE :: GETTREF
-      PROCEDURE :: GETY1REF
-      PROCEDURE :: GETY2REF
-      PROCEDURE :: GETRHOREF
-      PROCEDURE :: GETVISREF
-      PROCEDURE :: GETKREF
-      PROCEDURE :: GETOREF
-      PROCEDURE :: GETEMUTREF
-      PROCEDURE :: GETL_CHORD
-      PROCEDURE :: GETL_CHARACTER
-      PROCEDURE :: GETSCALE
-      PROCEDURE :: GETSTR
-      PROCEDURE :: GETPI
-  END TYPE T_CONFIG
+  type t_config
+    private
+    logical, public :: status
+    character(3) :: cpunum
+    character(30) :: name
+    integer :: rank,size
+    integer :: iread,rstnum
+    integer :: nsteady,npmax,ntmax,bond
+    real(8) :: dt_phy
+    integer :: nexport,nprint
+    integer :: iturb,tcomp
+    integer :: nscheme,precd,nmuscl,nlim
+    integer :: timemethod,local,prec
+    real(8) :: cfl
+    integer :: fluid,fluid_eostype,ngas,gas_eostype,mixingrule
+    integer :: ncav
+    real(8) :: c_v,c_c
+    real(8) :: pref,uref,aoa,tref,y1ref,y2ref
+    real(8) :: l_chord,l_character,scale
+    real(8) :: str,pi
+    real(8) :: dvref(18),tvref(2)
+    real(8) :: kref,oref,emutref
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: getrank
+      procedure :: getsize
+      procedure :: getname
+      procedure :: getiread
+      procedure :: getnsteady
+      procedure :: getnpmax
+      procedure :: getntmax
+      procedure :: getbond
+      procedure :: getdt_phy
+      procedure :: getnexport
+      procedure :: getnprint
+      procedure :: getrstnum
+      procedure :: getiturb
+      procedure :: getnscheme
+      procedure :: getprecd
+      procedure :: getnmuscl
+      procedure :: getnlim
+      procedure :: gettimemethod
+      procedure :: getlocal
+      procedure :: getprec
+      procedure :: getncav
+      procedure :: gettcomp
+      procedure :: getc_v
+      procedure :: getc_c
+      procedure :: getcfl
+      procedure :: getpref
+      procedure :: geturef
+      procedure :: getaoa
+      procedure :: gettref
+      procedure :: gety1ref
+      procedure :: gety2ref
+      procedure :: getrhoref
+      procedure :: getvisref
+      procedure :: getkref
+      procedure :: getoref
+      procedure :: getemutref
+      procedure :: getl_chord
+      procedure :: getl_character
+      procedure :: getscale
+      procedure :: getstr
+      procedure :: getpi
+  end type t_config
     
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(CONFIG,EOS,PROP)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_CONFIG), INTENT(OUT) :: CONFIG
-      TYPE(T_EOS), INTENT(OUT) :: EOS
-      TYPE(T_PROP), INTENT(OUT) :: PROP
-      INTEGER :: N,IO,IERR
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(config,eos,prop)
+      implicit none
+      include 'mpif.h'
+      class(t_config), intent(out) :: config
+      type(t_eos), intent(out) :: eos
+      type(t_prop), intent(out) :: prop
+      integer :: n,io,ierr
     
-      CALL MPI_INIT(IERR)
-      CALL MPI_COMM_SIZE(MPI_COMM_WORLD,CONFIG%SIZE,IERR)
-      CALL MPI_COMM_RANK(MPI_COMM_WORLD,CONFIG%RANK,IERR)
-      WRITE(CONFIG%CPUNUM,'(I3.3)') CONFIG%RANK
+      call mpi_init(ierr)
+      call mpi_comm_size(mpi_comm_world,config%size,ierr)
+      call mpi_comm_rank(mpi_comm_world,config%rank,ierr)
+      write(config%cpunum,'(i3.3)') config%rank
     
-      DO N = 0,CONFIG%SIZE-1
-        IF(N.EQ.CONFIG%RANK) THEN
-          OPEN(NEWUNIT=IO,FILE='./INPUT.INP',STATUS='OLD',ACTION='READ')
-          READ(IO,*); READ(IO,*) CONFIG%NAME
-          READ(IO,*); READ(IO,*) CONFIG%IREAD,CONFIG%RSTNUM
-          READ(IO,*); READ(IO,*) CONFIG%NSTEADY,CONFIG%NPMAX,CONFIG%NTMAX,CONFIG%BOND,CONFIG%DT_PHY
-          READ(IO,*); READ(IO,*) CONFIG%NEXPORT,CONFIG%NPRINT
-          READ(IO,*); READ(IO,*) CONFIG%ITURB,CONFIG%TCOMP
-          READ(IO,*); READ(IO,*) CONFIG%NSCHEME,CONFIG%PRECD,CONFIG%NMUSCL,CONFIG%NLIM
-          READ(IO,*); READ(IO,*) CONFIG%TIMEMETHOD,CONFIG%LOCAL,CONFIG%PREC,CONFIG%CFL
-          READ(IO,*); READ(IO,*) CONFIG%FLUID,CONFIG%FLUID_EOSTYPE,CONFIG%NGAS,CONFIG%GAS_EOSTYPE,CONFIG%MIXINGRULE
-          READ(IO,*); READ(IO,*) CONFIG%NCAV,CONFIG%C_V,CONFIG%C_C
-          READ(IO,*); READ(IO,*) CONFIG%PREF,CONFIG%UREF,CONFIG%AOA,CONFIG%TREF,CONFIG%Y1REF,CONFIG%Y2REF
-          READ(IO,*); READ(IO,*) CONFIG%L_CHORD,CONFIG%L_CHARACTER,CONFIG%SCALE
-          CLOSE(IO)
-        ENDIF
-        CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-      END DO
-      
-      CALL EOS%CONSTRUCT(CONFIG%FLUID,CONFIG%FLUID_EOSTYPE,CONFIG%NGAS,CONFIG%GAS_EOSTYPE,CONFIG%MIXINGRULE)
-      CALL PROP%CONSTRUCT(CONFIG%FLUID,CONFIG%FLUID_EOSTYPE,CONFIG%NGAS)
-      
-      
-      CONFIG%PI  = DATAN(1.D0)*4.D0
-      CONFIG%AOA = CONFIG%AOA*CONFIG%PI/180.D0
-      CONFIG%STR = CONFIG%L_CHARACTER/CONFIG%PI/CONFIG%DT_PHY/CONFIG%UREF
-      
-      CALL EOS%DETEOS(CONFIG%PREF,CONFIG%TREF,CONFIG%Y1REF,CONFIG%Y2REF,CONFIG%DVREF)
-      CALL PROP%DETPROP(CONFIG%DVREF(3),CONFIG%DVREF(4),CONFIG%DVREF(5),CONFIG%TREF,CONFIG%Y1REF,CONFIG%Y2REF,CONFIG%TVREF)
-      
-      
-      IF(CONFIG%ITURB.EQ.0) THEN
-        CONFIG%OREF = 10.D0*CONFIG%UREF/CONFIG%L_CHARACTER
-        CONFIG%EMUTREF = 10.D0**(-5)*CONFIG%TVREF(1)
-        CONFIG%KREF = CONFIG%EMUTREF/CONFIG%DVREF(1)*CONFIG%OREF
-      ELSE IF(CONFIG%ITURB.EQ.-1) THEN
-        CONFIG%KREF = 1.5D0*(0.0001D0*CONFIG%UREF)**2
-        CONFIG%EMUTREF =  10.D0**(-5)*CONFIG%TVREF(1)
-        CONFIG%OREF = 0.09D0*CONFIG%DVREF(1)*CONFIG%KREF**2/CONFIG%EMUTREF
-      ELSE
-        CONFIG%KREF = 0.D0
-        CONFIG%OREF = 0.D0
-        CONFIG%EMUTREF =  0.D0    
-      END IF
-      
-      CONFIG%STATUS = .TRUE.
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(CONFIG,EOS,PROP)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_CONFIG), INTENT(INOUT) :: CONFIG
-      TYPE(T_EOS), INTENT(INOUT) :: EOS
-      TYPE(T_PROP), INTENT(INOUT) :: PROP
-      INTEGER :: IERR
-      
-      CONFIG%STATUS = .FALSE.      
-      CALL EOS%DESTRUCT()
-      CALL PROP%DESTRUCT()
-      
-      CALL MPI_FINALIZE(IERR)
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-    FUNCTION GETRANK(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETRANK
-      
-      GETRANK = CONFIG%RANK
-      
-    END FUNCTION GETRANK
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETSIZE(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETSIZE
-      
-      GETSIZE = CONFIG%SIZE
-      
-    END FUNCTION GETSIZE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNAME(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      CHARACTER(30) :: GETNAME
-      
-      GETNAME = CONFIG%NAME
-      
-    END FUNCTION GETNAME
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETIREAD(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETIREAD
-      
-      GETIREAD = CONFIG%IREAD
-      
-    END FUNCTION GETIREAD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNSTEADY(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNSTEADY
-      
-      GETNSTEADY = CONFIG%NSTEADY
-      
-    END FUNCTION GETNSTEADY
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNPMAX(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNPMAX
-      
-      GETNPMAX = CONFIG%NPMAX
-      
-    END FUNCTION GETNPMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNTMAX(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNTMAX
-      
-      GETNTMAX = CONFIG%NTMAX
-      
-    END FUNCTION GETNTMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETBOND(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETBOND
-      
-      GETBOND = CONFIG%BOND
-      
-    END FUNCTION GETBOND
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETDT_PHY(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETDT_PHY
-      
-      GETDT_PHY = CONFIG%DT_PHY
-      
-    END FUNCTION GETDT_PHY
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNEXPORT(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNEXPORT
-      
-      GETNEXPORT = CONFIG%NEXPORT
-      
-    END FUNCTION GETNEXPORT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNPRINT(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNPRINT
-      
-      GETNPRINT = CONFIG%NPRINT
-      
-    END FUNCTION GETNPRINT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETRSTNUM(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETRSTNUM
-      
-      GETRSTNUM = CONFIG%RSTNUM
-      
-    END FUNCTION GETRSTNUM
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETITURB(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETITURB
-      
-      GETITURB = CONFIG%ITURB
-      
-    END FUNCTION GETITURB
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNSCHEME(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNSCHEME
-      
-      GETNSCHEME = CONFIG%NSCHEME
-      
-    END FUNCTION GETNSCHEME
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETPRECD(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETPRECD
-      
-      GETPRECD = CONFIG%PRECD
-      
-    END FUNCTION GETPRECD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNMUSCL(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNMUSCL
-      
-      GETNMUSCL = CONFIG%NMUSCL
-      
-    END FUNCTION GETNMUSCL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNLIM(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNLIM
-      
-      GETNLIM = CONFIG%NLIM
-    END FUNCTION GETNLIM
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETTIMEMETHOD(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETTIMEMETHOD
-      
-      GETTIMEMETHOD = CONFIG%TIMEMETHOD
-      
-    END FUNCTION GETTIMEMETHOD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETLOCAL(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETLOCAL
-      
-      GETLOCAL = CONFIG%LOCAL
-      
-    END FUNCTION GETLOCAL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETPREC(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETPREC
-      
-      GETPREC = CONFIG%PREC
-      
-    END FUNCTION GETPREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETNCAV(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETNCAV
-      
-      GETNCAV = CONFIG%NCAV
-      
-    END FUNCTION GETNCAV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETTCOMP(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      INTEGER :: GETTCOMP
-      
-      GETTCOMP = CONFIG%TCOMP
-      
-    END FUNCTION GETTCOMP
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETC_V(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETC_V
-      
-      GETC_V = CONFIG%C_V
-      
-    END FUNCTION GETC_V
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETC_C(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETC_C
-      
-      GETC_C = CONFIG%C_C
-      
-    END FUNCTION GETC_C
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETCFL(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETCFL
-      
-      GETCFL = CONFIG%CFL
-      
-    END FUNCTION GETCFL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETPREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETPREF
-      
-      GETPREF = CONFIG%PREF
-      
-    END FUNCTION GETPREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETUREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETUREF
-      
-      GETUREF = CONFIG%UREF
-      
-    END FUNCTION GETUREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETAOA(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETAOA
-      
-      GETAOA = CONFIG%AOA
-      
-    END FUNCTION GETAOA
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETTREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETTREF
-      
-      GETTREF = CONFIG%TREF
-      
-    END FUNCTION GETTREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETY1REF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETY1REF
-      
-      GETY1REF = CONFIG%Y1REF
+      do n = 0,config%size-1
+        if(n.eq.config%rank) then
+          open(newunit=io,file='./input.inp',status='old',action='read')
+          read(io,*); read(io,*) config%name
+          read(io,*); read(io,*) config%iread,config%rstnum
+          read(io,*); read(io,*) config%nsteady,config%npmax,config%ntmax,config%bond,config%dt_phy
+          read(io,*); read(io,*) config%nexport,config%nprint
+          read(io,*); read(io,*) config%iturb,config%tcomp
+          read(io,*); read(io,*) config%nscheme,config%precd,config%nmuscl,config%nlim
+          read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
+          read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
+          read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
+          read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%tref,config%y1ref,config%y2ref
+          read(io,*); read(io,*) config%l_chord,config%l_character,config%scale
+          close(io)
+        endif
+        call mpi_barrier(mpi_comm_world,ierr)
+      end do
+      
+      call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule)
+      call prop%construct(config%fluid,config%fluid_eostype,config%ngas)
+      
+      
+      config%pi  = datan(1.d0)*4.d0
+      config%aoa = config%aoa*config%pi/180.d0
+      config%str = config%l_character/config%pi/config%dt_phy/config%uref
+      
+      call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref)
+      call prop%detprop(config%dvref(3),config%dvref(4),config%dvref(5),config%tref,config%y1ref,config%y2ref,config%tvref)
+      
+      
+      if(config%iturb.eq.0) then
+        config%oref = 10.d0*config%uref/config%l_character
+        config%emutref = 10.d0**(-5)*config%tvref(1)
+        config%kref = config%emutref/config%dvref(1)*config%oref
+      else if(config%iturb.eq.-1) then
+        config%kref = 1.5d0*(0.0001d0*config%uref)**2
+        config%emutref =  10.d0**(-5)*config%tvref(1)
+        config%oref = 0.09d0*config%dvref(1)*config%kref**2/config%emutref
+      else
+        config%kref = 0.d0
+        config%oref = 0.d0
+        config%emutref =  0.d0    
+      end if
+      
+      config%status = .true.
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(config,eos,prop)
+      implicit none
+      include 'mpif.h'
+      class(t_config), intent(inout) :: config
+      type(t_eos), intent(inout) :: eos
+      type(t_prop), intent(inout) :: prop
+      integer :: ierr
+      
+      config%status = .false.      
+      call eos%destruct()
+      call prop%destruct()
+      
+      call mpi_finalize(ierr)
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    function getrank(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getrank
+      
+      getrank = config%rank
+      
+    end function getrank
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getsize(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getsize
+      
+      getsize = config%size
+      
+    end function getsize
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getname(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      character(30) :: getname
+      
+      getname = config%name
+      
+    end function getname
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getiread(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getiread
+      
+      getiread = config%iread
+      
+    end function getiread
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnsteady(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnsteady
+      
+      getnsteady = config%nsteady
+      
+    end function getnsteady
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnpmax(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnpmax
+      
+      getnpmax = config%npmax
+      
+    end function getnpmax
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getntmax(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getntmax
+      
+      getntmax = config%ntmax
+      
+    end function getntmax
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getbond(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getbond
+      
+      getbond = config%bond
+      
+    end function getbond
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getdt_phy(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getdt_phy
+      
+      getdt_phy = config%dt_phy
+      
+    end function getdt_phy
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnexport(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnexport
+      
+      getnexport = config%nexport
+      
+    end function getnexport
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnprint(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnprint
+      
+      getnprint = config%nprint
+      
+    end function getnprint
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getrstnum(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getrstnum
+      
+      getrstnum = config%rstnum
+      
+    end function getrstnum
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getiturb(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getiturb
+      
+      getiturb = config%iturb
+      
+    end function getiturb
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnscheme(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnscheme
+      
+      getnscheme = config%nscheme
+      
+    end function getnscheme
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getprecd(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getprecd
+      
+      getprecd = config%precd
+      
+    end function getprecd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnmuscl(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnmuscl
+      
+      getnmuscl = config%nmuscl
+      
+    end function getnmuscl
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getnlim(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnlim
+      
+      getnlim = config%nlim
+    end function getnlim
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function gettimemethod(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: gettimemethod
+      
+      gettimemethod = config%timemethod
+      
+    end function gettimemethod
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getlocal(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getlocal
+      
+      getlocal = config%local
+      
+    end function getlocal
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getprec(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getprec
+      
+      getprec = config%prec
+      
+    end function getprec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getncav(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getncav
+      
+      getncav = config%ncav
+      
+    end function getncav
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function gettcomp(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: gettcomp
+      
+      gettcomp = config%tcomp
+      
+    end function gettcomp
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getc_v(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getc_v
+      
+      getc_v = config%c_v
+      
+    end function getc_v
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getc_c(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getc_c
+      
+      getc_c = config%c_c
+      
+    end function getc_c
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getcfl(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getcfl
+      
+      getcfl = config%cfl
+      
+    end function getcfl
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getpref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getpref
+      
+      getpref = config%pref
+      
+    end function getpref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function geturef(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: geturef
+      
+      geturef = config%uref
+      
+    end function geturef
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getaoa(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getaoa
+      
+      getaoa = config%aoa
+      
+    end function getaoa
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function gettref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: gettref
+      
+      gettref = config%tref
+      
+    end function gettref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function gety1ref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: gety1ref
+      
+      gety1ref = config%y1ref
     
-    END FUNCTION GETY1REF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETY2REF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETY2REF
+    end function gety1ref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function gety2ref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: gety2ref
       
-      GETY2REF = CONFIG%Y2REF
+      gety2ref = config%y2ref
       
-    END FUNCTION GETY2REF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETRHOREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETRHOREF
+    end function gety2ref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getrhoref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getrhoref
       
-      GETRHOREF = CONFIG%DVREF(1)
+      getrhoref = config%dvref(1)
       
-    END FUNCTION GETRHOREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETVISREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETVISREF
+    end function getrhoref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getvisref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getvisref
       
-      GETVISREF = CONFIG%TVREF(1)
+      getvisref = config%tvref(1)
       
-    END FUNCTION GETVISREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETKREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETKREF
+    end function getvisref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getkref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getkref
       
-      GETKREF = CONFIG%KREF
+      getkref = config%kref
       
-    END FUNCTION GETKREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETOREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETOREF
+    end function getkref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getoref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getoref
       
-      GETOREF = CONFIG%OREF
+      getoref = config%oref
       
-    END FUNCTION GETOREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETEMUTREF(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETEMUTREF
+    end function getoref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getemutref(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getemutref
       
-      GETEMUTREF = CONFIG%EMUTREF
+      getemutref = config%emutref
       
-    END FUNCTION GETEMUTREF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETL_CHORD(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETL_CHORD
+    end function getemutref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getl_chord(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getl_chord
       
-      GETL_CHORD = CONFIG%L_CHORD
+      getl_chord = config%l_chord
       
-    END FUNCTION GETL_CHORD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETL_CHARACTER(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETL_CHARACTER
+    end function getl_chord
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getl_character(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getl_character
       
-      GETL_CHARACTER = CONFIG%L_CHARACTER
+      getl_character = config%l_character
       
-    END FUNCTION GETL_CHARACTER
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    FUNCTION GETSCALE(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETSCALE
+    end function getl_character
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    function getscale(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getscale
       
-      GETSCALE = CONFIG%SCALE
+      getscale = config%scale
       
-    END FUNCTION GETSCALE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETSTR(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETSTR
+    end function getscale
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getstr(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getstr
       
-      GETSTR = CONFIG%STR
+      getstr = config%str
       
-    END FUNCTION GETSTR
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETPI(CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CONFIG), INTENT(IN) :: CONFIG
-      REAL(8) :: GETPI
+    end function getstr
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getpi(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getpi
       
-      GETPI = CONFIG%PI
+      getpi = config%pi
       
-    END FUNCTION GETPI
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE CONFIG_MODULE
+    end function getpi
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module config_module
