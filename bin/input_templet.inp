@@ -2,8 +2,8 @@ name
 ttt
 iread			  rstnum
 0				    0
-naxi			  nsteady			  npmax			ntmax			  bond			dt_phy
-0				    0	            0			    0000000			0				  0.d0
+nsteady			npmax			ntmax			  bond			dt_phy
+0	          0			    0000000			0				  0.d0
 nexport			nprt 
 0      			0
 iturb			  tcomp
@@ -25,7 +25,6 @@ l_chord			l_character		scale
 name		      : project name = geometry name
 iread			    : 0 = new start, 1 = restart
 rstnum			  : steady = 7count, unsteady = 4count
-naxi			    : 0 = 2d, 1 = axi-2d
 nsteady	  		: 0 = steady, 1 = unsteady 
 npmax			    : maximum unsteady iteration
 ntmax			    : sub-iteration max
