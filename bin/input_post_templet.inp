@@ -1,0 +1,9 @@
+start
+0
+end
+0
+n
+0
+
+! name, nsteady, nexport, iturb must check in  input.inp for postprocessing
+! naxi, uref, rhoref, l_chord, aoa for clcd caculation
