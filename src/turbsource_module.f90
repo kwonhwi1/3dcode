@@ -1,338 +1,338 @@
-MODULE TURBSOURCE_MODULE
-  USE CONFIG_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_TURBSOURCE,T_KEPSILON,T_KWSST, T_TURB_RESULT
+module turbsource_module
+  use config_module
+  implicit none
+  private
+  public :: t_turbsource,t_kepsilon,t_kwsst, t_turb_result
   
-  TYPE T_TURB_RESULT
-    REAL(8) :: SOURCE(2),ITT(4),OMEGA_CUT
-  END TYPE
+  type t_turb_result
+    real(8) :: source(2),itt(4),omega_cut
+  end type
   
-  TYPE, ABSTRACT :: T_TURBSOURCE
-    PRIVATE
-    LOGICAL :: TCOMP
-    REAL(8), POINTER, PUBLIC :: CX1(:),CX2(:),EX1(:),EX2(:),TX1(:),TX2(:)
-    REAL(8), POINTER, PUBLIC :: PV(:,:)
-    REAL(8), POINTER, PUBLIC :: DV(:),GRD(:),TV(:)
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_CALTURBSOURCE), DEFERRED :: CALTURBSOURCE
-      PROCEDURE, PRIVATE :: CALBIGF
-  END TYPE T_TURBSOURCE
+  type, abstract :: t_turbsource
+    private
+    logical :: tcomp
+    real(8), pointer, public :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
+    real(8), pointer, public :: pv(:,:)
+    real(8), pointer, public :: dv(:),grd(:),tv(:)
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure(p_calturbsource), deferred :: calturbsource
+      procedure, private :: calbigf
+  end type t_turbsource
   
-  TYPE, EXTENDS(T_TURBSOURCE) :: T_KEPSILON
-    CONTAINS
-      PROCEDURE ::  CALTURBSOURCE => KEPSILON
-  END TYPE T_KEPSILON
+  type, extends(t_turbsource) :: t_kepsilon
+    contains
+      procedure ::  calturbsource => kepsilon
+  end type t_kepsilon
   
-  TYPE, EXTENDS(T_TURBSOURCE) :: T_KWSST
-    CONTAINS
-      PROCEDURE ::  CALTURBSOURCE => KWSST
-  END TYPE T_KWSST
+  type, extends(t_turbsource) :: t_kwsst
+    contains
+      procedure ::  calturbsource => kwsst
+  end type t_kwsst
   
-  ABSTRACT INTERFACE
-    FUNCTION P_CALTURBSOURCE(TS) RESULT(TURB_RESULT)
-      IMPORT T_TURB_RESULT
-      IMPORT T_TURBSOURCE
-      IMPLICIT NONE
-      CLASS(T_TURBSOURCE), INTENT(IN) :: TS
-      TYPE(T_TURB_RESULT) :: TURB_RESULT
-    END FUNCTION
-  END INTERFACE
+  abstract interface
+    function p_calturbsource(ts) result(turb_result)
+      import t_turb_result
+      import t_turbsource
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      type(t_turb_result) :: turb_result
+    end function
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(TURBSOURCE,CONFIG)
-      IMPLICIT NONE
-      CLASS(T_TURBSOURCE), INTENT(OUT) :: TURBSOURCE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(turbsource,config)
+      implicit none
+      class(t_turbsource), intent(out) :: turbsource
+      type(t_config), intent(in) :: config
      
-      SELECT CASE(CONFIG%GETTCOMP())
-      CASE(0)
-        TURBSOURCE%TCOMP = .FALSE.
-      CASE(1)
-        TURBSOURCE%TCOMP = .TRUE.
-      END SELECT
+      select case(config%gettcomp())
+      case(0)
+        turbsource%tcomp = .false.
+      case(1)
+        turbsource%tcomp = .true.
+      end select
 
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(TURBSOURCE)
-      IMPLICIT NONE
-      CLASS(T_TURBSOURCE), INTENT(INOUT) :: TURBSOURCE
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(turbsource)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
 
-      IF(ASSOCIATED(TURBSOURCE%CX1))     NULLIFY(TURBSOURCE%CX1)     
-      IF(ASSOCIATED(TURBSOURCE%CX2))     NULLIFY(TURBSOURCE%CX2)     
-      IF(ASSOCIATED(TURBSOURCE%EX1))     NULLIFY(TURBSOURCE%EX1)     
-      IF(ASSOCIATED(TURBSOURCE%EX2))     NULLIFY(TURBSOURCE%EX2)
-      IF(ASSOCIATED(TURBSOURCE%TX1))     NULLIFY(TURBSOURCE%TX1)     
-      IF(ASSOCIATED(TURBSOURCE%TX2))     NULLIFY(TURBSOURCE%TX2)
-      IF(ASSOCIATED(TURBSOURCE%GRD))     NULLIFY(TURBSOURCE%GRD)           
-      IF(ASSOCIATED(TURBSOURCE%PV))      NULLIFY(TURBSOURCE%PV)      
-      IF(ASSOCIATED(TURBSOURCE%DV))      NULLIFY(TURBSOURCE%DV)      
-      IF(ASSOCIATED(TURBSOURCE%TV))      NULLIFY(TURBSOURCE%TV)      
+      if(associated(turbsource%cx1))     nullify(turbsource%cx1)     
+      if(associated(turbsource%cx2))     nullify(turbsource%cx2)     
+      if(associated(turbsource%ex1))     nullify(turbsource%ex1)     
+      if(associated(turbsource%ex2))     nullify(turbsource%ex2)
+      if(associated(turbsource%tx1))     nullify(turbsource%tx1)     
+      if(associated(turbsource%tx2))     nullify(turbsource%tx2)
+      if(associated(turbsource%grd))     nullify(turbsource%grd)           
+      if(associated(turbsource%pv))      nullify(turbsource%pv)      
+      if(associated(turbsource%dv))      nullify(turbsource%dv)      
+      if(associated(turbsource%tv))      nullify(turbsource%tv)      
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KEPSILON(TS) RESULT(TURB_RESULT)
-      IMPLICIT NONE
-      CLASS(T_KEPSILON), INTENT(IN) :: TS
-      TYPE(T_TURB_RESULT) :: TURB_RESULT
-      REAL(8) :: K1,K2,K3,K4,K5,K6
-      REAL(8) :: U1,U2,U3,U4,U5,U6
-      REAL(8) :: V1,V2,V3,V4,V5,V6
-      REAL(8) :: W1,W2,W3,W4,W5,W6
-      REAL(8) :: DKDX,DKDY,DKDZ,DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,VOL
-      REAL(8) :: KKYY,PROD,RE_T,FE1,FE2,MT2,EC,PD,DPDK,DPDO
-      REAL(8) :: LAM1,LAM2,T,D
-      REAL(8), PARAMETER :: PHI = 1.D0, C23=2.D0/3.D0
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kepsilon(ts) result(turb_result)
+      implicit none
+      class(t_kepsilon), intent(in) :: ts
+      type(t_turb_result) :: turb_result
+      real(8) :: k1,k2,k3,k4,k5,k6
+      real(8) :: u1,u2,u3,u4,u5,u6
+      real(8) :: v1,v2,v3,v4,v5,v6
+      real(8) :: w1,w2,w3,w4,w5,w6
+      real(8) :: dkdx,dkdy,dkdz,dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
+      real(8) :: kkyy,prod,re_t,fe1,fe2,mt2,ec,pd,dpdk,dpdo
+      real(8) :: lam1,lam2,t,d
+      real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0
       
-      K1 = 0.5D0*(TS%PV(1,8)+TS%PV(2,8))
-      K2 = 0.5D0*(TS%PV(3,8)+TS%PV(2,8))
-      K3 = 0.5D0*(TS%PV(4,8)+TS%PV(2,8))
-      K4 = 0.5D0*(TS%PV(5,8)+TS%PV(2,8))
-      K5 = 0.5D0*(TS%PV(6,8)+TS%PV(2,8))
-      K6 = 0.5D0*(TS%PV(7,8)+TS%PV(2,8))
+      k1 = 0.5d0*(ts%pv(1,8)+ts%pv(2,8))
+      k2 = 0.5d0*(ts%pv(3,8)+ts%pv(2,8))
+      k3 = 0.5d0*(ts%pv(4,8)+ts%pv(2,8))
+      k4 = 0.5d0*(ts%pv(5,8)+ts%pv(2,8))
+      k5 = 0.5d0*(ts%pv(6,8)+ts%pv(2,8))
+      k6 = 0.5d0*(ts%pv(7,8)+ts%pv(2,8))
       
-      U1 = 0.5D0*(TS%PV(1,2)+TS%PV(2,2))
-      U2 = 0.5D0*(TS%PV(3,2)+TS%PV(2,2))
-      U3 = 0.5D0*(TS%PV(4,2)+TS%PV(2,2))
-      U4 = 0.5D0*(TS%PV(5,2)+TS%PV(2,2))
-      U5 = 0.5D0*(TS%PV(6,2)+TS%PV(2,2))
-      U6 = 0.5D0*(TS%PV(7,2)+TS%PV(2,2))
+      u1 = 0.5d0*(ts%pv(1,2)+ts%pv(2,2))
+      u2 = 0.5d0*(ts%pv(3,2)+ts%pv(2,2))
+      u3 = 0.5d0*(ts%pv(4,2)+ts%pv(2,2))
+      u4 = 0.5d0*(ts%pv(5,2)+ts%pv(2,2))
+      u5 = 0.5d0*(ts%pv(6,2)+ts%pv(2,2))
+      u6 = 0.5d0*(ts%pv(7,2)+ts%pv(2,2))
       
-      V1 = 0.5D0*(TS%PV(1,3)+TS%PV(2,3))
-      V2 = 0.5D0*(TS%PV(3,3)+TS%PV(2,3))
-      V3 = 0.5D0*(TS%PV(4,3)+TS%PV(2,3))
-      V4 = 0.5D0*(TS%PV(5,3)+TS%PV(2,3))
-      V5 = 0.5D0*(TS%PV(6,3)+TS%PV(2,3))
-      V6 = 0.5D0*(TS%PV(7,3)+TS%PV(2,3))
+      v1 = 0.5d0*(ts%pv(1,3)+ts%pv(2,3))
+      v2 = 0.5d0*(ts%pv(3,3)+ts%pv(2,3))
+      v3 = 0.5d0*(ts%pv(4,3)+ts%pv(2,3))
+      v4 = 0.5d0*(ts%pv(5,3)+ts%pv(2,3))
+      v5 = 0.5d0*(ts%pv(6,3)+ts%pv(2,3))
+      v6 = 0.5d0*(ts%pv(7,3)+ts%pv(2,3))
 
-      W1 = 0.5D0*(TS%PV(1,4)+TS%PV(2,4))
-      W2 = 0.5D0*(TS%PV(3,4)+TS%PV(2,4))
-      W3 = 0.5D0*(TS%PV(4,4)+TS%PV(2,4))
-      W4 = 0.5D0*(TS%PV(5,4)+TS%PV(2,4))
-      W5 = 0.5D0*(TS%PV(6,4)+TS%PV(2,4))
-      W6 = 0.5D0*(TS%PV(7,4)+TS%PV(2,4))
+      w1 = 0.5d0*(ts%pv(1,4)+ts%pv(2,4))
+      w2 = 0.5d0*(ts%pv(3,4)+ts%pv(2,4))
+      w3 = 0.5d0*(ts%pv(4,4)+ts%pv(2,4))
+      w4 = 0.5d0*(ts%pv(5,4)+ts%pv(2,4))
+      w5 = 0.5d0*(ts%pv(6,4)+ts%pv(2,4))
+      w6 = 0.5d0*(ts%pv(7,4)+ts%pv(2,4))
       
-      VOL = 1.D0/TS%GRD(1)
+      vol = 1.d0/ts%grd(1)
       
-      DKDX = (DSQRT(K2)*TS%CX2(1)+DSQRT(K4)*TS%EX2(1)+DSQRT(K6)*TS%TX2(1)-DSQRT(K1)*TS%CX1(1)-DSQRT(K3)*TS%EX1(1)-DSQRT(K5)*TS%TX1(1))*VOL
-      DKDY = (DSQRT(K2)*TS%CX2(2)+DSQRT(K4)*TS%EX2(2)+DSQRT(K6)*TS%TX2(2)-DSQRT(K1)*TS%CX1(2)-DSQRT(K3)*TS%EX1(2)-DSQRT(K5)*TS%TX1(2))*VOL
-      DKDZ = (DSQRT(K2)*TS%CX2(3)+DSQRT(K4)*TS%EX2(3)+DSQRT(K6)*TS%TX2(3)-DSQRT(K1)*TS%CX1(3)-DSQRT(K3)*TS%EX1(3)-DSQRT(K5)*TS%TX1(3))*VOL
+      dkdx = (dsqrt(k2)*ts%cx2(1)+dsqrt(k4)*ts%ex2(1)+dsqrt(k6)*ts%tx2(1)-dsqrt(k1)*ts%cx1(1)-dsqrt(k3)*ts%ex1(1)-dsqrt(k5)*ts%tx1(1))*vol
+      dkdy = (dsqrt(k2)*ts%cx2(2)+dsqrt(k4)*ts%ex2(2)+dsqrt(k6)*ts%tx2(2)-dsqrt(k1)*ts%cx1(2)-dsqrt(k3)*ts%ex1(2)-dsqrt(k5)*ts%tx1(2))*vol
+      dkdz = (dsqrt(k2)*ts%cx2(3)+dsqrt(k4)*ts%ex2(3)+dsqrt(k6)*ts%tx2(3)-dsqrt(k1)*ts%cx1(3)-dsqrt(k3)*ts%ex1(3)-dsqrt(k5)*ts%tx1(3))*vol
       
-      DUDX = (U2*TS%CX2(1)+U4*TS%EX2(1)+U6*TS%TX2(1)-U1*TS%CX1(1)-U3*TS%EX1(1)-U5*TS%TX1(1))*VOL
-      DUDY = (U2*TS%CX2(2)+U4*TS%EX2(2)+U6*TS%TX2(2)-U1*TS%CX1(2)-U3*TS%EX1(2)-U5*TS%TX1(2))*VOL
-      DUDZ = (U2*TS%CX2(3)+U4*TS%EX2(3)+U6*TS%TX2(3)-U1*TS%CX1(3)-U3*TS%EX1(3)-U5*TS%TX1(3))*VOL
+      dudx = (u2*ts%cx2(1)+u4*ts%ex2(1)+u6*ts%tx2(1)-u1*ts%cx1(1)-u3*ts%ex1(1)-u5*ts%tx1(1))*vol
+      dudy = (u2*ts%cx2(2)+u4*ts%ex2(2)+u6*ts%tx2(2)-u1*ts%cx1(2)-u3*ts%ex1(2)-u5*ts%tx1(2))*vol
+      dudz = (u2*ts%cx2(3)+u4*ts%ex2(3)+u6*ts%tx2(3)-u1*ts%cx1(3)-u3*ts%ex1(3)-u5*ts%tx1(3))*vol
       
-      DVDX = (V2*TS%CX2(1)+V4*TS%EX2(1)+V6*TS%TX2(1)-V1*TS%CX1(1)-V3*TS%EX1(1)-V5*TS%TX1(1))*VOL
-      DVDY = (V2*TS%CX2(2)+V4*TS%EX2(2)+V6*TS%TX2(2)-V1*TS%CX1(2)-V3*TS%EX1(2)-V5*TS%TX1(2))*VOL
-      DVDZ = (V2*TS%CX2(3)+V4*TS%EX2(3)+V6*TS%TX2(3)-V1*TS%CX1(3)-V3*TS%EX1(3)-V5*TS%TX1(3))*VOL
+      dvdx = (v2*ts%cx2(1)+v4*ts%ex2(1)+v6*ts%tx2(1)-v1*ts%cx1(1)-v3*ts%ex1(1)-v5*ts%tx1(1))*vol
+      dvdy = (v2*ts%cx2(2)+v4*ts%ex2(2)+v6*ts%tx2(2)-v1*ts%cx1(2)-v3*ts%ex1(2)-v5*ts%tx1(2))*vol
+      dvdz = (v2*ts%cx2(3)+v4*ts%ex2(3)+v6*ts%tx2(3)-v1*ts%cx1(3)-v3*ts%ex1(3)-v5*ts%tx1(3))*vol
       
-      DWDX = (W2*TS%CX2(1)+W4*TS%EX2(1)+W6*TS%TX2(1)-W1*TS%CX1(1)-W3*TS%EX1(1)-W5*TS%TX1(1))*VOL
-      DWDY = (W2*TS%CX2(2)+W4*TS%EX2(2)+W6*TS%TX2(2)-W1*TS%CX1(2)-W3*TS%EX1(2)-W5*TS%TX1(2))*VOL
-      DWDZ = (W2*TS%CX2(3)+W4*TS%EX2(3)+W6*TS%TX2(3)-W1*TS%CX1(3)-W3*TS%EX1(3)-W5*TS%TX1(3))*VOL
+      dwdx = (w2*ts%cx2(1)+w4*ts%ex2(1)+w6*ts%tx2(1)-w1*ts%cx1(1)-w3*ts%ex1(1)-w5*ts%tx1(1))*vol
+      dwdy = (w2*ts%cx2(2)+w4*ts%ex2(2)+w6*ts%tx2(2)-w1*ts%cx1(2)-w3*ts%ex1(2)-w5*ts%tx1(2))*vol
+      dwdz = (w2*ts%cx2(3)+w4*ts%ex2(3)+w6*ts%tx2(3)-w1*ts%cx1(3)-w3*ts%ex1(3)-w5*ts%tx1(3))*vol
       
-      KKYY = DKDX**2+DKDY**2+DKDZ**2
+      kkyy = dkdx**2+dkdy**2+dkdz**2
 
-      PROD = TS%TV(3)*(2.D0*(DUDX**2+DVDY**2+DWDZ**2)+(DUDY+DVDX)**2+(DUDZ+DWDX)**2+(DVDZ+DWDY)**2         &
-           - C23*(DUDX+DVDY+DWDZ)**2) -C23*TS%DV(1)*TS%PV(2,8)*(DUDX+DVDY+DWDZ)
+      prod = ts%tv(3)*(2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2         &
+           - c23*(dudx+dvdy+dwdz)**2) -c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz)
       
-      RE_T = TS%DV(1)*TS%PV(2,8)**2/TS%PV(2,9)/TS%TV(1)
+      re_t = ts%dv(1)*ts%pv(2,8)**2/ts%pv(2,9)/ts%tv(1)
       
-      FE1 = 1.D0 - DEXP(-(RE_T/40.D0)**2)
-      FE2 = 1.D0 - 2.D0/9.D0*DEXP(-(RE_T/6.D0)**2)
+      fe1 = 1.d0 - dexp(-(re_t/40.d0)**2)
+      fe2 = 1.d0 - 2.d0/9.d0*dexp(-(re_t/6.d0)**2)
       
-      PROD = DMIN1(PROD,30.D0*TS%DV(1)*TS%PV(2,9))
+      prod = dmin1(prod,30.d0*ts%dv(1)*ts%pv(2,9))
       
-      IF(TS%TCOMP) THEN
-        MT2 = 2.D0*TS%PV(2,8)/TS%DV(6)
-        EC = MT2*TS%PV(2,9)
-        PD = -0.4D0*PROD*MT2+0.2D0*TS%DV(1)*TS%PV(2,9)*MT2
-      ELSE
-        MT2 = 0.D0
-        EC = 0.D0
-        PD = 0.D0      
-      END IF
+      if(ts%tcomp) then
+        mt2 = 2.d0*ts%pv(2,8)/ts%dv(6)
+        ec = mt2*ts%pv(2,9)
+        pd = -0.4d0*prod*mt2+0.2d0*ts%dv(1)*ts%pv(2,9)*mt2
+      else
+        mt2 = 0.d0
+        ec = 0.d0
+        pd = 0.d0      
+      end if
       
-      TURB_RESULT%OMEGA_CUT = 0.D0
-      TURB_RESULT%SOURCE(1) = (PROD - TS%DV(1)*(TS%PV(2,9)+EC) + PD - 2.D0*TS%TV(1)*KKYY)*TS%GRD(1)
-      TURB_RESULT%SOURCE(2) = (1.5D0*FE1*PROD*TS%PV(2,9) - 1.9D0*FE2*TS%DV(1)*TS%PV(2,9)**2 &
-                            + 2.9556D0*TS%TV(1)*TS%PV(2,9)*KKYY)/TS%PV(2,8)*TS%GRD(1)
+      turb_result%omega_cut = 0.d0
+      turb_result%source(1) = (prod - ts%dv(1)*(ts%pv(2,9)+ec) + pd - 2.d0*ts%tv(1)*kkyy)*ts%grd(1)
+      turb_result%source(2) = (1.5d0*fe1*prod*ts%pv(2,9) - 1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 &
+                            + 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy)/ts%pv(2,8)*ts%grd(1)
      
       
-      DPDK = 2.D0*(PROD+C23*TS%DV(1)*TS%PV(2,8)*(DUDX+DVDY+DWDZ))/TS%PV(2,8)-C23*TS%DV(1)*(DUDX+DVDY+DWDZ)
-      DPDO = - (PROD+C23*TS%DV(1)*TS%PV(2,8)*(DUDX+DVDY+DWDZ))/TS%PV(2,9)
+      dpdk = 2.d0*(prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,8)-c23*ts%dv(1)*(dudx+dvdy+dwdz)
+      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,9)
       
-      TURB_RESULT%ITT(1) = DPDK
-      TURB_RESULT%ITT(2) = DPDO - TS%DV(1)
-      TURB_RESULT%ITT(3) = (1.9D0*FE2*TS%DV(1)*TS%PV(2,9)**2 - 2.9556D0*TS%TV(1)*TS%PV(2,9)*KKYY )/TS%PV(2,8)**2
-      TURB_RESULT%ITT(4) = (1.5D0*FE1*DPDO*TS%PV(2,9) + 1.5D0*FE1*PROD - 3.8D0*FE2*TS%DV(1)*TS%PV(2,9) + 2.9556D0*TS%TV(1)*KKYY)/TS%PV(2,8)
+      turb_result%itt(1) = dpdk
+      turb_result%itt(2) = dpdo - ts%dv(1)
+      turb_result%itt(3) = (1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )/ts%pv(2,8)**2
+      turb_result%itt(4) = (1.5d0*fe1*dpdo*ts%pv(2,9) + 1.5d0*fe1*prod - 3.8d0*fe2*ts%dv(1)*ts%pv(2,9) + 2.9556d0*ts%tv(1)*kkyy)/ts%pv(2,8)
       
-      IF(TS%TCOMP) THEN
-        TURB_RESULT%ITT(1) = TURB_RESULT%ITT(1) + (- 1.6D0*TS%DV(1)*TS%PV(2,9) - 0.8D0*DPDK*TS%PV(2,8)- 0.8D0*PROD)/TS%DV(6)
-        TURB_RESULT%ITT(2) = TURB_RESULT%ITT(2) + (- TS%DV(1) - 0.4D0*DPDO + 0.2D0*TS%DV(1))*MT2
-      END IF
+      if(ts%tcomp) then
+        turb_result%itt(1) = turb_result%itt(1) + (- 1.6d0*ts%dv(1)*ts%pv(2,9) - 0.8d0*dpdk*ts%pv(2,8)- 0.8d0*prod)/ts%dv(6)
+        turb_result%itt(2) = turb_result%itt(2) + (- ts%dv(1) - 0.4d0*dpdo + 0.2d0*ts%dv(1))*mt2
+      end if
       
-      T = TURB_RESULT%ITT(1)+TURB_RESULT%ITT(4)
-      D = TURB_RESULT%ITT(1)*TURB_RESULT%ITT(4)-TURB_RESULT%ITT(2)*TURB_RESULT%ITT(3)
-      LAM1 = 0.5D0*T + DSQRT(DMAX1(0.25D0*T**2-D,0.D0))
-      LAM2 = 0.5D0*T - DSQRT(DMAX1(0.25D0*T**2-D,0.D0))
-      LAM1 = DSIGN(1.D0,LAM1)
-      LAM2 = DSIGN(1.D0,LAM2)
+      t = turb_result%itt(1)+turb_result%itt(4)
+      d = turb_result%itt(1)*turb_result%itt(4)-turb_result%itt(2)*turb_result%itt(3)
+      lam1 = 0.5d0*t + dsqrt(dmax1(0.25d0*t**2-d,0.d0))
+      lam2 = 0.5d0*t - dsqrt(dmax1(0.25d0*t**2-d,0.d0))
+      lam1 = dsign(1.d0,lam1)
+      lam2 = dsign(1.d0,lam2)
       
-      TURB_RESULT%ITT(1:2) = TURB_RESULT%ITT(1:2)*(PHI*(1.D0-0.5D0*(1.D0-LAM1))-0.5D0*(1.D0-LAM1))
-      TURB_RESULT%ITT(3:4) = TURB_RESULT%ITT(3:4)*(PHI*(1.D0-0.5D0*(1.D0-LAM2))-0.5D0*(1.D0-LAM2))
-    END FUNCTION KEPSILON
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KWSST(TS) RESULT(TURB_RESULT)
-      IMPLICIT NONE
-      CLASS(T_KWSST), INTENT(IN) :: TS
-      TYPE(T_TURB_RESULT) :: TURB_RESULT
-      REAL(8) :: K1,K2,K3,K4,K5,K6
-      REAL(8) :: O1,O2,O3,O4,O5,O6
-      REAL(8) :: U1,U2,U3,U4,U5,U6
-      REAL(8) :: V1,V2,V3,V4,V5,V6
-      REAL(8) :: W1,W2,W3,W4,W5,W6
-      REAL(8) :: DKDX,DKDY,DKDZ,DODX,DODY,DODZ
-      REAL(8) :: DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,VOL
-      REAL(8) :: PROD,BIGF,TALPHA,TBETA,MT2,PD,DPDK,DPDO
-      REAL(8) :: LAM1,LAM2,T,D
-      REAL(8), PARAMETER :: PHI = 1.D0, C23=2.D0/3.D0, C59 = 5.D0/9.D0
+      turb_result%itt(1:2) = turb_result%itt(1:2)*(phi*(1.d0-0.5d0*(1.d0-lam1))-0.5d0*(1.d0-lam1))
+      turb_result%itt(3:4) = turb_result%itt(3:4)*(phi*(1.d0-0.5d0*(1.d0-lam2))-0.5d0*(1.d0-lam2))
+    end function kepsilon
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kwsst(ts) result(turb_result)
+      implicit none
+      class(t_kwsst), intent(in) :: ts
+      type(t_turb_result) :: turb_result
+      real(8) :: k1,k2,k3,k4,k5,k6
+      real(8) :: o1,o2,o3,o4,o5,o6
+      real(8) :: u1,u2,u3,u4,u5,u6
+      real(8) :: v1,v2,v3,v4,v5,v6
+      real(8) :: w1,w2,w3,w4,w5,w6
+      real(8) :: dkdx,dkdy,dkdz,dodx,dody,dodz
+      real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
+      real(8) :: prod,bigf,talpha,tbeta,mt2,pd,dpdk,dpdo
+      real(8) :: lam1,lam2,t,d
+      real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0, c59 = 5.d0/9.d0
 
-      K1 = 0.5D0*(TS%PV(1,8)+TS%PV(2,8))
-      K2 = 0.5D0*(TS%PV(3,8)+TS%PV(2,8))
-      K3 = 0.5D0*(TS%PV(4,8)+TS%PV(2,8))
-      K4 = 0.5D0*(TS%PV(5,8)+TS%PV(2,8))
-      K5 = 0.5D0*(TS%PV(6,8)+TS%PV(2,8))
-      K6 = 0.5D0*(TS%PV(7,8)+TS%PV(2,8))
+      k1 = 0.5d0*(ts%pv(1,8)+ts%pv(2,8))
+      k2 = 0.5d0*(ts%pv(3,8)+ts%pv(2,8))
+      k3 = 0.5d0*(ts%pv(4,8)+ts%pv(2,8))
+      k4 = 0.5d0*(ts%pv(5,8)+ts%pv(2,8))
+      k5 = 0.5d0*(ts%pv(6,8)+ts%pv(2,8))
+      k6 = 0.5d0*(ts%pv(7,8)+ts%pv(2,8))
 
-      O1 = 0.5D0*(TS%PV(1,9)+TS%PV(2,9))
-      O2 = 0.5D0*(TS%PV(3,9)+TS%PV(2,9))
-      O3 = 0.5D0*(TS%PV(4,9)+TS%PV(2,9))
-      O4 = 0.5D0*(TS%PV(5,9)+TS%PV(2,9))
-      O5 = 0.5D0*(TS%PV(6,9)+TS%PV(2,9))
-      O6 = 0.5D0*(TS%PV(7,9)+TS%PV(2,9))
+      o1 = 0.5d0*(ts%pv(1,9)+ts%pv(2,9))
+      o2 = 0.5d0*(ts%pv(3,9)+ts%pv(2,9))
+      o3 = 0.5d0*(ts%pv(4,9)+ts%pv(2,9))
+      o4 = 0.5d0*(ts%pv(5,9)+ts%pv(2,9))
+      o5 = 0.5d0*(ts%pv(6,9)+ts%pv(2,9))
+      o6 = 0.5d0*(ts%pv(7,9)+ts%pv(2,9))
       
-      U1 = 0.5D0*(TS%PV(1,2)+TS%PV(2,2))
-      U2 = 0.5D0*(TS%PV(3,2)+TS%PV(2,2))
-      U3 = 0.5D0*(TS%PV(4,2)+TS%PV(2,2))
-      U4 = 0.5D0*(TS%PV(5,2)+TS%PV(2,2))
-      U5 = 0.5D0*(TS%PV(6,2)+TS%PV(2,2))
-      U6 = 0.5D0*(TS%PV(7,2)+TS%PV(2,2))
+      u1 = 0.5d0*(ts%pv(1,2)+ts%pv(2,2))
+      u2 = 0.5d0*(ts%pv(3,2)+ts%pv(2,2))
+      u3 = 0.5d0*(ts%pv(4,2)+ts%pv(2,2))
+      u4 = 0.5d0*(ts%pv(5,2)+ts%pv(2,2))
+      u5 = 0.5d0*(ts%pv(6,2)+ts%pv(2,2))
+      u6 = 0.5d0*(ts%pv(7,2)+ts%pv(2,2))
       
-      V1 = 0.5D0*(TS%PV(1,3)+TS%PV(2,3))
-      V2 = 0.5D0*(TS%PV(3,3)+TS%PV(2,3))
-      V3 = 0.5D0*(TS%PV(4,3)+TS%PV(2,3))
-      V4 = 0.5D0*(TS%PV(5,3)+TS%PV(2,3))
-      V5 = 0.5D0*(TS%PV(6,3)+TS%PV(2,3))
-      V6 = 0.5D0*(TS%PV(7,3)+TS%PV(2,3))
+      v1 = 0.5d0*(ts%pv(1,3)+ts%pv(2,3))
+      v2 = 0.5d0*(ts%pv(3,3)+ts%pv(2,3))
+      v3 = 0.5d0*(ts%pv(4,3)+ts%pv(2,3))
+      v4 = 0.5d0*(ts%pv(5,3)+ts%pv(2,3))
+      v5 = 0.5d0*(ts%pv(6,3)+ts%pv(2,3))
+      v6 = 0.5d0*(ts%pv(7,3)+ts%pv(2,3))
 
-      W1 = 0.5D0*(TS%PV(1,4)+TS%PV(2,4))
-      W2 = 0.5D0*(TS%PV(3,4)+TS%PV(2,4))
-      W3 = 0.5D0*(TS%PV(4,4)+TS%PV(2,4))
-      W4 = 0.5D0*(TS%PV(5,4)+TS%PV(2,4))
-      W5 = 0.5D0*(TS%PV(6,4)+TS%PV(2,4))
-      W6 = 0.5D0*(TS%PV(7,4)+TS%PV(2,4))
+      w1 = 0.5d0*(ts%pv(1,4)+ts%pv(2,4))
+      w2 = 0.5d0*(ts%pv(3,4)+ts%pv(2,4))
+      w3 = 0.5d0*(ts%pv(4,4)+ts%pv(2,4))
+      w4 = 0.5d0*(ts%pv(5,4)+ts%pv(2,4))
+      w5 = 0.5d0*(ts%pv(6,4)+ts%pv(2,4))
+      w6 = 0.5d0*(ts%pv(7,4)+ts%pv(2,4))
       
-      VOL = 1.D0/TS%GRD(1)
-      DKDX = (K2*TS%CX2(1)+K4*TS%EX2(1)+K6*TS%TX2(1)-K1*TS%CX1(1)-K3*TS%EX1(1)-K5*TS%TX1(1))*VOL
-      DKDY = (K2*TS%CX2(2)+K4*TS%EX2(2)+K6*TS%TX2(2)-K1*TS%CX1(2)-K3*TS%EX1(2)-K5*TS%TX1(2))*VOL
-      DKDZ = (K2*TS%CX2(3)+K4*TS%EX2(3)+K6*TS%TX2(3)-K1*TS%CX1(3)-K3*TS%EX1(3)-K5*TS%TX1(3))*VOL
+      vol = 1.d0/ts%grd(1)
+      dkdx = (k2*ts%cx2(1)+k4*ts%ex2(1)+k6*ts%tx2(1)-k1*ts%cx1(1)-k3*ts%ex1(1)-k5*ts%tx1(1))*vol
+      dkdy = (k2*ts%cx2(2)+k4*ts%ex2(2)+k6*ts%tx2(2)-k1*ts%cx1(2)-k3*ts%ex1(2)-k5*ts%tx1(2))*vol
+      dkdz = (k2*ts%cx2(3)+k4*ts%ex2(3)+k6*ts%tx2(3)-k1*ts%cx1(3)-k3*ts%ex1(3)-k5*ts%tx1(3))*vol
 
-      DODX = (O2*TS%CX2(1)+O4*TS%EX2(1)+O6*TS%TX2(1)-O1*TS%CX1(1)-O3*TS%EX1(1)-O5*TS%TX1(1))*VOL
-      DODY = (O2*TS%CX2(2)+O4*TS%EX2(2)+O6*TS%TX2(2)-O1*TS%CX1(2)-O3*TS%EX1(2)-O5*TS%TX1(2))*VOL
-      DODZ = (O2*TS%CX2(3)+O4*TS%EX2(3)+O6*TS%TX2(3)-O1*TS%CX1(3)-O3*TS%EX1(3)-O5*TS%TX1(3))*VOL
+      dodx = (o2*ts%cx2(1)+o4*ts%ex2(1)+o6*ts%tx2(1)-o1*ts%cx1(1)-o3*ts%ex1(1)-o5*ts%tx1(1))*vol
+      dody = (o2*ts%cx2(2)+o4*ts%ex2(2)+o6*ts%tx2(2)-o1*ts%cx1(2)-o3*ts%ex1(2)-o5*ts%tx1(2))*vol
+      dodz = (o2*ts%cx2(3)+o4*ts%ex2(3)+o6*ts%tx2(3)-o1*ts%cx1(3)-o3*ts%ex1(3)-o5*ts%tx1(3))*vol
       
-      DUDX = (U2*TS%CX2(1)+U4*TS%EX2(1)+U6*TS%TX2(1)-U1*TS%CX1(1)-U3*TS%EX1(1)-U5*TS%TX1(1))*VOL
-      DUDY = (U2*TS%CX2(2)+U4*TS%EX2(2)+U6*TS%TX2(2)-U1*TS%CX1(2)-U3*TS%EX1(2)-U5*TS%TX1(2))*VOL
-      DUDZ = (U2*TS%CX2(3)+U4*TS%EX2(3)+U6*TS%TX2(3)-U1*TS%CX1(3)-U3*TS%EX1(3)-U5*TS%TX1(3))*VOL
+      dudx = (u2*ts%cx2(1)+u4*ts%ex2(1)+u6*ts%tx2(1)-u1*ts%cx1(1)-u3*ts%ex1(1)-u5*ts%tx1(1))*vol
+      dudy = (u2*ts%cx2(2)+u4*ts%ex2(2)+u6*ts%tx2(2)-u1*ts%cx1(2)-u3*ts%ex1(2)-u5*ts%tx1(2))*vol
+      dudz = (u2*ts%cx2(3)+u4*ts%ex2(3)+u6*ts%tx2(3)-u1*ts%cx1(3)-u3*ts%ex1(3)-u5*ts%tx1(3))*vol
       
-      DVDX = (V2*TS%CX2(1)+V4*TS%EX2(1)+V6*TS%TX2(1)-V1*TS%CX1(1)-V3*TS%EX1(1)-V5*TS%TX1(1))*VOL
-      DVDY = (V2*TS%CX2(2)+V4*TS%EX2(2)+V6*TS%TX2(2)-V1*TS%CX1(2)-V3*TS%EX1(2)-V5*TS%TX1(2))*VOL
-      DVDZ = (V2*TS%CX2(3)+V4*TS%EX2(3)+V6*TS%TX2(3)-V1*TS%CX1(3)-V3*TS%EX1(3)-V5*TS%TX1(3))*VOL
+      dvdx = (v2*ts%cx2(1)+v4*ts%ex2(1)+v6*ts%tx2(1)-v1*ts%cx1(1)-v3*ts%ex1(1)-v5*ts%tx1(1))*vol
+      dvdy = (v2*ts%cx2(2)+v4*ts%ex2(2)+v6*ts%tx2(2)-v1*ts%cx1(2)-v3*ts%ex1(2)-v5*ts%tx1(2))*vol
+      dvdz = (v2*ts%cx2(3)+v4*ts%ex2(3)+v6*ts%tx2(3)-v1*ts%cx1(3)-v3*ts%ex1(3)-v5*ts%tx1(3))*vol
       
-      DWDX = (W2*TS%CX2(1)+W4*TS%EX2(1)+W6*TS%TX2(1)-W1*TS%CX1(1)-W3*TS%EX1(1)-W5*TS%TX1(1))*VOL
-      DWDY = (W2*TS%CX2(2)+W4*TS%EX2(2)+W6*TS%TX2(2)-W1*TS%CX1(2)-W3*TS%EX1(2)-W5*TS%TX1(2))*VOL
-      DWDZ = (W2*TS%CX2(3)+W4*TS%EX2(3)+W6*TS%TX2(3)-W1*TS%CX1(3)-W3*TS%EX1(3)-W5*TS%TX1(3))*VOL
+      dwdx = (w2*ts%cx2(1)+w4*ts%ex2(1)+w6*ts%tx2(1)-w1*ts%cx1(1)-w3*ts%ex1(1)-w5*ts%tx1(1))*vol
+      dwdy = (w2*ts%cx2(2)+w4*ts%ex2(2)+w6*ts%tx2(2)-w1*ts%cx1(2)-w3*ts%ex1(2)-w5*ts%tx1(2))*vol
+      dwdz = (w2*ts%cx2(3)+w4*ts%ex2(3)+w6*ts%tx2(3)-w1*ts%cx1(3)-w3*ts%ex1(3)-w5*ts%tx1(3))*vol
       
-      PROD = TS%TV(3)*(2.D0*(DUDX**2+DVDY**2+DWDZ**2)+(DUDY+DVDX)**2+(DUDZ+DWDX)**2+(DVDZ+DWDY)**2         &
-           - C23*(DUDX+DVDY+DWDZ)**2) - C23*TS%DV(1)*TS%PV(2,8)*(DUDX+DVDY+DWDZ) 
+      prod = ts%tv(3)*(2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2         &
+           - c23*(dudx+dvdy+dwdz)**2) - c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz) 
       
-      PROD = DMIN1(PROD,0.9D0*TS%DV(1)*TS%PV(2,8)*TS%PV(2,9))
+      prod = dmin1(prod,0.9d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9))
       
-      TURB_RESULT%OMEGA_CUT = DSQRT(2.D0*(DUDX**2+DVDY**2+DWDZ**2)+(DUDY+DVDX)**2+(DUDZ+DWDX)**2+(DVDZ+DWDY)**2     &
-                              - C23*(DUDX+DVDY+DWDZ)**2)
+      turb_result%omega_cut = dsqrt(2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2     &
+                              - c23*(dudx+dvdy+dwdz)**2)
       
-      BIGF = TS%CALBIGF(DKDX*DODX+DKDY*DODY+DKDZ*DODZ)
+      bigf = ts%calbigf(dkdx*dodx+dkdy*dody+dkdz*dodz)
       
-      TALPHA = BIGF*C59 +(1.D0-BIGF)*0.44D0
-      TBETA  = BIGF*0.075D0   +(1.D0-BIGF)*0.0828D0
+      talpha = bigf*c59 +(1.d0-bigf)*0.44d0
+      tbeta  = bigf*0.075d0   +(1.d0-bigf)*0.0828d0
       
-      IF(TS%TCOMP) THEN
-        MT2 = 2.D0*TS%PV(2,8)/TS%DV(6)
-        PD = -0.4D0*PROD*MT2+0.018D0*TS%DV(1)*TS%PV(2,8)*TS%PV(2,9)*MT2
-      ELSE
-        MT2 = 0.D0
-        PD = 0.D0      
-      END IF
+      if(ts%tcomp) then
+        mt2 = 2.d0*ts%pv(2,8)/ts%dv(6)
+        pd = -0.4d0*prod*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)*mt2
+      else
+        mt2 = 0.d0
+        pd = 0.d0      
+      end if
       
-      TURB_RESULT%SOURCE(1) = (PROD - 0.09D0*TS%DV(1)*TS%PV(2,8)*TS%PV(2,9)*(1.D0+C59*MT2*(1.D0-BIGF)) &
-                            + (1.D0-BIGF)*PD)*TS%GRD(1)
-      TURB_RESULT%SOURCE(2) = (TALPHA*TS%DV(1)/TS%TV(3)*PROD - TBETA*TS%DV(1)*TS%PV(2,9)**2 &
-                            + 1.712D0*(1.D0-BIGF)*TS%DV(1)/TS%PV(2,9)*(DKDX*DODX+DKDY*DODY+DKDZ*DODZ) &
-                            + (1.D0-BIGF)*0.05D0*MT2*TS%DV(1)*TS%PV(2,9)**2 &
-                            - (1.D0-BIGF)*TS%DV(1)/TS%TV(3)*PD )*TS%GRD(1)
+      turb_result%source(1) = (prod - 0.09d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)*(1.d0+c59*mt2*(1.d0-bigf)) &
+                            + (1.d0-bigf)*pd)*ts%grd(1)
+      turb_result%source(2) = (talpha*ts%dv(1)/ts%tv(3)*prod - tbeta*ts%dv(1)*ts%pv(2,9)**2 &
+                            + 1.712d0*(1.d0-bigf)*ts%dv(1)/ts%pv(2,9)*(dkdx*dodx+dkdy*dody+dkdz*dodz) &
+                            + (1.d0-bigf)*0.05d0*mt2*ts%dv(1)*ts%pv(2,9)**2 &
+                            - (1.d0-bigf)*ts%dv(1)/ts%tv(3)*pd )*ts%grd(1)
 
-      DPDK = PROD/TS%PV(2,8)   
-      DPDO = - (PROD+C23*TS%DV(1)*TS%PV(2,8)*(DUDX+DVDY+DWDZ))/TS%PV(2,9)
+      dpdk = prod/ts%pv(2,8)   
+      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,9)
 
-      TURB_RESULT%ITT(1) = DPDK - 0.09D0*TS%DV(1)*TS%PV(2,8)
-      TURB_RESULT%ITT(2) = DPDO - 0.09D0*TS%DV(1)*TS%PV(2,9)
-      TURB_RESULT%ITT(3) = 0.D0
-      TURB_RESULT%ITT(4) = TALPHA*TS%DV(1)/TS%TV(3)*DPDO + TALPHA*TS%DV(1)/TS%TV(3)*PROD/TS%PV(2,9) - 2.D0*TBETA*TS%DV(1)*TS%PV(2,9) &
-                         - 1.712D0*(1.D0-BIGF)*TS%DV(1)/TS%PV(2,9)**2*(DKDX*DODX+DKDY*DODY+DKDZ*DODZ)
+      turb_result%itt(1) = dpdk - 0.09d0*ts%dv(1)*ts%pv(2,8)
+      turb_result%itt(2) = dpdo - 0.09d0*ts%dv(1)*ts%pv(2,9)
+      turb_result%itt(3) = 0.d0
+      turb_result%itt(4) = talpha*ts%dv(1)/ts%tv(3)*dpdo + talpha*ts%dv(1)/ts%tv(3)*prod/ts%pv(2,9) - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
+                         - 1.712d0*(1.d0-bigf)*ts%dv(1)/ts%pv(2,9)**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
                  
-      IF(TS%TCOMP) THEN
-        TURB_RESULT%ITT(1) = TURB_RESULT%ITT(1) + (- 0.128D0*TS%DV(1)*TS%PV(2,8)*TS%PV(2,9)/TS%DV(6) - 0.4D0*DPDK*MT2 - 0.8D0*PROD/TS%DV(6) )*(1.D0-BIGF)
-        TURB_RESULT%ITT(2) = TURB_RESULT%ITT(2) + (- 0.032D0*TS%DV(1)*TS%PV(2,8)*MT2 - 0.4D0*DPDO*MT2 )*(1.D0-BIGF)
-        TURB_RESULT%ITT(3) = TURB_RESULT%ITT(3) + (0.1D0*TS%DV(1)*TS%PV(2,9)**2/TS%DV(6) + TS%DV(1)/TS%TV(3)*PD/TS%PV(2,8) &
-                                                - TS%DV(1)/TS%TV(3)*(-0.4D0*DPDK*MT2-0.8D0*PROD/TS%DV(6)+0.072D0*TS%DV(1)*TS%PV(2,8)*TS%PV(2,9)/TS%DV(6)))*(1.D0-BIGF)
-        TURB_RESULT%ITT(4) = TURB_RESULT%ITT(4) + (0.2D0*TS%DV(1)*TS%PV(2,9)*TS%PV(2,8)/TS%DV(6) - TS%DV(1)/TS%TV(3)*PD/TS%PV(2,9) &
-                                                - TS%DV(1)/TS%TV(3)*(-0.4D0*DPDO*MT2+0.018D0*TS%DV(1)*TS%PV(2,8)*MT2))*(1.D0-BIGF)
-      END IF
+      if(ts%tcomp) then
+        turb_result%itt(1) = turb_result%itt(1) + (- 0.128d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6) - 0.4d0*dpdk*mt2 - 0.8d0*prod/ts%dv(6) )*(1.d0-bigf)
+        turb_result%itt(2) = turb_result%itt(2) + (- 0.032d0*ts%dv(1)*ts%pv(2,8)*mt2 - 0.4d0*dpdo*mt2 )*(1.d0-bigf)
+        turb_result%itt(3) = turb_result%itt(3) + (0.1d0*ts%dv(1)*ts%pv(2,9)**2/ts%dv(6) + ts%dv(1)/ts%tv(3)*pd/ts%pv(2,8) &
+                                                - ts%dv(1)/ts%tv(3)*(-0.4d0*dpdk*mt2-0.8d0*prod/ts%dv(6)+0.072d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6)))*(1.d0-bigf)
+        turb_result%itt(4) = turb_result%itt(4) + (0.2d0*ts%dv(1)*ts%pv(2,9)*ts%pv(2,8)/ts%dv(6) - ts%dv(1)/ts%tv(3)*pd/ts%pv(2,9) &
+                                                - ts%dv(1)/ts%tv(3)*(-0.4d0*dpdo*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*mt2))*(1.d0-bigf)
+      end if
                  
-      T = TURB_RESULT%ITT(1)+TURB_RESULT%ITT(4)
-      D = TURB_RESULT%ITT(1)*TURB_RESULT%ITT(4)-TURB_RESULT%ITT(2)*TURB_RESULT%ITT(3)
-      LAM1 = 0.5D0*T + DSQRT(DMAX1(0.25D0*T**2-D,0.D0))
-      LAM2 = 0.5D0*T - DSQRT(DMAX1(0.25D0*T**2-D,0.D0))
-      LAM1 = DSIGN(1.D0,LAM1)
-      LAM2 = DSIGN(1.D0,LAM2)
+      t = turb_result%itt(1)+turb_result%itt(4)
+      d = turb_result%itt(1)*turb_result%itt(4)-turb_result%itt(2)*turb_result%itt(3)
+      lam1 = 0.5d0*t + dsqrt(dmax1(0.25d0*t**2-d,0.d0))
+      lam2 = 0.5d0*t - dsqrt(dmax1(0.25d0*t**2-d,0.d0))
+      lam1 = dsign(1.d0,lam1)
+      lam2 = dsign(1.d0,lam2)
       
-      TURB_RESULT%ITT(1:2) = TURB_RESULT%ITT(1:2)*(PHI*(1.D0-0.5D0*(1.D0-LAM1))-0.5D0*(1.D0-LAM1))
-      TURB_RESULT%ITT(3:4) = TURB_RESULT%ITT(3:4)*(PHI*(1.D0-0.5D0*(1.D0-LAM2))-0.5D0*(1.D0-LAM2))
+      turb_result%itt(1:2) = turb_result%itt(1:2)*(phi*(1.d0-0.5d0*(1.d0-lam1))-0.5d0*(1.d0-lam1))
+      turb_result%itt(3:4) = turb_result%itt(3:4)*(phi*(1.d0-0.5d0*(1.d0-lam2))-0.5d0*(1.d0-lam2))
       
-    END FUNCTION KWSST
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION CALBIGF(TS,PKW)
-      IMPLICIT NONE
-      CLASS(T_TURBSOURCE), INTENT(IN) :: TS
-      REAL(8), INTENT(IN) :: PKW
-      REAL(8) :: CALBIGF
-      REAL(8) :: TERM0,TERM1,TERM2,TERM3,CDKW,ARG1,ARG2
+    end function kwsst
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function calbigf(ts,pkw)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: pkw
+      real(8) :: calbigf
+      real(8) :: term0,term1,term2,term3,cdkw,arg1,arg2
       
-      TERM0 = 1.712D0*TS%DV(1)/TS%PV(2,9)*PKW
-      CDKW = DMAX1(TERM0,1.D-10)
+      term0 = 1.712d0*ts%dv(1)/ts%pv(2,9)*pkw
+      cdkw = dmax1(term0,1.d-10)
       
-      TERM1 = DSQRT(TS%PV(2,8))/(0.09D0*TS%PV(2,9)*TS%GRD(5))
-      TERM2 = 500.D0*TS%TV(1)/TS%DV(1)/(TS%PV(2,9)*TS%GRD(5)**2)
-      TERM3 = (3.424D0*TS%DV(1)*TS%PV(2,8))/(CDKW*TS%GRD(5)**2)
+      term1 = dsqrt(ts%pv(2,8))/(0.09d0*ts%pv(2,9)*ts%grd(5))
+      term2 = 500.d0*ts%tv(1)/ts%dv(1)/(ts%pv(2,9)*ts%grd(5)**2)
+      term3 = (3.424d0*ts%dv(1)*ts%pv(2,8))/(cdkw*ts%grd(5)**2)
       
-      ARG2 = DMAX1(TERM1,TERM2)
-      ARG1 = DMIN1(ARG2,TERM3)
+      arg2 = dmax1(term1,term2)
+      arg1 = dmin1(arg2,term3)
       
-      CALBIGF = DTANH(ARG1**4)
+      calbigf = dtanh(arg1**4)
       
-    END FUNCTION CALBIGF
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE TURBSOURCE_MODULE
+    end function calbigf
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module turbsource_module

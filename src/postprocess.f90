@@ -1,35 +1,35 @@
-PROGRAM POSTCONVERTER
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-  USE POSTVARIABLE_MODULE
-  USE DATAWRITING_MODULE
+program postprocess
+  use config_module
+  use eos_module
+  use prop_module
+  use postgrid_module
+  use postvariable_module
+  use datawriting_module
   
-  IMPLICIT NONE
-  TYPE(T_CONFIG) :: CONFIG
-  TYPE(T_GRID) :: GRID
-  TYPE(T_EOS) :: EOS
-  TYPE(T_PROP) :: PROP
-  TYPE(T_VARIABLE) :: VARIABLE
-  TYPE(T_DATAWRITING) :: DATAWRITING
+  implicit none
+  type(t_config) :: config
+  type(t_eos) :: eos
+  type(t_prop) :: prop
+  type(t_grod) :: grid
+  type(t_variable) :: variable
+  type(t_datawriting) :: datawriting
   
-  INTEGER :: IO,ISTART,IEND,NSOLUTION
+  integer :: io,istart,iend,nsolution
   
-  OPEN(NEWUNIT=IO,FILE='./INPUT_POST.INP',STATUS='OLD',ACTION='READ')
-  READ(IO,*); READ(IO,*) ISTART
-  READ(IO,*); READ(IO,*) IEND
-  READ(IO,*); READ(IO,*) NSOLUTION
-  CLOSE(IO)
+  open(newunit=io,file='./input_post.inp',status='old',action='read')
+  read(io,*); read(io,*) istart
+  read(io,*); read(io,*) iend
+  read(io,*); read(io,*) nsolution
+  close(io)
       
-  CALL CONFIG%CONSTRUCT(EOS,PROP) !EOS & PROP ARE ALSO CONSTRUCTED
-  CALL GRID%CONSTRUCT(CONFIG)
-  CALL VARIABLE%CONSTRUCT(CONFIG,EOS,ISTART,IEND,NSOLUTION)
+  call config%construct(eos,prop) !eos & prop are also constructed
+  call grid%construct(config)
+  call variable%construct(config,eos,istart,iend,nsolution)
       
-  CALL DATAWRITING%CGNSWRITING(CONFIG,VARIABLE)
-  CALL DATAWRITING%CL_WRITING(CONFIG,GRID,VARIABLE)
+  call datawriting%cgnswriting(config,variable)
+  call datawriting%clcd_writing(config,grid,variable)
   
-  CALL VARIABLE%DESTRUCT()
-  CALL GRID%DESTRUCT()
-  CALL CONFIG%DESTRUCT(EOS,PROP) !EOS & PROP ARE DESTRUCTED
-END PROGRAM POSTCONVERTER
+  call variable%destruct()
+  call grid%destruct()
+  call config%destruct(eos,prop) !eos & prop are destructed
+end program postprocess

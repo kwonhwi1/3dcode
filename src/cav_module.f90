@@ -1,185 +1,184 @@
-MODULE CAV_MODULE
-  USE CONFIG_MODULE
-  USE EOS_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_CAV,T_MERKLE,T_KUNZ,T_SINGHAL,T_CAV_RESULT
+module cav_module
+  use config_module
+  use eos_module
+  implicit none
+  private
+  public :: t_cav,t_merkle,t_kunz,t_singhal,t_cav_result
   
-  TYPE T_CAV_RESULT
-     REAL(8) :: CAVSOURCE,ICAV(4)
-  END TYPE
+  type t_cav_result
+     real(8) :: cavsource,icav(4)
+  end type
   
-  TYPE, ABSTRACT :: T_CAV
-    PRIVATE
-    REAL(8) :: PREF
-    REAL(8) :: UREF,C_C,C_V,DP_REF,T_REF
-    REAL(8), POINTER, PUBLIC :: PV(:),DV(:),GRD(:)
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_CAVSOURCE), DEFERRED :: CAVSOURCE
-  END TYPE T_CAV
+  type, abstract :: t_cav
+    private
+    real(8) :: pref
+    real(8) :: uref,c_c,c_v,dp_ref,t_ref
+    real(8), pointer, public :: pv(:),dv(:),grd(:)
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure(p_cavsource), deferred :: cavsource
+  end type t_cav
   
-  TYPE, EXTENDS(T_CAV) :: T_MERKLE
-    CONTAINS
-      PROCEDURE :: CAVSOURCE => MERKLE
-  END TYPE T_MERKLE
+  type, extends(t_cav) :: t_merkle
+    contains
+      procedure :: cavsource => merkle
+  end type t_merkle
   
-  TYPE, EXTENDS(T_CAV) :: T_KUNZ
-    CONTAINS
-      PROCEDURE :: CAVSOURCE => KUNZ
-  END TYPE T_KUNZ
+  type, extends(t_cav) :: t_kunz
+    contains
+      procedure :: cavsource => kunz
+  end type t_kunz
   
-  TYPE, EXTENDS(T_CAV) :: T_SINGHAL
-    CONTAINS
-      PROCEDURE :: CAVSOURCE => SINGHAL
-  END TYPE T_SINGHAL
+  type, extends(t_cav) :: t_singhal
+    contains
+      procedure :: cavsource => singhal
+  end type t_singhal
   
-  ABSTRACT INTERFACE
-    FUNCTION P_CAVSOURCE(CAV,EOS) RESULT(CAV_RESULT)
-      IMPORT T_CAV_RESULT
-      IMPORT T_CAV
-      IMPORT T_EOS
-      IMPLICIT NONE
-      CLASS(T_CAV), INTENT(IN) :: CAV
-      TYPE(T_EOS),INTENT(IN) :: EOS
-      TYPE(T_CAV_RESULT) :: CAV_RESULT
-    END FUNCTION P_CAVSOURCE
-  END INTERFACE
+  abstract interface
+    function p_cavsource(cav,eos) result(cav_result)
+      import t_cav_result
+      import t_cav
+      import t_eos
+      implicit none
+      class(t_cav), intent(in) :: cav
+      type(t_eos),intent(in) :: eos
+      type(t_cav_result) :: cav_result
+    end function p_cavsource
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(CAV,CONFIG)
-      IMPLICIT NONE
-      CLASS(T_CAV), INTENT(OUT) :: CAV
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(cav,config)
+      implicit none
+      class(t_cav), intent(out) :: cav
+      type(t_config), intent(in) :: config
         
-      CAV%PREF         = CONFIG%GETPREF()
-      CAV%UREF         = CONFIG%GETUREF()
-      CAV%C_C          = CONFIG%GETC_C()
-      CAV%C_V          = CONFIG%GETC_V()
-      CAV%DP_REF = 2.D0/(CONFIG%GETRHOREF()*CAV%UREF**2)
-      CAV%T_REF = CAV%UREF/CONFIG%GETL_CHORD()
+      cav%pref         = config%getpref()
+      cav%uref         = config%geturef()
+      cav%c_c          = config%getc_c()
+      cav%c_v          = config%getc_v()
+      cav%dp_ref = 2.d0/(config%getrhoref()*cav%uref**2)
+      cav%t_ref = cav%uref/config%getl_chord()
          
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(CAV)
-      IMPLICIT NONE
-      CLASS(T_CAV), INTENT(INOUT) :: CAV
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(cav)
+      implicit none
+      class(t_cav), intent(inout) :: cav
       
-      IF(ASSOCIATED(CAV%GRD))  NULLIFY(CAV%GRD) 
-      IF(ASSOCIATED(CAV%PV))   NULLIFY(CAV%PV) 
-      IF(ASSOCIATED(CAV%DV))   NULLIFY(CAV%DV)
+      if(associated(cav%grd))  nullify(cav%grd) 
+      if(associated(cav%pv))   nullify(cav%pv) 
+      if(associated(cav%dv))   nullify(cav%dv)
 
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION MERKLE(CAV,EOS) RESULT(CAV_RESULT)
-      IMPLICIT NONE
-      CLASS(T_MERKLE), INTENT(IN) :: CAV
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_CAV_RESULT) :: CAV_RESULT
-      REAL(8) :: R_C,R_V,PWW,LAM,RHO1
-      REAL(8), PARAMETER :: PHI = 1.D0
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function merkle(cav,eos) result(cav_result)
+      implicit none
+      class(t_merkle), intent(in) :: cav
+      type(t_eos), intent(in) :: eos
+      type(t_cav_result) :: cav_result
+      real(8) :: r_c,r_v,pww,lam,rho1
+      real(8), parameter :: phi = 1.d0
       
-      CAV_RESULT = T_CAV_RESULT(0.D0,(/0.D0,0.D0,0.D0,0.D0/))
-      PWW = EOS%GET_PWW(CAV%PV(5))
-      RHO1 = 1.D0/CAV%DV(1)
+      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      pww = eos%get_pww(cav%pv(5))
+      rho1 = 1.d0/cav%dv(1)
       
-      R_C = CAV%C_C*CAV%DV(1)*CAV%PV(6)*DMAX1(CAV%PV(1)+CAV%PREF-PWW,0.D0)*CAV%DP_REF*CAV%T_REF
-      R_V = CAV%C_V*CAV%DV(1)*(1.D0-CAV%PV(6)-CAV%PV(7))*DMAX1(PWW-CAV%PV(1)-CAV%PREF,0.D0)*CAV%DP_REF*CAV%T_REF
+      r_c = cav%c_c*cav%dv(1)*cav%pv(6)*(1.d0-cav%pv(7))*dmax1(cav%pv(1)+cav%pref-pww,0.d0)*cav%dp_ref*cav%t_ref
+      r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(6))*dmax1(pww-cav%pv(1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
            
-      CAV_RESULT%CAVSOURCE = (R_V - R_C)*CAV%GRD(1)
+      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
       
-      IF(R_C.NE.0.D0) THEN
-        CAV_RESULT%ICAV(1) = - R_C*(1.D0/(CAV%PV(1)+CAV%PREF-PWW)+CAV%DV(7)*RHO1)
-        CAV_RESULT%ICAV(2) = - R_C*CAV%DV(8)*RHO1
-        CAV_RESULT%ICAV(3) = - R_C*(1.D0/CAV%PV(6)+CAV%DV(9)*RHO1)
-        CAV_RESULT%ICAV(4) = - R_C*CAV%DV(10)*RHO1
-      END IF
-      IF(R_V.NE.0.D0) THEN
-        CAV_RESULT%ICAV(1) = R_V*(-1.D0/(PWW-CAV%PV(1)-CAV%PREF)+CAV%DV(7)*RHO1)
-        CAV_RESULT%ICAV(2) = R_V*CAV%DV(8)*RHO1
-        CAV_RESULT%ICAV(3) = R_V*(CAV%DV(9)*RHO1-1.D0/(1.D0-CAV%PV(6)-CAV%PV(7)))
-        CAV_RESULT%ICAV(4) = R_V*(CAV%DV(10)*RHO1-1.D0/(1.D0-CAV%PV(6)-CAV%PV(7)))
-      END IF
-      LAM = DSIGN(1.D0,CAV_RESULT%ICAV(3))
-      CAV_RESULT%ICAV(:) = CAV_RESULT%ICAV(:)*(PHI*(1.D0-0.5D0*(1.D0-LAM))-0.5D0*(1.D0-LAM))
-    END FUNCTION MERKLE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KUNZ(CAV,EOS) RESULT(CAV_RESULT)
-      IMPLICIT NONE
-      CLASS(T_KUNZ), INTENT(IN) :: CAV
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_CAV_RESULT) :: CAV_RESULT
-      REAL(8) :: R_C,R_V,AL,AV,AG,PWW,AV1,LAM,RHO1
-      REAL(8), PARAMETER :: PHI = 1.D0
+      if(r_c.ne.0.d0) then
+        cav_result%icav(1) = - r_c*(1.d0/(cav%pv(1)+cav%pref-pww)+cav%dv(7)*rho1)
+        cav_result%icav(2) = - r_c*cav%dv(8)*rho1
+        cav_result%icav(3) = - r_c*(1.d0/cav%pv(6)+cav%dv(9)*rho1)
+        cav_result%icav(4) = - r_c*(-1.d0/(1.d0-cav%pv(7))+cav%dv(10)*rho1)
+      end if
+      if(r_v.ne.0.d0) then
+        cav_result%icav(1) = r_v*(-1.d0/(pww-cav%pv(1)-cav%pref)+cav%dv(7)*rho1)
+        cav_result%icav(2) = r_v*cav%dv(8)*rho1
+        cav_result%icav(3) = r_v*(cav%dv(9)*rho1-1.d0/(1.d0-cav%pv(6)))
+        cav_result%icav(4) = r_v*cav%dv(10)*rho1
+      end if
+      lam = dsign(1.d0,cav_result%icav(3))
+      cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
+    end function merkle
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kunz(cav,eos) result(cav_result)
+      implicit none
+      class(t_kunz), intent(in) :: cav
+      type(t_eos), intent(in) :: eos
+      type(t_cav_result) :: cav_result
+      real(8) :: r_c,r_v,al,av,ag,pww,av1,lam,rho1
+      real(8), parameter :: phi = 1.d0
 
-      CAV_RESULT = T_CAV_RESULT(0.D0,(/0.D0,0.D0,0.D0,0.D0/))
-      PWW = EOS%GET_PWW(CAV%PV(5))
-      RHO1 = 1.D0/CAV%DV(1)
+      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      pww = eos%get_pww(cav%pv(5))
+      rho1 = 1.d0/cav%dv(1)
       
-      AV = CAV%DV(1)*CAV%PV(6)/CAV%DV(4)
-      AG = CAV%DV(1)*CAV%PV(7)/CAV%DV(5)
-      AL = 1.D0 - AV - AG
+      av = cav%dv(1)*cav%pv(6)*(1.d-cav%pv(7))/cav%dv(4)
+      ag = cav%dv(1)*cav%pv(6)*cav%pv(7)/cav%dv(5)
+      al = 1.d0 - av - ag
 
-      R_C = CAV%C_C*CAV%DV(4)*AV*(AL+AG)**2*CAV%T_REF
-      R_V = CAV%C_V*CAV%DV(1)*(1.D0-CAV%PV(6)-CAV%PV(7))*DMAX1(PWW-CAV%PV(1)-CAV%PREF,0.D0)*CAV%DP_REF*CAV%T_REF
+      r_c = cav%c_c*cav%dv(4)*av*(al+ag)**2*cav%t_ref
+      r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(6))*dmax1(pww-cav%pv(1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
 
-      CAV_RESULT%CAVSOURCE = (R_V - R_C)*CAV%GRD(1)
+      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
       
-      AV1 = 1.D0-4.D0*AV+3.D0*AV**2
-      IF(R_C.NE.0.D0 ) THEN
-        CAV_RESULT%ICAV(1) = - CAV%C_C*CAV%T_REF*(CAV%DV(7)*CAV%PV(6)*AV1+2.D0*AV**2*CAV%DV(15)*(AL+AG))
-        CAV_RESULT%ICAV(2) = - CAV%C_C*CAV%T_REF*(CAV%DV(8)*CAV%PV(6)*AV1+2.D0*AV**2*CAV%DV(16)*(AL+AG))
-        CAV_RESULT%ICAV(3) = - CAV%C_C*CAV%T_REF*(CAV%DV(9)*CAV%PV(6)+CAV%DV(1))*AV1
-        CAV_RESULT%ICAV(4) = - CAV%C_C*CAV%T_REF*CAV%DV(10)*CAV%PV(6)*AV1
-      END IF
-      IF(R_V.NE.0.D0) THEN
-        CAV_RESULT%ICAV(1) = R_V*(-1.D0/(PWW-CAV%PV(1)-CAV%PREF)+CAV%DV(7)*RHO1)
-        CAV_RESULT%ICAV(2) = R_V*CAV%DV(8)*RHO1
-        CAV_RESULT%ICAV(3) = R_V*(CAV%DV(9)*RHO1-1.D0/(1.D0-CAV%PV(6)-CAV%PV(7)))
-        CAV_RESULT%ICAV(4) = R_V*(CAV%DV(10)*RHO1-1.D0/(1.D0-CAV%PV(6)-CAV%PV(7)))
-      END IF
-      LAM = DSIGN(1.D0,CAV_RESULT%ICAV(3))
-      CAV_RESULT%ICAV(:) = CAV_RESULT%ICAV(:)*(PHI*(1.D0-0.5D0*(1.D0-LAM))-0.5D0*(1.D0-LAM))
-    END FUNCTION KUNZ  
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION SINGHAL(CAV,EOS) RESULT(CAV_RESULT)
-      IMPLICIT NONE
-      CLASS(T_SINGHAL), INTENT(IN) :: CAV
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_CAV_RESULT) :: CAV_RESULT
-      REAL(8) :: R_C,R_V,PWW,SIGMA,LAM,RHO1,RHO2
-      REAL(8), PARAMETER :: PHI = 1.D0
+      av1 = 1.d0-4.d0*av+3.d0*av**2
+      if(r_c.ne.0.d0 ) then
+        cav_result%icav(1) = - cav%c_c*cav%t_ref*(cav%dv(7)*cav%pv(6)*(1.d0-cav%pv(7))*av1+2.d0*av**2*cav%dv(15)*(al+ag))
+        cav_result%icav(2) = - cav%c_c*cav%t_ref*(cav%dv(8)*cav%pv(6)*(1.d0-cav%pv(7))*av1+2.d0*av**2*cav%dv(16)*(al+ag))
+        cav_result%icav(3) = - cav%c_c*cav%t_ref*(cav%dv(9)*cav%pv(6)+cav%dv(1))*av1*(1.d0-cav%pv(7))
+        cav_result%icav(4) = - cav%c_c*cav%t_ref*(cav%dv(10)*(1.d0-cav%pv(7))-cav%dv(1))*cav%pv(6)*av1
+      end if
+      if(r_v.ne.0.d0) then
+        cav_result%icav(1) = r_v*(-1.d0/(pww-cav%pv(1)-cav%pref)+cav%dv(7)*rho1)
+        cav_result%icav(2) = r_v*cav%dv(8)*rho1
+        cav_result%icav(3) = r_v*(cav%dv(9)*rho1-1.d0/(1.d0-cav%pv(6)))
+        cav_result%icav(4) = r_v*cav%dv(10)*rho1
+      end if
+      lam = dsign(1.d0,cav_result%icav(3))
+      cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
+    end function kunz  
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function singhal(cav,eos) result(cav_result)
+      implicit none
+      class(t_singhal), intent(in) :: cav
+      type(t_eos), intent(in) :: eos
+      type(t_cav_result) :: cav_result
+      real(8) :: r_c,r_v,pww,sigma,lam,rho1,rho2
+      real(8), parameter :: phi = 1.d0
       
-      CAV_RESULT = T_CAV_RESULT(0.D0,(/0.D0,0.D0,0.D0,0.D0/))
-      PWW = EOS%GET_PWW(CAV%PV(5))
-      SIGMA = EOS%GET_SIGMA(CAV%PV(5))
-      RHO1 = 1.D0/CAV%DV(3)
-      RHO2 = 1.D0/CAV%DV(4)
+      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      pww = eos%get_pww(cav%pv(5))
+      sigma = eos%get_sigma(cav%pv(5))
+      rho1 = 1.d0/cav%dv(3)
+      rho2 = 1.d0/cav%dv(4)
       
-      R_C = CAV%C_C*CAV%UREF/SIGMA*CAV%DV(3)*CAV%DV(4) &
-          *DSQRT(2.D0/3.D0*DMAX1(CAV%PV(1)+CAV%PREF-PWW,0.D0)*RHO1)*CAV%PV(6)
-      R_V = CAV%C_V*CAV%UREF/SIGMA*CAV%DV(3)*CAV%DV(4) &
-          *DSQRT(2.D0/3.D0*DMAX1(PWW-CAV%PV(1)-CAV%PREF,0.D0)*RHO1)*(1.D0-CAV%PV(6)-CAV%PV(7))
+      r_c = cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*dmax1(cav%pv(1)+cav%pref-pww,0.d0)*rho1)*cav%pv(6)*(1.d0-cav%pv(7))
+      r_v = cav%c_v*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*dmax1(pww-cav%pv(1)-cav%pref,0.d0)*rho1)*(1.d0-cav%pv(6))
 
-      CAV_RESULT%CAVSOURCE = (R_V - R_C)*CAV%GRD(1)
+      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
       
-      IF(R_C.NE.0.D0 ) THEN
-        CAV_RESULT%ICAV(1) = - R_C*(CAV%DV(15)*RHO2+0.5D0*CAV%DV(17)*RHO1+0.5D0/(CAV%PV(1)+CAV%PREF-PWW))
-        CAV_RESULT%ICAV(2) = - R_C*(CAV%DV(16)*RHO2+0.5D0*CAV%DV(18)*RHO1)
-        CAV_RESULT%ICAV(3) = - R_C/CAV%PV(6)
-        CAV_RESULT%ICAV(4) = 0.D0
-      END IF
-      IF(R_V.NE.0.D0 ) THEN
-        CAV_RESULT%ICAV(1) = R_V*(CAV%DV(15)*RHO2+0.5D0*CAV%DV(17)*RHO1-0.5D0/(PWW-CAV%PV(1)-CAV%PREF))
-        CAV_RESULT%ICAV(2) = R_V*(CAV%DV(16)*RHO2+0.5D0*CAV%DV(18)*RHO1)
-        CAV_RESULT%ICAV(3) = - R_V/(1.D0-CAV%PV(6)-CAV%PV(7))
-        CAV_RESULT%ICAV(4) = - R_V/(1.D0-CAV%PV(6)-CAV%PV(7))
-      END IF
-      LAM = DSIGN(1.D0,CAV_RESULT%ICAV(3))
-      CAV_RESULT%ICAV(:) = CAV_RESULT%ICAV(:)*(PHI*(1.D0-0.5D0*(1.D0-LAM))-0.5D0*(1.D0-LAM))
-    END FUNCTION SINGHAL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE CAV_MODULE
-    
+      if(r_c.ne.0.d0 ) then
+        cav_result%icav(1) = - r_c*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1+0.5d0/(cav%pv(1)+cav%pref-pww))
+        cav_result%icav(2) = - r_c*(cav%dv(16)*rho2+0.5d0*cav%dv(18)*rho1)
+        cav_result%icav(3) = - r_c/cav%pv(6)
+        cav_result%icav(4) = + r_c/(1.d0-cav%pv(7))
+      end if
+      if(r_v.ne.0.d0 ) then
+        cav_result%icav(1) = r_v*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1-0.5d0/(pww-cav%pv(1)-cav%pref))
+        cav_result%icav(2) = r_v*(cav%dv(16)*rho2+0.5d0*cav%dv(18)*rho1)
+        cav_result%icav(3) = - r_v/(1.d0-cav%pv(6))
+        cav_result%icav(4) = 0.d0
+      end if
+      lam = dsign(1.d0,cav_result%icav(3))
+      cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
+    end function singhal
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module cav_module 

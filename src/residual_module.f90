@@ -1,181 +1,181 @@
-MODULE RESIDUAL_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_RESI
+module residual_module
+  use config_module
+  use grid_module
+  use variable_module
+  implicit none
+  private
+  public :: t_resi
   
-  TYPE T_RESI
-    PRIVATE
-    LOGICAL :: L_CONVERGE
-    INTEGER :: NPV,IMAX,JMAX,KMAX
-    INTEGER :: NTMAX,NPMAX,NPRINT
-    INTEGER :: RANK,IO
-    REAL(8) :: BOND
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: QRES
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: SETQRES
-      PROCEDURE :: RESIDUAL
-      PROCEDURE :: GETCONVERGE
-  END TYPE T_RESI
+  type t_resi
+    private
+    logical :: l_converge
+    integer :: npv,imax,jmax,kmax
+    integer :: ntmax,npmax,nprint
+    integer :: rank,io
+    real(8) :: bond
+    real(8), dimension(:,:,:,:), allocatable :: qres
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: setqres
+      procedure :: residual
+      procedure :: getconverge
+  end type t_resi
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(RESI,CONFIG,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_RESI), INTENT(OUT) :: RESI
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(resi,config,grid,variable)
+      implicit none
+      class(t_resi), intent(out) :: resi
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
       
-      RESI%RANK = CONFIG%GETRANK()
-      RESI%NPMAX = CONFIG%GETNPMAX()      
-      RESI%NTMAX = CONFIG%GETNTMAX()
-      RESI%IMAX = GRID%GETIMAX()
-      RESI%JMAX = GRID%GETJMAX()
-      RESI%KMAX = GRID%GETKMAX()
-      RESI%NPV = VARIABLE%GETNPV()
-      RESI%NPRINT = CONFIG%GETNPRINT()
-      RESI%BOND = 10.D0**(-CONFIG%GETBOND())
+      resi%rank = config%getrank()
+      resi%npmax = config%getnpmax()      
+      resi%ntmax = config%getntmax()
+      resi%imax = grid%getimax()
+      resi%jmax = grid%getjmax()
+      resi%kmax = grid%getkmax()
+      resi%npv = variable%getnpv()
+      resi%nprint = config%getnprint()
+      resi%bond = 10.d0**(-config%getbond())
       
-      ALLOCATE(RESI%QRES(RESI%NPV,RESI%IMAX,RESI%JMAX,RESI%KMAX))
+      allocate(resi%qres(resi%npv,resi%imax,resi%jmax,resi%kmax))
       
-      IF(CONFIG%GETIREAD().EQ.0) THEN
-        IF(RESI%RANK.EQ.0) THEN
-          OPEN(NEWUNIT=RESI%IO,FILE='./RES.PLT',STATUS='UNKNOWN',ACTION='WRITE')
-          SELECT CASE(CONFIG%GETITURB())
-          CASE(-1,0)
-            WRITE(RESI%IO,*) 'VARIABLES="NT","RESP","RESU","RESV","RESW","REST","RESY1","RESY2","RESK","RESO"' 
-          CASE(-2,-3)
-            WRITE(RESI%IO,*) 'VARIABLES="NT","RESP","RESU","RESV","RESW","REST","RESY1","RESY2"' 
-          END SELECT
-        END IF
-      ELSE !IREAD=1 RESTART
-        IF(RESI%RANK.EQ.0) THEN
-          OPEN(NEWUNIT=RESI%IO,FILE='./RES.PLT',STATUS='OLD',ACTION='WRITE',POSITION='APPEND')
-        END IF
-      END IF
-      RESI%L_CONVERGE = .FALSE.
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(RESI)
-      IMPLICIT NONE
-      CLASS(T_RESI), INTENT(INOUT) :: RESI
+      if(config%getiread().eq.0) then
+        if(resi%rank.eq.0) then
+          open(newunit=resi%io,file='./res.plt',status='unknown',action='write')
+          select case(config%getiturb())
+          case(-1,0)
+            write(resi%io,*) 'variables="nt","resp","resu","resv","resw","rest","resy1","resy2","resk","reso"' 
+          case(-2,-3)
+            write(resi%io,*) 'variables="nt","resp","resu","resv","resw","rest","resy1","resy2"' 
+          end select
+        end if
+      else !iread=1 restart
+        if(resi%rank.eq.0) then
+          open(newunit=resi%io,file='./res.plt',status='old',action='write',position='append')
+        end if
+      end if
+      resi%l_converge = .false.
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(resi)
+      implicit none
+      class(t_resi), intent(inout) :: resi
       
-      IF(ALLOCATED(RESI%QRES)) DEALLOCATE(RESI%QRES)
+      if(allocated(resi%qres)) deallocate(resi%qres)
       
-      IF(RESI%RANK.EQ.0) THEN
-        CLOSE(RESI%IO)
-      END IF
+      if(resi%rank.eq.0) then
+        close(resi%io)
+      end if
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETQRES(RESI,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_RESI), INTENT(INOUT) :: RESI
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: I,J,K
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setqres(resi,variable)
+      implicit none
+      class(t_resi), intent(inout) :: resi
+      type(t_variable), intent(in) :: variable
+      integer :: i,j,k
       
-      DO K=2,RESI%KMAX
-        DO J=2,RESI%JMAX
-          DO I=2,RESI%IMAX
-            RESI%QRES(:,I,J,K) = VARIABLE%GETPV(I,J,K)
-          END DO
-        END DO
-      END DO
+      do k=2,resi%kmax
+        do j=2,resi%jmax
+          do i=2,resi%imax
+            resi%qres(:,i,j,k) = variable%getpv(i,j,k)
+          end do
+        end do
+      end do
       
-    END SUBROUTINE SETQRES
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE RESIDUAL(RESI,VARIABLE,NT_PHY,NT)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_RESI), INTENT(INOUT) :: RESI
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: NT_PHY,NT
-      INTEGER :: I,J,K,N,IERR,ITER
-      INTEGER :: IRESM,JRESM,KRESM
-      REAL(8) :: RESTEST,RESMAX
-      REAL(8), DIMENSION(:) :: RES(RESI%NPV)
-      REAL(8), DIMENSION(:) :: MPI_RES(RESI%NPV),MPI_RES_SUM(RESI%NPV)
+    end subroutine setqres
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine residual(resi,variable,nt_phy,nt)
+      implicit none
+      include 'mpif.h'
+      class(t_resi), intent(inout) :: resi
+      type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
+      integer :: i,j,k,n,ierr,iter
+      integer :: iresm,jresm,kresm
+      real(8) :: restest,resmax
+      real(8), dimension(:) :: res(resi%npv)
+      real(8), dimension(:) :: mpi_res(resi%npv),mpi_res_sum(resi%npv)
 
-      IF((RESI%RANK.EQ.0).AND.(NT.EQ.1).AND.(NT_PHY.EQ.1)) THEN
-        WRITE(RESI%IO,*) 'ZONE T =" "'
-      END IF
+      if((resi%rank.eq.0).and.(nt.eq.1).and.(nt_phy.eq.1)) then
+        write(resi%io,*) 'zone t =" "'
+      end if
       
-      RESMAX = 1.D-12
-      RES = 0.D0
+      resmax = 1.d-30
+      res = 0.d0
       
-      DO K=2,RESI%KMAX
-        DO J=2,RESI%JMAX
-          DO I=2,RESI%IMAX
-            RESI%QRES(:,I,J,K) = DABS(RESI%QRES(:,I,J,K) - VARIABLE%GETPV(I,J,K))
-            DO N=1,RESI%NPV
-              RES(N) = RES(N) + RESI%QRES(N,I,J,K)**2
-            END DO
-            RESTEST = RESI%QRES(1,I,J,K)
-            IF(RESTEST.GT.RESMAX) THEN
-              RESMAX = RESTEST
-              IRESM=I
-              JRESM=J
-              KRESM=K
-            END IF
-          END DO
-        END DO
-      END DO
+      do k=2,resi%kmax
+        do j=2,resi%jmax
+          do i=2,resi%imax
+            resi%qres(:,i,j,k) = dabs(resi%qres(:,i,j,k) - variable%getpv(i,j,k))
+            do n=1,resi%npv
+              res(n) = res(n) + resi%qres(n,i,j,k)**2
+            end do
+            restest = resi%qres(1,i,j,k)
+            if(restest.gt.resmax) then
+              resmax = restest
+              iresm=i
+              jresm=j
+              kresm=k
+            end if
+          end do
+        end do
+      end do
       
-      MPI_RES = RES
-      CALL MPI_REDUCE(MPI_RES,MPI_RES_SUM,RESI%NPV,MPI_REAL8,MPI_SUM,0,MPI_COMM_WORLD,IERR)
-      CALL MPI_BCAST(MPI_RES_SUM,RESI%NPV,MPI_REAL8,0,MPI_COMM_WORLD,IERR)
+      mpi_res = res
+      call mpi_reduce(mpi_res,mpi_res_sum,resi%npv,mpi_real8,mpi_sum,0,mpi_comm_world,ierr)
+      call mpi_bcast(mpi_res_sum,resi%npv,mpi_real8,0,mpi_comm_world,ierr)
       
-      DO N=1,RESI%NPV
-        MPI_RES_SUM(N) = DSQRT(MPI_RES_SUM(N))
-      END DO
-      ITER = RESI%NTMAX*(NT_PHY-1)+NT
-      IF(MOD(ITER,RESI%NPRINT).EQ.0) THEN
-        IF(RESI%RANK.EQ.0) THEN
-          IF(RESI%NPV.EQ.7) THEN
-            WRITE(*,77) ITER, MPI_RES_SUM(1),MPI_RES_SUM(2),MPI_RES_SUM(3),MPI_RES_SUM(4),MPI_RES_SUM(5),MPI_RES_SUM(6),MPI_RES_SUM(7)
-          ELSE
-            WRITE(*,99) ITER, MPI_RES_SUM(1),MPI_RES_SUM(2),MPI_RES_SUM(3),MPI_RES_SUM(4),MPI_RES_SUM(5),MPI_RES_SUM(6),MPI_RES_SUM(7),MPI_RES_SUM(8),MPI_RES_SUM(9)
-          END IF
-          WRITE(*,*) RESI%RANK,'MAX ERR',IRESM,JRESM,KRESM,RESMAX
-        END IF
-        CALL MPI_BARRIER(MPI_COMM_WORLD,IERR)
-        IF(RESI%RANK.NE.0) THEN
-          WRITE(*,*) RESI%RANK,'MAX ERR',IRESM,JRESM,KRESM,RESMAX        
-        END IF
-      END IF
+      do n=1,resi%npv
+        mpi_res_sum(n) = dsqrt(mpi_res_sum(n))
+      end do
+      iter = resi%ntmax*(nt_phy-1)+nt
+      if(mod(iter,resi%nprint).eq.0) then
+        if(resi%rank.eq.0) then
+          if(resi%npv.eq.7) then
+            write(*,77) iter, mpi_res_sum(1),mpi_res_sum(2),mpi_res_sum(3),mpi_res_sum(4),mpi_res_sum(5),mpi_res_sum(6),mpi_res_sum(7)
+          else
+            write(*,99) iter, mpi_res_sum(1),mpi_res_sum(2),mpi_res_sum(3),mpi_res_sum(4),mpi_res_sum(5),mpi_res_sum(6),mpi_res_sum(7),mpi_res_sum(8),mpi_res_sum(9)
+          end if
+          write(*,*) resi%rank,'max err',iresm,jresm,kresm,resmax
+        end if
+        call mpi_barrier(mpi_comm_world,ierr)
+        if(resi%rank.ne.0) then
+          write(*,*) resi%rank,'max err',iresm,jresm,kresm,resmax        
+        end if
+      end if
       
-      IF(RESI%RANK.EQ.0) THEN
-        IF(RESI%NPV.EQ.7) THEN
-          WRITE(RESI%IO,66) ITER, MPI_RES_SUM(1),MPI_RES_SUM(2),MPI_RES_SUM(3),MPI_RES_SUM(4),MPI_RES_SUM(5),MPI_RES_SUM(6),MPI_RES_SUM(7)
-        ELSE
-          WRITE(RESI%IO,88) ITER, MPI_RES_SUM(1),MPI_RES_SUM(2),MPI_RES_SUM(3),MPI_RES_SUM(4),MPI_RES_SUM(5),MPI_RES_SUM(6),MPI_RES_SUM(7),MPI_RES_SUM(8),MPI_RES_SUM(9)
-        END IF
-      END IF
+      if(resi%rank.eq.0) then
+        if(resi%npv.eq.7) then
+          write(resi%io,66) iter, mpi_res_sum(1),mpi_res_sum(2),mpi_res_sum(3),mpi_res_sum(4),mpi_res_sum(5),mpi_res_sum(6),mpi_res_sum(7)
+        else
+          write(resi%io,88) iter, mpi_res_sum(1),mpi_res_sum(2),mpi_res_sum(3),mpi_res_sum(4),mpi_res_sum(5),mpi_res_sum(6),mpi_res_sum(7),mpi_res_sum(8),mpi_res_sum(9)
+        end if
+      end if
 
-      IF(RESI%RANK.EQ.0) THEN
-        IF(MPI_RES_SUM(1).LT.RESI%BOND) RESI%L_CONVERGE = .TRUE.
-      END IF
+      if(resi%rank.eq.0) then
+        if(mpi_res_sum(1).lt.resi%bond) resi%l_converge = .true.
+      end if
       
-      CALL MPI_BCAST(RESI%L_CONVERGE,1,MPI_LOGICAL,0,MPI_COMM_WORLD,IERR)
+      call mpi_bcast(resi%l_converge,1,mpi_logical,0,mpi_comm_world,ierr)
       
-66  FORMAT(I10,7(F30.12))
-88  FORMAT(I10,9(F30.12))
-77  FORMAT(I10,2(F30.12)/10X,2(F30.12)/10X,2(F30.12)/10X,2(F30.12))
-99  FORMAT(I10,2(F30.12)/10X,2(F30.12)/10X,2(F30.12)/10X,2(F30.12)/10X,2(F30.12))
-    END SUBROUTINE RESIDUAL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETCONVERGE(RESI)
-      IMPLICIT NONE
-      CLASS(T_RESI), INTENT(IN) :: RESI
-      LOGICAL :: GETCONVERGE
+66  format(i10,7(f30.12))
+88  format(i10,9(f30.12))
+77  format(i10,2(f30.12)/10x,2(f30.12)/10x,2(f30.12)/10x,2(f30.12))
+99  format(i10,2(f30.12)/10x,2(f30.12)/10x,2(f30.12)/10x,2(f30.12)/10x,2(f30.12))
+    end subroutine residual
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getconverge(resi)
+      implicit none
+      class(t_resi), intent(in) :: resi
+      logical :: getconverge
       
-      GETCONVERGE = RESI%L_CONVERGE
+      getconverge = resi%l_converge
     
-    END FUNCTION GETCONVERGE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE RESIDUAL_MODULE
+    end function getconverge
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module residual_module

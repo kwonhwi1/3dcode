@@ -1,643 +1,643 @@
-MODULE RHS_MODULE
-  USE CONFIG_MODULE
-  USE VARIABLE_MODULE
-  USE GRID_MODULE
-  USE EOS_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-! SUBORDINATE TO RHS MODULE  
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-  USE FLUX_MODULE
-  USE VSFLUX_MODULE
-  USE MUSCL_MODULE
-  USE CAV_MODULE
-  USE TURBSOURCE_MODULE
-  USE UNSTEADY_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC  
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_RHS
+module rhs_module
+  use config_module
+  use variable_module
+  use grid_module
+  use eos_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+! subordinate to rhs module  
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  use flux_module
+  use vsflux_module
+  use muscl_module
+  use cav_module
+  use turbsource_module
+  use unsteady_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
+  implicit none
+  private
+  public :: t_rhs
   
-  TYPE T_RHS
-    PRIVATE
-    INTEGER :: NPV,NDV,NTV,NGRD,IMAX,JMAX,KMAX
-    LOGICAL :: L_FLUX,L_MUSCL,L_CAV,L_TURBSOURCE,L_VSFLUX,L_UNSTEADY
-    REAL(8) :: PREF
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: RES,ICAV,ITT
-    REAL(8), DIMENSION(:,:,:), ALLOCATABLE ::OMEGA_CUT
-    REAL(8), DIMENSION(:,:), ALLOCATABLE :: EA,FA,GA,EVA,FVA,GVA
-    CLASS(T_FLUX),       ALLOCATABLE :: FLUX
-    CLASS(T_MUSCL),      ALLOCATABLE :: MUSCL
-    CLASS(T_CAV),        ALLOCATABLE :: CAV
-    CLASS(T_TURBSOURCE), ALLOCATABLE :: TURBSOURCE
-    CLASS(T_VSFLUX),     ALLOCATABLE :: VSFLUX
-    CLASS(T_UNSTEADY),   ALLOCATABLE :: UNSTEADY
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: CALRHS
-      PROCEDURE :: GETRES
-      PROCEDURE :: GETICAV
-      PROCEDURE :: GETITT
-      PROCEDURE :: GETOMEGA_CUT
-  END TYPE T_RHS
+  type t_rhs
+    private
+    integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
+    logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady
+    real(8) :: pref
+    real(8), dimension(:,:,:,:), allocatable :: res,icav,itt
+    real(8), dimension(:,:,:), allocatable ::omega_cut
+    real(8), dimension(:,:), allocatable :: ea,fa,ga,eva,fva,gva
+    class(t_flux),       allocatable :: flux
+    class(t_muscl),      allocatable :: muscl
+    class(t_cav),        allocatable :: cav
+    class(t_turbsource), allocatable :: turbsource
+    class(t_vsflux),     allocatable :: vsflux
+    class(t_unsteady),   allocatable :: unsteady
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: calrhs
+      procedure :: getres
+      procedure :: geticav
+      procedure :: getitt
+      procedure :: getomega_cut
+  end type t_rhs
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(RHS,CONFIG,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(OUT) :: RHS
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(rhs,config,grid,variable)
+      implicit none
+      class(t_rhs), intent(out) :: rhs
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
       
-      RHS%PREF = CONFIG%GETPREF()
+      rhs%pref = config%getpref()
       
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-3)
+      select case(config%getiturb())
+      case(-3)
 
-      CASE(-2)
-        ALLOCATE(T_VSFLUX_LAMINAR::RHS%VSFLUX)
+      case(-2)
+        allocate(t_vsflux_laminar::rhs%vsflux)
 
-      CASE(-1)
-        ALLOCATE(T_VSFLUX_TURBULENT::RHS%VSFLUX)
-        ALLOCATE(T_KEPSILON::RHS%TURBSOURCE)
+      case(-1)
+        allocate(t_vsflux_turbulent::rhs%vsflux)
+        allocate(t_kepsilon::rhs%turbsource)
 
-      CASE(0)
-        ALLOCATE(T_VSFLUX_TURBULENT::RHS%VSFLUX)
-        ALLOCATE(T_KWSST::RHS%TURBSOURCE)
+      case(0)
+        allocate(t_vsflux_turbulent::rhs%vsflux)
+        allocate(t_kwsst::rhs%turbsource)
 
-      END SELECT
+      end select
       
-      SELECTCASE(CONFIG%GETNSCHEME())
-      CASE(1)
-        ALLOCATE(T_ROE::RHS%FLUX)
-      CASE(2)
-        ALLOCATE(T_ROEM::RHS%FLUX)
-      CASE(3)
-        ALLOCATE(T_AUSMPWP::RHS%FLUX)
-      CASE(4)
-        ALLOCATE(T_AUSMPUP::RHS%FLUX)
-      END SELECT
+      selectcase(config%getnscheme())
+      case(1)
+        allocate(t_roe::rhs%flux)
+      case(2)
+        allocate(t_roem::rhs%flux)
+      case(3)
+        allocate(t_ausmpwp::rhs%flux)
+      case(4)
+        allocate(t_ausmpup::rhs%flux)
+      end select
             
-      SELECT CASE(CONFIG%GETNMUSCL())
-      CASE(0)
-      CASE(1)
-        ALLOCATE(T_TVD::RHS%MUSCL)
-      CASE(2)
-        ALLOCATE(T_MLP::RHS%MUSCL)
-      END SELECT
+      select case(config%getnmuscl())
+      case(0)
+      case(1)
+        allocate(t_tvd::rhs%muscl)
+      case(2)
+        allocate(t_mlp::rhs%muscl)
+      end select
                 
-      SELECT CASE(CONFIG%GETNCAV())
-      CASE(0)
-      CASE(1)
-        ALLOCATE(T_MERKLE::RHS%CAV)
-      CASE(2)
-        ALLOCATE(T_KUNZ::RHS%CAV)
-      CASE(3)
-        ALLOCATE(T_SINGHAL::RHS%CAV)
-      END SELECT
+      select case(config%getncav())
+      case(0)
+      case(1)
+        allocate(t_merkle::rhs%cav)
+      case(2)
+        allocate(t_kunz::rhs%cav)
+      case(3)
+        allocate(t_singhal::rhs%cav)
+      end select
 
-      SELECT CASE(CONFIG%GETNSTEADY())
-      CASE(0)
-      CASE(1)
-        ALLOCATE(T_UNSTEADY::RHS%UNSTEADY)
-      END SELECT
+      select case(config%getnsteady())
+      case(0)
+      case(1)
+        allocate(t_unsteady::rhs%unsteady)
+      end select
 
-      RHS%L_FLUX       = .FALSE.
-      RHS%L_MUSCL      = .FALSE.
-      RHS%L_CAV        = .FALSE.
-      RHS%L_TURBSOURCE = .FALSE.
-      RHS%L_VSFLUX     = .FALSE.
-      RHS%L_UNSTEADY   = .FALSE.
+      rhs%l_flux       = .false.
+      rhs%l_muscl      = .false.
+      rhs%l_cav        = .false.
+      rhs%l_turbsource = .false.
+      rhs%l_vsflux     = .false.
+      rhs%l_unsteady   = .false.
 
-      RHS%NGRD = GRID%GETNGRD()
-      RHS%IMAX = GRID%GETIMAX()
-      RHS%JMAX = GRID%GETJMAX()
-      RHS%KMAX = GRID%GETKMAX()
-      RHS%NPV = VARIABLE%GETNPV()
-      RHS%NDV = VARIABLE%GETNDV()
-      RHS%NTV = VARIABLE%GETNTV()
+      rhs%ngrd = grid%getngrd()
+      rhs%imax = grid%getimax()
+      rhs%jmax = grid%getjmax()
+      rhs%kmax = grid%getkmax()
+      rhs%npv = variable%getnpv()
+      rhs%ndv = variable%getndv()
+      rhs%ntv = variable%getntv()
       
       
-      IF(ALLOCATED(RHS%FLUX)) THEN
-        CALL RHS%FLUX%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_FLUX = .TRUE.
-        ALLOCATE(RHS%EA(RHS%NPV,RHS%IMAX),RHS%FA(RHS%NPV,RHS%JMAX),RHS%GA(RHS%NPV,RHS%KMAX))
-      END IF
+      if(allocated(rhs%flux)) then
+        call rhs%flux%construct(config,variable)
+        rhs%l_flux = .true.
+        allocate(rhs%ea(rhs%npv,rhs%imax),rhs%fa(rhs%npv,rhs%jmax),rhs%ga(rhs%npv,rhs%kmax))
+      end if
       
-      IF(ALLOCATED(RHS%VSFLUX)) THEN
-        CALL RHS%VSFLUX%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_VSFLUX = .TRUE.
-        ALLOCATE(RHS%EVA(RHS%NPV,RHS%IMAX),RHS%FVA(RHS%NPV,RHS%JMAX),RHS%GVA(RHS%NPV,RHS%KMAX))
-      END IF
+      if(allocated(rhs%vsflux)) then
+        call rhs%vsflux%construct(config,variable)
+        rhs%l_vsflux = .true.
+        allocate(rhs%eva(rhs%npv,rhs%imax),rhs%fva(rhs%npv,rhs%jmax),rhs%gva(rhs%npv,rhs%kmax))
+      end if
       
-      IF(ALLOCATED(RHS%MUSCL)) THEN
-        CALL RHS%MUSCL%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_MUSCL = .TRUE.
-      END IF
+      if(allocated(rhs%muscl)) then
+        call rhs%muscl%construct(config,variable)
+        rhs%l_muscl = .true.
+      end if
    
-      IF(ALLOCATED(RHS%CAV)) THEN
-        CALL RHS%CAV%CONSTRUCT(CONFIG)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) THEN
-          ALLOCATE(RHS%ICAV(4,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
-        END IF
-        RHS%L_CAV = .TRUE.
-      END IF
+      if(allocated(rhs%cav)) then
+        call rhs%cav%construct(config)
+        if(config%gettimemethod().eq.3) then
+          allocate(rhs%icav(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
+        end if
+        rhs%l_cav = .true.
+      end if
       
-      IF(ALLOCATED(RHS%TURBSOURCE)) THEN
-        CALL RHS%TURBSOURCE%CONSTRUCT(CONFIG)
-        IF(CONFIG%GETTIMEMETHOD().EQ.3) THEN
-          ALLOCATE(RHS%ITT(4,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
-        END IF
-        ALLOCATE(RHS%OMEGA_CUT(2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
-        RHS%L_TURBSOURCE = .TRUE.
-      END IF
+      if(allocated(rhs%turbsource)) then
+        call rhs%turbsource%construct(config)
+        if(config%gettimemethod().eq.3) then
+          allocate(rhs%itt(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
+        end if
+        allocate(rhs%omega_cut(2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
+        rhs%l_turbsource = .true.
+      end if
       
-      IF(ALLOCATED(RHS%UNSTEADY)) THEN
-        CALL RHS%UNSTEADY%CONSTRUCT(CONFIG,VARIABLE)
-        RHS%L_UNSTEADY   = .TRUE.
-      END IF
+      if(allocated(rhs%unsteady)) then
+        call rhs%unsteady%construct(config,variable)
+        rhs%l_unsteady   = .true.
+      end if
 
-      ALLOCATE(RHS%RES(RHS%NPV,2:RHS%IMAX,2:RHS%JMAX,2:RHS%KMAX))
+      allocate(rhs%res(rhs%npv,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
 
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(RHS)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(INOUT) :: RHS
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(rhs)
+      implicit none
+      class(t_rhs), intent(inout) :: rhs
       
-      IF(RHS%L_FLUX) THEN
-        CALL RHS%FLUX%DESTRUCT()  
-        DEALLOCATE(RHS%FLUX)
-        DEALLOCATE(RHS%EA,RHS%FA,RHS%GA)
-      END IF
-      IF(RHS%L_VSFLUX) THEN
-        CALL RHS%VSFLUX%DESTRUCT()
-        DEALLOCATE(RHS%VSFLUX)
-        DEALLOCATE(RHS%EVA,RHS%FVA,RHS%GVA)
-      END IF
-      IF(RHS%L_MUSCL) THEN
-        CALL RHS%MUSCL%DESTRUCT()
-        DEALLOCATE(RHS%MUSCL)
-      END IF
-      IF(RHS%L_CAV) THEN
-        CALL RHS%CAV%DESTRUCT()
-        DEALLOCATE(RHS%CAV)
-        IF(ALLOCATED(RHS%ICAV)) DEALLOCATE(RHS%ICAV)
-      END IF
-      IF(RHS%L_TURBSOURCE) THEN
-        CALL RHS%TURBSOURCE%DESTRUCT()
-        DEALLOCATE(RHS%TURBSOURCE,RHS%OMEGA_CUT)
-        IF(ALLOCATED(RHS%ITT)) DEALLOCATE(RHS%ITT)
-      END IF
-      IF(RHS%L_UNSTEADY) THEN
-        CALL RHS%UNSTEADY%DESTRUCT()
-        DEALLOCATE(RHS%UNSTEADY)
-      END IF
+      if(rhs%l_flux) then
+        call rhs%flux%destruct()  
+        deallocate(rhs%flux)
+        deallocate(rhs%ea,rhs%fa,rhs%ga)
+      end if
+      if(rhs%l_vsflux) then
+        call rhs%vsflux%destruct()
+        deallocate(rhs%vsflux)
+        deallocate(rhs%eva,rhs%fva,rhs%gva)
+      end if
+      if(rhs%l_muscl) then
+        call rhs%muscl%destruct()
+        deallocate(rhs%muscl)
+      end if
+      if(rhs%l_cav) then
+        call rhs%cav%destruct()
+        deallocate(rhs%cav)
+        if(allocated(rhs%icav)) deallocate(rhs%icav)
+      end if
+      if(rhs%l_turbsource) then
+        call rhs%turbsource%destruct()
+        deallocate(rhs%turbsource,rhs%omega_cut)
+        if(allocated(rhs%itt)) deallocate(rhs%itt)
+      end if
+      if(rhs%l_unsteady) then
+        call rhs%unsteady%destruct()
+        deallocate(rhs%unsteady)
+      end if
       
-      DEALLOCATE(RHS%RES)
+      deallocate(rhs%res)
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CALRHS(RHS,GRID,VARIABLE,EOS)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(INOUT) :: RHS
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      INTEGER :: I,J,K
-      INTEGER :: II,JJ,KK,LL
-      REAL(8), TARGET :: NX(3)
-      REAL(8), TARGET :: EX1(3),EX2(3),EX3(3),EX4(3)
-      REAL(8), TARGET :: TX1(3),TX2(3),TX3(3),TX4(3)
-      REAL(8), TARGET :: GRDL(RHS%NGRD),GRDR(RHS%NGRD)
-      REAL(8), TARGET :: X(38,RHS%NPV)
-      REAL(8), TARGET :: PVL(RHS%NPV),PVR(RHS%NPV)
-      REAL(8), TARGET :: DVL(RHS%NDV),DVR(RHS%NDV)
-      REAL(8), TARGET :: TVL(RHS%NTV),TVR(RHS%NTV)
-      TYPE(T_CAV_RESULT) :: CAV_RESULT
-      TYPE(T_TURB_RESULT) :: TURB_RESULT
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine calrhs(rhs,grid,variable,eos)
+      implicit none
+      class(t_rhs), intent(inout) :: rhs
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      integer :: i,j,k
+      integer :: ii,jj,kk,ll
+      real(8), target :: nx(3)
+      real(8), target :: ex1(3),ex2(3),ex3(3),ex4(3)
+      real(8), target :: tx1(3),tx2(3),tx3(3),tx4(3)
+      real(8), target :: grdl(rhs%ngrd),grdr(rhs%ngrd)
+      real(8), target :: x(38,rhs%npv)
+      real(8), target :: pvl(rhs%npv),pvr(rhs%npv)
+      real(8), target :: dvl(rhs%ndv),dvr(rhs%ndv)
+      real(8), target :: tvl(rhs%ntv),tvr(rhs%ntv)
+      type(t_cav_result) :: cav_result
+      type(t_turb_result) :: turb_result
       
-      DO K=2,RHS%KMAX
-        DO J=2,RHS%JMAX
-          DO I=1,RHS%IMAX
+      do k=2,rhs%kmax
+        do j=2,rhs%jmax
+          do i=1,rhs%imax
           
-            NX = GRID%GETCX(I,J,K)
+            nx = grid%getcx(i,j,k)
             
-            LL = 0
-            DO KK = -1,1
-              DO JJ = -1,1
-                DO II = 0,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+JJ,K+KK)
-                END DO
-              END DO
-            END DO
+            ll = 0
+            do kk = -1,1
+              do jj = -1,1
+                do ii = 0,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                end do
+              end do
+            end do
             
-            IF(RHS%L_MUSCL) THEN
-              DO KK=-1,1
-                DO JJ= -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I-1,J+JJ,K+KK)
-                END DO
-              END DO
-              DO KK=-1,1
-                DO JJ= -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+2,J+JJ,K+KK)
-                END DO
-              END DO
-              X(LL+1,:) = VARIABLE%GETPV(I-2,J,K)
-              X(LL+2,:) = VARIABLE%GETPV(I+3,J,K)
+            if(rhs%l_muscl) then
+              do kk=-1,1
+                do jj= -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i-1,j+jj,k+kk)
+                end do
+              end do
+              do kk=-1,1
+                do jj= -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+2,j+jj,k+kk)
+                end do
+              end do
+              x(ll+1,:) = variable%getpv(i-2,j,k)
+              x(ll+2,:) = variable%getpv(i+3,j,k)
               
-              RHS%MUSCL%X => X
-              CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
-              IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
-              IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
-              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
-              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
+              rhs%muscl%x => x
+              call rhs%muscl%interpolation(pvl,pvr)
+              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
+              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
+              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
+              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
               
-              IF(RHS%L_TURBSOURCE) THEN
-                IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
-                IF((PVR(8).LT.0.D0).AND.(X(10,8).GT.0.D0)) PVR(8) = X(10,8)
-                IF((PVL(9).LT.0.D0).AND.(X(9,9).GT.0.D0))  PVL(9) = X(9,9)
-                IF((PVR(9).LT.0.D0).AND.(X(10,9).GT.0.D0)) PVR(9) = X(10,9)
-              END IF
+              if(rhs%l_turbsource) then
+                if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)
+                if((pvr(8).lt.0.d0).and.(x(10,8).gt.0.d0)) pvr(8) = x(10,8)
+                if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
+                if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
+              end if
               
-              CALL EOS%DETEOS(PVL(1)+RHS%PREF,PVL(5),PVL(6),PVL(7),DVL)
-              CALL EOS%DETEOS(PVR(1)+RHS%PREF,PVR(5),PVR(6),PVR(7),DVR)
-            ELSE
-              PVL = VARIABLE%GETPV(I,J,K) 
-              PVR = VARIABLE%GETPV(I+1,J,K)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I+1,J,K)
-            END IF
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+            else
+              pvl = variable%getpv(i,j,k) 
+              pvr = variable%getpv(i+1,j,k)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i+1,j,k)
+            end if
             
-            RHS%FLUX%NX => NX  
-            RHS%FLUX%PVL => PVL 
-            RHS%FLUX%PVR => PVR
-            RHS%FLUX%DVL => DVL 
-            RHS%FLUX%DVR => DVR
-            RHS%FLUX%SDST => X(1:18,1)
-            CALL RHS%FLUX%CALFLUX(EOS,RHS%EA(:,I))
+            rhs%flux%nx => nx  
+            rhs%flux%pvl => pvl 
+            rhs%flux%pvr => pvr
+            rhs%flux%dvl => dvl 
+            rhs%flux%dvr => dvr
+            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%calflux(eos,rhs%ea(:,i))
             
-            IF(RHS%L_VSFLUX) THEN
-              EX1 = GRID%GETEX(I,J-1,K)
-              EX2 = GRID%GETEX(I+1,J-1,K)
-              EX3 = GRID%GETEX(I,J,K)
-              EX4 = GRID%GETEX(I+1,J,K)
-              TX1 = GRID%GETTX(I,J,K-1)
-              TX2 = GRID%GETTX(I+1,J,K-1)
-              TX3 = GRID%GETTX(I,J,K)
-              TX4 = GRID%GETTX(I+1,J,K)              
-              GRDL = GRID%GETGRD(I,J,K)
-              GRDR = GRID%GETGRD(I+1,J,K)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I+1,J,K)
-              TVL = VARIABLE%GETTV(I,J,K)
-              TVR = VARIABLE%GETTV(I+1,J,K)
+            if(rhs%l_vsflux) then
+              ex1 = grid%getex(i,j-1,k)
+              ex2 = grid%getex(i+1,j-1,k)
+              ex3 = grid%getex(i,j,k)
+              ex4 = grid%getex(i+1,j,k)
+              tx1 = grid%gettx(i,j,k-1)
+              tx2 = grid%gettx(i+1,j,k-1)
+              tx3 = grid%gettx(i,j,k)
+              tx4 = grid%gettx(i+1,j,k)              
+              grdl = grid%getgrd(i,j,k)
+              grdr = grid%getgrd(i+1,j,k)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i+1,j,k)
+              tvl = variable%gettv(i,j,k)
+              tvr = variable%gettv(i+1,j,k)
               
-              RHS%VSFLUX%NX => NX 
-              RHS%VSFLUX%EX1 => EX1 
-              RHS%VSFLUX%EX2 => EX2 
-              RHS%VSFLUX%EX3 => EX3 
-              RHS%VSFLUX%EX4 => EX4 
-              RHS%VSFLUX%TX1 => TX1 
-              RHS%VSFLUX%TX2 => TX2 
-              RHS%VSFLUX%TX3 => TX3 
-              RHS%VSFLUX%TX4 => TX4 
-              RHS%VSFLUX%GRDL => GRDL
-              RHS%VSFLUX%GRDR => GRDR
-              RHS%VSFLUX%DVL => DVL
-              RHS%VSFLUX%DVR => DVR
-              RHS%VSFLUX%TVL => TVL
-              RHS%VSFLUX%TVR => TVR
-              RHS%VSFLUX%PV => X(1:18,:)
-              CALL RHS%VSFLUX%CALFLUX(RHS%EVA(:,I))
-            END IF
-          END DO
-          DO I=2,RHS%IMAX
-            RHS%RES(:,I,J,K) = -( RHS%EA(:,I) - RHS%EA(:,I-1) )
-            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%EVA(:,I) - RHS%EVA(:,I-1) )
-          END DO
-        END DO
-      END DO
+              rhs%vsflux%nx => nx 
+              rhs%vsflux%ex1 => ex1 
+              rhs%vsflux%ex2 => ex2 
+              rhs%vsflux%ex3 => ex3 
+              rhs%vsflux%ex4 => ex4 
+              rhs%vsflux%tx1 => tx1 
+              rhs%vsflux%tx2 => tx2 
+              rhs%vsflux%tx3 => tx3 
+              rhs%vsflux%tx4 => tx4 
+              rhs%vsflux%grdl => grdl
+              rhs%vsflux%grdr => grdr
+              rhs%vsflux%dvl => dvl
+              rhs%vsflux%dvr => dvr
+              rhs%vsflux%tvl => tvl
+              rhs%vsflux%tvr => tvr
+              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%calflux(rhs%eva(:,i))
+            end if
+          end do
+          do i=2,rhs%imax
+            rhs%res(:,i,j,k) = -( rhs%ea(:,i) - rhs%ea(:,i-1) )
+            if(rhs%l_vsflux) rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + (rhs%eva(:,i) - rhs%eva(:,i-1) )
+          end do
+        end do
+      end do
       
-      DO I=2,RHS%IMAX
-        DO K=2,RHS%KMAX
-          DO J=1,RHS%JMAX
+      do i=2,rhs%imax
+        do k=2,rhs%kmax
+          do j=1,rhs%jmax
             
-            NX = GRID%GETEX(I,J,K)
+            nx = grid%getex(i,j,k)
             
-            LL = 0
-            DO II = -1,1
-              DO KK = -1,1
-                DO JJ = 0,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+JJ,K+KK)
-                END DO
-              END DO
-            END DO
+            ll = 0
+            do ii = -1,1
+              do kk = -1,1
+                do jj = 0,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                end do
+              end do
+            end do
             
-            IF(RHS%L_MUSCL) THEN
-              DO II = -1,1
-                DO KK = -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J-1,K+KK)
-                END DO
-              END DO
-              DO II = -1,1
-                DO KK = -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+2,K+KK)
-                END DO
-              END DO
-              X(LL+1,:) = VARIABLE%GETPV(I,J-2,K)
-              X(LL+2,:) = VARIABLE%GETPV(I,J+3,K)
+            if(rhs%l_muscl) then
+              do ii = -1,1
+                do kk = -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j-1,k+kk)
+                end do
+              end do
+              do ii = -1,1
+                do kk = -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+2,k+kk)
+                end do
+              end do
+              x(ll+1,:) = variable%getpv(i,j-2,k)
+              x(ll+2,:) = variable%getpv(i,j+3,k)
               
-              RHS%MUSCL%X => X
-              CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
-              IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
-              IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
-              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
-              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
+              rhs%muscl%x => x
+              call rhs%muscl%interpolation(pvl,pvr)
+              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
+              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
+              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
+              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
               
-              IF(RHS%L_TURBSOURCE) THEN
-                IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
-                IF((PVR(8).LT.0.D0).AND.(X(10,8).GT.0.D0)) PVR(8) = X(10,8)
-                IF((PVL(9).LT.0.D0).AND.(X(9,9).GT.0.D0))  PVL(9) = X(9,9)
-                IF((PVR(9).LT.0.D0).AND.(X(10,9).GT.0.D0)) PVR(9) = X(10,9)
-              END IF
+              if(rhs%l_turbsource) then
+                if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)
+                if((pvr(8).lt.0.d0).and.(x(10,8).gt.0.d0)) pvr(8) = x(10,8)
+                if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
+                if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
+              end if
               
-              CALL EOS%DETEOS(PVL(1)+RHS%PREF,PVL(5),PVL(6),PVL(7),DVL)
-              CALL EOS%DETEOS(PVR(1)+RHS%PREF,PVR(5),PVR(6),PVR(7),DVR)
-            ELSE
-              PVL = VARIABLE%GETPV(I,J,K) 
-              PVR = VARIABLE%GETPV(I,J+1,K)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I,J+1,K)
-            END IF
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+            else
+              pvl = variable%getpv(i,j,k) 
+              pvr = variable%getpv(i,j+1,k)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i,j+1,k)
+            end if
 
 
-            RHS%FLUX%NX => NX  
-            RHS%FLUX%PVL => PVL 
-            RHS%FLUX%PVR => PVR
-            RHS%FLUX%DVL => DVL 
-            RHS%FLUX%DVR => DVR
-            RHS%FLUX%SDST => X(1:18,1)
-            CALL RHS%FLUX%CALFLUX(EOS,RHS%FA(:,J))
+            rhs%flux%nx => nx  
+            rhs%flux%pvl => pvl 
+            rhs%flux%pvr => pvr
+            rhs%flux%dvl => dvl 
+            rhs%flux%dvr => dvr
+            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%calflux(eos,rhs%fa(:,j))
             
-            IF(RHS%L_VSFLUX) THEN
-              EX1 = GRID%GETTX(I,J,K-1)
-              EX2 = GRID%GETTX(I,J+1,K-1)
-              EX3 = GRID%GETTX(I,J,K)
-              EX4 = GRID%GETTX(I,J+1,K)
-              TX1 = GRID%GETCX(I-1,J,K)
-              TX2 = GRID%GETCX(I,J,K)
-              TX3 = GRID%GETCX(I-1,J+1,K)
-              TX4 = GRID%GETCX(I,J+1,K)
-              GRDL = GRID%GETGRD(I,J,K)
-              GRDR = GRID%GETGRD(I,J+1,K)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I,J+1,K)
-              TVL = VARIABLE%GETTV(I,J,K)
-              TVR = VARIABLE%GETTV(I,J+1,K)
+            if(rhs%l_vsflux) then
+              ex1 = grid%gettx(i,j,k-1)
+              ex2 = grid%gettx(i,j+1,k-1)
+              ex3 = grid%gettx(i,j,k)
+              ex4 = grid%gettx(i,j+1,k)
+              tx1 = grid%getcx(i-1,j,k)
+              tx2 = grid%getcx(i,j,k)
+              tx3 = grid%getcx(i-1,j+1,k)
+              tx4 = grid%getcx(i,j+1,k)
+              grdl = grid%getgrd(i,j,k)
+              grdr = grid%getgrd(i,j+1,k)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i,j+1,k)
+              tvl = variable%gettv(i,j,k)
+              tvr = variable%gettv(i,j+1,k)
 
               
               
-              RHS%VSFLUX%NX => NX 
-              RHS%VSFLUX%EX1 => EX1 
-              RHS%VSFLUX%EX2 => EX2 
-              RHS%VSFLUX%EX3 => EX3 
-              RHS%VSFLUX%EX4 => EX4 
-              RHS%VSFLUX%TX1 => TX1 
-              RHS%VSFLUX%TX2 => TX2 
-              RHS%VSFLUX%TX3 => TX3 
-              RHS%VSFLUX%TX4 => TX4 
-              RHS%VSFLUX%GRDL => GRDL
-              RHS%VSFLUX%GRDR => GRDR
-              RHS%VSFLUX%DVL => DVL
-              RHS%VSFLUX%DVR => DVR
-              RHS%VSFLUX%TVL => TVL
-              RHS%VSFLUX%TVR => TVR
-              RHS%VSFLUX%PV => X(1:18,:)
-              CALL RHS%VSFLUX%CALFLUX(RHS%FVA(:,J))
-            END IF
-          END DO
-          DO J=2,RHS%JMAX
-            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) -( RHS%FA(:,J) - RHS%FA(:,J-1) )
-            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%FVA(:,J) - RHS%FVA(:,J-1) )
-          END DO
-        END DO
-      END DO
+              rhs%vsflux%nx => nx 
+              rhs%vsflux%ex1 => ex1 
+              rhs%vsflux%ex2 => ex2 
+              rhs%vsflux%ex3 => ex3 
+              rhs%vsflux%ex4 => ex4 
+              rhs%vsflux%tx1 => tx1 
+              rhs%vsflux%tx2 => tx2 
+              rhs%vsflux%tx3 => tx3 
+              rhs%vsflux%tx4 => tx4 
+              rhs%vsflux%grdl => grdl
+              rhs%vsflux%grdr => grdr
+              rhs%vsflux%dvl => dvl
+              rhs%vsflux%dvr => dvr
+              rhs%vsflux%tvl => tvl
+              rhs%vsflux%tvr => tvr
+              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%calflux(rhs%fva(:,j))
+            end if
+          end do
+          do j=2,rhs%jmax
+            rhs%res(:,i,j,k) = rhs%res(:,i,j,k) -( rhs%fa(:,j) - rhs%fa(:,j-1) )
+            if(rhs%l_vsflux) rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + (rhs%fva(:,j) - rhs%fva(:,j-1) )
+          end do
+        end do
+      end do
 
-      DO J=2,RHS%JMAX
-        DO I=2,RHS%IMAX
-          DO K=1,RHS%KMAX
+      do j=2,rhs%jmax
+        do i=2,rhs%imax
+          do k=1,rhs%kmax
           
-            NX = GRID%GETTX(I,J,K)
+            nx = grid%gettx(i,j,k)
             
-            LL = 0
-            DO JJ = -1,1
-              DO II = -1,1
-                DO KK = 0,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+JJ,K+KK)
-                END DO
-              END DO
-            END DO
+            ll = 0
+            do jj = -1,1
+              do ii = -1,1
+                do kk = 0,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                end do
+              end do
+            end do
             
-            IF(RHS%L_MUSCL) THEN
-              DO JJ = -1,1
-                DO II = -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+JJ,K-1)
-                END DO
-              END DO
-              DO JJ = -1,1
-                DO II = -1,1
-                  LL = LL+1
-                  X(LL,:) = VARIABLE%GETPV(I+II,J+JJ,K+2)
-                END DO
-              END DO
-              X(LL+1,:) = VARIABLE%GETPV(I,J,K-2)
-              X(LL+2,:) = VARIABLE%GETPV(I,J,K+3)
+            if(rhs%l_muscl) then
+              do jj = -1,1
+                do ii = -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+jj,k-1)
+                end do
+              end do
+              do jj = -1,1
+                do ii = -1,1
+                  ll = ll+1
+                  x(ll,:) = variable%getpv(i+ii,j+jj,k+2)
+                end do
+              end do
+              x(ll+1,:) = variable%getpv(i,j,k-2)
+              x(ll+2,:) = variable%getpv(i,j,k+3)
               
-              RHS%MUSCL%X => X
-              CALL RHS%MUSCL%INTERPOLATION(PVL,PVR)
-              IF((PVL(6).LT.0.D0).OR.(PVL(6).GT.1.D0)) PVL(6) = X(9,6)
-              IF((PVR(6).LT.0.D0).OR.(PVR(6).GT.1.D0)) PVR(6) = X(10,6)
-              IF((PVL(7).LT.0.D0).OR.(PVL(7).GT.1.D0)) PVL(7) = X(9,7)
-              IF((PVR(7).LT.0.D0).OR.(PVR(7).GT.1.D0)) PVR(7) = X(10,7)
+              rhs%muscl%x => x
+              call rhs%muscl%interpolation(pvl,pvr)
+              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
+              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
+              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
+              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
               
-              IF(RHS%L_TURBSOURCE) THEN
-                IF((PVL(8).LT.0.D0).AND.(X(9,8).GT.0.D0))  PVL(8) = X(9,8)
-                IF((PVR(8).LT.0.D0).AND.(X(10,8).GT.0.D0)) PVR(8) = X(10,8)
-                IF((PVL(9).LT.0.D0).AND.(X(9,9).GT.0.D0))  PVL(9) = X(9,9)
-                IF((PVR(9).LT.0.D0).AND.(X(10,9).GT.0.D0)) PVR(9) = X(10,9)
-              END IF
+              if(rhs%l_turbsource) then
+                if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)
+                if((pvr(8).lt.0.d0).and.(x(10,8).gt.0.d0)) pvr(8) = x(10,8)
+                if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
+                if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
+              end if
               
-              CALL EOS%DETEOS(PVL(1)+RHS%PREF,PVL(5),PVL(6),PVL(7),DVL)
-              CALL EOS%DETEOS(PVR(1)+RHS%PREF,PVR(5),PVR(6),PVR(7),DVR)
-            ELSE
-              PVL = VARIABLE%GETPV(I,J,K) 
-              PVR = VARIABLE%GETPV(I,J,K+1)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I,J,K+1)
-            END IF
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+            else
+              pvl = variable%getpv(i,j,k) 
+              pvr = variable%getpv(i,j,k+1)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i,j,k+1)
+            end if
 
             
             
-            RHS%FLUX%NX => NX  
-            RHS%FLUX%PVL => PVL 
-            RHS%FLUX%PVR => PVR
-            RHS%FLUX%DVL => DVL 
-            RHS%FLUX%DVR => DVR
-            RHS%FLUX%SDST => X(1:18,1)
-            CALL RHS%FLUX%CALFLUX(EOS,RHS%GA(:,K))
+            rhs%flux%nx => nx  
+            rhs%flux%pvl => pvl 
+            rhs%flux%pvr => pvr
+            rhs%flux%dvl => dvl 
+            rhs%flux%dvr => dvr
+            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%calflux(eos,rhs%ga(:,k))
             
-            IF(RHS%L_VSFLUX) THEN
-              EX1 = GRID%GETCX(I-1,J,K)
-              EX2 = GRID%GETCX(I-1,J,K+1)
-              EX3 = GRID%GETCX(I,J,K)
-              EX4 = GRID%GETCX(I,J,K+1)
-              TX1 = GRID%GETEX(I,J-1,K)
-              TX2 = GRID%GETEX(I,J,K)
-              TX3 = GRID%GETEX(I,J-1,K+1)
-              TX4 = GRID%GETEX(I,J,K+1)
-              GRDL = GRID%GETGRD(I,J,K)
-              GRDR = GRID%GETGRD(I,J,K+1)
-              DVL = VARIABLE%GETDV(I,J,K)
-              DVR = VARIABLE%GETDV(I,J,K+1)
-              TVL = VARIABLE%GETTV(I,J,K)
-              TVR = VARIABLE%GETTV(I,J,K+1)
+            if(rhs%l_vsflux) then
+              ex1 = grid%getcx(i-1,j,k)
+              ex2 = grid%getcx(i-1,j,k+1)
+              ex3 = grid%getcx(i,j,k)
+              ex4 = grid%getcx(i,j,k+1)
+              tx1 = grid%getex(i,j-1,k)
+              tx2 = grid%getex(i,j,k)
+              tx3 = grid%getex(i,j-1,k+1)
+              tx4 = grid%getex(i,j,k+1)
+              grdl = grid%getgrd(i,j,k)
+              grdr = grid%getgrd(i,j,k+1)
+              dvl = variable%getdv(i,j,k)
+              dvr = variable%getdv(i,j,k+1)
+              tvl = variable%gettv(i,j,k)
+              tvr = variable%gettv(i,j,k+1)
 
-              RHS%VSFLUX%NX => NX 
-              RHS%VSFLUX%EX1 => EX1 
-              RHS%VSFLUX%EX2 => EX2 
-              RHS%VSFLUX%EX3 => EX3 
-              RHS%VSFLUX%EX4 => EX4 
-              RHS%VSFLUX%TX1 => TX1 
-              RHS%VSFLUX%TX2 => TX2 
-              RHS%VSFLUX%TX3 => TX3 
-              RHS%VSFLUX%TX4 => TX4 
-              RHS%VSFLUX%GRDL => GRDL
-              RHS%VSFLUX%GRDR => GRDR
-              RHS%VSFLUX%DVL => DVL
-              RHS%VSFLUX%DVR => DVR
-              RHS%VSFLUX%TVL => TVL
-              RHS%VSFLUX%TVR => TVR
-              RHS%VSFLUX%PV => X(1:18,:)
-              CALL RHS%VSFLUX%CALFLUX(RHS%GVA(:,K))
-            END IF
-          END DO
-          DO K=2,RHS%KMAX
-            RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) - ( RHS%GA(:,K) - RHS%GA(:,K-1) ) 
-            IF(RHS%L_VSFLUX) RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) + (RHS%GVA(:,K) - RHS%GVA(:,K-1) )
-          END DO
-        END DO
-      END DO
+              rhs%vsflux%nx => nx 
+              rhs%vsflux%ex1 => ex1 
+              rhs%vsflux%ex2 => ex2 
+              rhs%vsflux%ex3 => ex3 
+              rhs%vsflux%ex4 => ex4 
+              rhs%vsflux%tx1 => tx1 
+              rhs%vsflux%tx2 => tx2 
+              rhs%vsflux%tx3 => tx3 
+              rhs%vsflux%tx4 => tx4 
+              rhs%vsflux%grdl => grdl
+              rhs%vsflux%grdr => grdr
+              rhs%vsflux%dvl => dvl
+              rhs%vsflux%dvr => dvr
+              rhs%vsflux%tvl => tvl
+              rhs%vsflux%tvr => tvr
+              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%calflux(rhs%gva(:,k))
+            end if
+          end do
+          do k=2,rhs%kmax
+            rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - ( rhs%ga(:,k) - rhs%ga(:,k-1) ) 
+            if(rhs%l_vsflux) rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + (rhs%gva(:,k) - rhs%gva(:,k-1) )
+          end do
+        end do
+      end do
       
-      DO K=2,RHS%KMAX
-        DO J=2,RHS%JMAX
-          DO I=2,RHS%IMAX
-            EX1 = GRID%GETCX(I-1,J,K)
-            EX2 = GRID%GETCX(I,J,K)
-            EX3 = GRID%GETEX(I,J-1,K)
-            EX4 = GRID%GETEX(I,J,K)
-            TX1 = GRID%GETTX(I,J,K-1)
-            TX2 = GRID%GETTX(I,J,K)
-            GRDL = GRID%GETGRD(I,J,K)
-            X(1,:) = VARIABLE%GETPV(I-1,J,K)
-            X(2,:) = VARIABLE%GETPV(I,J,K)
-            X(3,:) = VARIABLE%GETPV(I+1,J,K)
-            X(4,:) = VARIABLE%GETPV(I,J-1,K)
-            X(5,:) = VARIABLE%GETPV(I,J+1,K)
-            X(6,:) = VARIABLE%GETPV(I,J,K-1)
-            X(7,:) = VARIABLE%GETPV(I,J,K+1)
-            DVL = VARIABLE%GETDV(I,J,K)
-            TVL = VARIABLE%GETTV(I,J,K)
+      do k=2,rhs%kmax
+        do j=2,rhs%jmax
+          do i=2,rhs%imax
+            ex1 = grid%getcx(i-1,j,k)
+            ex2 = grid%getcx(i,j,k)
+            ex3 = grid%getex(i,j-1,k)
+            ex4 = grid%getex(i,j,k)
+            tx1 = grid%gettx(i,j,k-1)
+            tx2 = grid%gettx(i,j,k)
+            grdl = grid%getgrd(i,j,k)
+            x(1,:) = variable%getpv(i-1,j,k)
+            x(2,:) = variable%getpv(i,j,k)
+            x(3,:) = variable%getpv(i+1,j,k)
+            x(4,:) = variable%getpv(i,j-1,k)
+            x(5,:) = variable%getpv(i,j+1,k)
+            x(6,:) = variable%getpv(i,j,k-1)
+            x(7,:) = variable%getpv(i,j,k+1)
+            dvl = variable%getdv(i,j,k)
+            tvl = variable%gettv(i,j,k)
         
-            IF(RHS%L_CAV) THEN
-              RHS%CAV%GRD => GRDL
-              RHS%CAV%PV => X(2,:)
-              RHS%CAV%DV => DVL
-              CAV_RESULT = RHS%CAV%CAVSOURCE(EOS)
-              RHS%RES(6,I,J,K) = RHS%RES(6,I,J,K) + CAV_RESULT%CAVSOURCE
-              IF(ALLOCATED(RHS%ICAV)) RHS%ICAV(:,I,J,K) = CAV_RESULT%ICAV(:)
-            END IF
+            if(rhs%l_cav) then
+              rhs%cav%grd => grdl
+              rhs%cav%pv => x(2,:)
+              rhs%cav%dv => dvl
+              cav_result = rhs%cav%cavsource(eos)
+              rhs%res(6,i,j,k) = rhs%res(6,i,j,k) + cav_result%cavsource
+              if(allocated(rhs%icav)) rhs%icav(:,i,j,k) = cav_result%icav(:)
+            end if
             
-            IF(RHS%L_TURBSOURCE) THEN
-              RHS%TURBSOURCE%CX1 => EX1
-              RHS%TURBSOURCE%CX2 => EX2
-              RHS%TURBSOURCE%EX1 => EX3
-              RHS%TURBSOURCE%EX2 => EX4
-              RHS%TURBSOURCE%TX1 => TX1
-              RHS%TURBSOURCE%TX2 => TX2
-              RHS%TURBSOURCE%GRD => GRDL
-              RHS%TURBSOURCE%PV => X(1:7,:)
-              RHS%TURBSOURCE%DV => DVL
-              RHS%TURBSOURCE%TV => TVL
-              TURB_RESULT = RHS%TURBSOURCE%CALTURBSOURCE()
-              RHS%OMEGA_CUT(I,J,K) = TURB_RESULT%OMEGA_CUT
-              RHS%RES(8:9,I,J,K) = RHS%RES(8:9,I,J,K) + TURB_RESULT%SOURCE(:)
-              IF(ALLOCATED(RHS%ITT)) RHS%ITT(:,I,J,K) = TURB_RESULT%ITT(:)
-            END IF
+            if(rhs%l_turbsource) then
+              rhs%turbsource%cx1 => ex1
+              rhs%turbsource%cx2 => ex2
+              rhs%turbsource%ex1 => ex3
+              rhs%turbsource%ex2 => ex4
+              rhs%turbsource%tx1 => tx1
+              rhs%turbsource%tx2 => tx2
+              rhs%turbsource%grd => grdl
+              rhs%turbsource%pv => x(1:7,:)
+              rhs%turbsource%dv => dvl
+              rhs%turbsource%tv => tvl
+              turb_result = rhs%turbsource%calturbsource()
+              rhs%omega_cut(i,j,k) = turb_result%omega_cut
+              rhs%res(8:9,i,j,k) = rhs%res(8:9,i,j,k) + turb_result%source(:)
+              if(allocated(rhs%itt)) rhs%itt(:,i,j,k) = turb_result%itt(:)
+            end if
             
-            IF(RHS%L_UNSTEADY) THEN
-              PVL = VARIABLE%GETQQ(1,I,J,K)
-              PVR = VARIABLE%GETQQ(2,I,J,K)
-              RHS%UNSTEADY%GRD => GRDL
-              RHS%UNSTEADY%PV => X(2,:)
-              RHS%UNSTEADY%DV => DVL
-              RHS%UNSTEADY%QQ1 => PVL
-              RHS%UNSTEADY%QQ2 => PVR
-              RHS%RES(:,I,J,K) = RHS%RES(:,I,J,K) - RHS%UNSTEADY%UNSTEADYSOURCE()
-            END IF
+            if(rhs%l_unsteady) then
+              pvl = variable%getqq(1,i,j,k)
+              pvr = variable%getqq(2,i,j,k)
+              rhs%unsteady%grd => grdl
+              rhs%unsteady%pv => x(2,:)
+              rhs%unsteady%dv => dvl
+              rhs%unsteady%qq1 => pvl
+              rhs%unsteady%qq2 => pvr
+              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - rhs%unsteady%unsteadysource()
+            end if
             
-          END DO
-        END DO
-      END DO
-    END SUBROUTINE CALRHS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETRES(RHS,N,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(IN) :: RHS
-      INTEGER, INTENT(IN) :: N,I,J,K
-      REAL(8) :: GETRES
+          end do
+        end do
+      end do
+    end subroutine calrhs
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getres(rhs,n,i,j,k)
+      implicit none
+      class(t_rhs), intent(in) :: rhs
+      integer, intent(in) :: n,i,j,k
+      real(8) :: getres
       
-      GETRES = RHS%RES(N,I,J,K)
+      getres = rhs%res(n,i,j,k)
       
-    END FUNCTION GETRES
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETICAV(RHS,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(IN) :: RHS
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETICAV(4)
+    end function getres
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function geticav(rhs,i,j,k)
+      implicit none
+      class(t_rhs), intent(in) :: rhs
+      integer, intent(in) :: i,j,k
+      real(8) :: geticav(4)
       
-      GETICAV = RHS%ICAV(:,I,J,K)
+      geticav = rhs%icav(:,i,j,k)
       
-    END FUNCTION GETICAV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETITT(RHS,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(IN) :: RHS
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETITT(4)
+    end function geticav
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getitt(rhs,i,j,k)
+      implicit none
+      class(t_rhs), intent(in) :: rhs
+      integer, intent(in) :: i,j,k
+      real(8) :: getitt(4)
       
-      GETITT= RHS%ITT(:,I,J,K)
+      getitt= rhs%itt(:,i,j,k)
       
-    END FUNCTION GETITT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETOMEGA_CUT(RHS,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_RHS), INTENT(IN) :: RHS
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETOMEGA_CUT
+    end function getitt
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getomega_cut(rhs,i,j,k)
+      implicit none
+      class(t_rhs), intent(in) :: rhs
+      integer, intent(in) :: i,j,k
+      real(8) :: getomega_cut
       
-      GETOMEGA_CUT= RHS%OMEGA_CUT(I,J,K)
+      getomega_cut= rhs%omega_cut(i,j,k)
       
-    END FUNCTION GETOMEGA_CUT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE RHS_MODULE
+    end function getomega_cut
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module rhs_module

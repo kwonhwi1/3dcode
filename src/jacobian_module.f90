@@ -1,401 +1,403 @@
-MODULE JACOBIAN_MODULE
-  USE CONFIG_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_JAC,T_JAC_FLOWONLY,T_JAC_FLOWTURBALL
+module jacobian_module
+  use config_module
+  use variable_module
+  implicit none
+  private
+  public :: t_jac,t_jac_flowonly,t_jac_flowturball
   
-  TYPE, ABSTRACT :: T_JAC
-    PRIVATE
-    REAL(8) :: UREF,STR
-    REAL(8), POINTER, PUBLIC :: NX(:)
-    REAL(8), POINTER, PUBLIC :: PV(:),TV(:),DV(:),GRD(:)
-    REAL(8), DIMENSION(:,:), ALLOCATABLE :: A
-    PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
-    PROCEDURE(P_GETEIGENVIS), POINTER :: GETEIGENVIS    
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: GETA
-      PROCEDURE(P_CALJAC), DEFERRED :: CALJAC 
-  END TYPE T_JAC
+  type, abstract :: t_jac
+    private
+    real(8) :: uref,str
+    real(8), pointer, public :: nx(:)
+    real(8), pointer, public :: pv(:),tv(:),dv(:),grd(:)
+    real(8), dimension(:,:), allocatable :: a
+    procedure(p_getsndp2), pointer :: getsndp2
+    procedure(p_geteigenvis), pointer :: geteigenvis    
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: geta
+      procedure(p_caljac), deferred :: caljac 
+  end type t_jac
   
-  TYPE, EXTENDS(T_JAC) :: T_JAC_FLOWONLY
-    CONTAINS
-      PROCEDURE :: CALJAC => FLOWONLY
-  END TYPE T_JAC_FLOWONLY
+  type, extends(t_jac) :: t_jac_flowonly
+    contains
+      procedure :: caljac => flowonly
+  end type t_jac_flowonly
 
-  TYPE, EXTENDS(T_JAC) :: T_JAC_FLOWTURBALL
-    CONTAINS
-      PROCEDURE :: CALJAC => FLOWTURBALL
-  END TYPE T_JAC_FLOWTURBALL
+  type, extends(t_jac) :: t_jac_flowturball
+    contains
+      procedure :: caljac => flowturball
+  end type t_jac_flowturball
   
-  ABSTRACT INTERFACE
-    SUBROUTINE P_CALJAC(JAC,SIGN)
-      IMPORT T_JAC
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(INOUT) :: JAC
-      INTEGER, INTENT(IN) :: SIGN
-    END SUBROUTINE P_CALJAC
-  END INTERFACE
+  abstract interface
+    subroutine p_caljac(jac,sign)
+      import t_jac
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      integer, intent(in) :: sign
+    end subroutine p_caljac
+  end interface
   
-  INTERFACE
-    FUNCTION P_GETSNDP2(JAC,U2) RESULT(SNDP2)
-      IMPORT T_JAC
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8), INTENT(IN) :: U2
-      REAL(8) :: SNDP2
-    END FUNCTION P_GETSNDP2
+  interface
+    function p_getsndp2(jac,u2) result(sndp2)
+      import t_jac
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8), intent(in) :: u2
+      real(8) :: sndp2
+    end function p_getsndp2
     
-    FUNCTION P_GETEIGENVIS(JAC) RESULT(EIGENVIS)
-      IMPORT T_JAC
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8) :: EIGENVIS
-    END FUNCTION P_GETEIGENVIS
-  END INTERFACE
+    function p_geteigenvis(jac) result(eigenvis)
+      import t_jac
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: eigenvis
+    end function p_geteigenvis
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(JAC,CONFIG,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(OUT) :: JAC
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(jac,config,variable)
+      implicit none
+      class(t_jac), intent(out) :: jac
+      type(t_config), intent(in) :: config
+      type(t_variable), intent(in) :: variable
             
-      JAC%UREF = CONFIG%GETUREF()
-      JAC%STR  = CONFIG%GETSTR()
+      jac%uref = config%geturef()
+      jac%str  = config%getstr()
       
-      SELECT CASE(CONFIG%GETPREC())
-      CASE(0)
-        JAC%GETSNDP2 => NO_PREC
-      CASE(1)
-        JAC%GETSNDP2 => STEADY_PREC
-      CASE(2)
-        JAC%GETSNDP2 => UNSTEADY_PREC
-      END SELECT
+      select case(config%getprec())
+      case(0)
+        jac%getsndp2 => no_prec
+      case(1)
+        jac%getsndp2 => steady_prec
+      case(2)
+        jac%getsndp2 => unsteady_prec
+      end select
       
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-1,0)
-        JAC%GETEIGENVIS => TURBULENT
-      CASE(-2)
-        JAC%GETEIGENVIS => LAMINAR
-      CASE(-3)
-        JAC%GETEIGENVIS => EULER
-      END SELECT
+      select case(config%getiturb())
+      case(-1,0)
+        jac%geteigenvis => turbulent
+      case(-2)
+        jac%geteigenvis => laminar
+      case(-3)
+        jac%geteigenvis => euler
+      end select
 
-      ALLOCATE(JAC%A(VARIABLE%GETNPV(),VARIABLE%GETNPV()))
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(JAC)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(INOUT) :: JAC
+      allocate(jac%a(variable%getnpv(),variable%getnpv()))
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(jac)
+      implicit none
+      class(t_jac), intent(inout) :: jac
 
-      IF(ASSOCIATED(JAC%NX))           NULLIFY(JAC%NX)                    
-      IF(ASSOCIATED(JAC%GRD))          NULLIFY(JAC%GRD)         
-      IF(ASSOCIATED(JAC%PV))           NULLIFY(JAC%PV)
-      IF(ASSOCIATED(JAC%DV))           NULLIFY(JAC%DV) 
-      IF(ASSOCIATED(JAC%TV))           NULLIFY(JAC%TV)                   
-      IF(ASSOCIATED(JAC%GETSNDP2))     NULLIFY(JAC%GETSNDP2)    
-      IF(ASSOCIATED(JAC%GETEIGENVIS))  NULLIFY(JAC%GETEIGENVIS) 
+      if(associated(jac%nx))           nullify(jac%nx)                    
+      if(associated(jac%grd))          nullify(jac%grd)         
+      if(associated(jac%pv))           nullify(jac%pv)
+      if(associated(jac%dv))           nullify(jac%dv) 
+      if(associated(jac%tv))           nullify(jac%tv)                   
+      if(associated(jac%getsndp2))     nullify(jac%getsndp2)    
+      if(associated(jac%geteigenvis))  nullify(jac%geteigenvis) 
       
-      DEALLOCATE(JAC%A)
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE FLOWONLY(JAC,SIGN)
-      IMPLICIT NONE
-      CLASS(T_JAC_FLOWONLY), INTENT(INOUT) :: JAC
-      INTEGER, INTENT(IN) :: SIGN
-      REAL(8) :: DS,H,U,UP,D,BETA,SNDP2,LAMDA,VIS
-      REAL(8), PARAMETER :: CAPPA = 1.05D0
-      REAL(8) :: A1,A2,A3,A4,A5,A6,A7
-      REAL(8) :: G1,G5,G6,G7,GE1,GE5,GE6,GE7
+      deallocate(jac%a)
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine flowonly(jac,sign)
+      implicit none
+      class(t_jac_flowonly), intent(inout) :: jac
+      integer, intent(in) :: sign
+      real(8) :: ds,h,u,up,d,beta,sndp2,lamda,vis
+      real(8), parameter :: cappa = 1.05d0
+      real(8) :: a1,a2,a3,a4,a5,a6,a7
+      real(8) :: g1,g5,g6,g7,ge1,ge5,ge6,ge7,uuu
       
-      DS = JAC%NX(1)**2+JAC%NX(2)**2+JAC%NX(3)**2
-      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)+JAC%NX(3)*JAC%PV(4)
-      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
-      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
-      UP = (1.D0+SNDP2/JAC%DV(6))*U
-      D  = DSQRT(U**2*(1.D0-SNDP2/JAC%DV(6))**2+4.D0*SNDP2*DS)
-      LAMDA = DBLE(SIGN)*CAPPA*(DABS(UP)+D)
-      VIS = DBLE(SIGN)*2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
-      BETA = 1.D0/SNDP2-1.D0/JAC%DV(6)+JAC%DV(7)
+      ds = jac%nx(1)**2+jac%nx(2)**2+jac%nx(3)**2
+      u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
+      h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
+      sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
+      up = (1.d0+sndp2/jac%dv(6))*u
+      d  = dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
+      lamda = dble(sign)*cappa*(dabs(up)+d)
+      vis = dble(sign)*2.d0*jac%geteigenvis()*ds/jac%grd(1)
+      beta = 1.d0/sndp2-1.d0/jac%dv(6)+jac%dv(7)
       
-      A1 = U*JAC%DV(7)
-      A2 = JAC%NX(1)*JAC%DV(1)
-      A3 = JAC%NX(2)*JAC%DV(1)
-      A4 = JAC%NX(3)*JAC%DV(1)
-      A5 = U*JAC%DV(8)
-      A6 = U*JAC%DV(9)
-      A7 = U*JAC%DV(10)
-      G1 = LAMDA*BETA
-      G5 = LAMDA*JAC%DV(8)
-      G6 = LAMDA*JAC%DV(9)
-      G7 = LAMDA*JAC%DV(10)
-      GE1 = VIS*JAC%DV(7)
-      GE5 = VIS*JAC%DV(8)
-      GE6 = VIS*JAC%DV(9)
-      GE7 = VIS*JAC%DV(10)
-      
-      JAC%A(1,1) = A1+G1+GE1
-      JAC%A(1,2) = A2
-      JAC%A(1,3) = A3
-      JAC%A(1,4) = A4
-      JAC%A(1,5) = A5+G5+GE5
-      JAC%A(1,6) = A6+G6+GE6
-      JAC%A(1,7) = A7+G7+GE7
+      a1 = u*jac%dv(7)
+      a2 = jac%nx(1)*jac%dv(1)
+      a3 = jac%nx(2)*jac%dv(1)
+      a4 = jac%nx(3)*jac%dv(1)
+      a5 = u*jac%dv(8)
+      a6 = u*jac%dv(9)
+      a7 = u*jac%dv(10)
+      g1 = lamda*beta
+      g5 = lamda*jac%dv(8)
+      g6 = lamda*jac%dv(9)
+      g7 = lamda*jac%dv(10)
+      ge1 = vis*jac%dv(7)
+      ge5 = vis*jac%dv(8)
+      ge6 = vis*jac%dv(9)
+      ge7 = vis*jac%dv(10)
+      uuu = u+landa+vis
 
-      JAC%A(2,1) = JAC%PV(2)*JAC%A(1,1) + JAC%NX(1)
-      JAC%A(2,2) = JAC%PV(2)*A2 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(2,3) = JAC%PV(2)*A3
-      JAC%A(2,4) = JAC%PV(2)*A4
-      JAC%A(2,5) = JAC%PV(2)*JAC%A(1,5)
-      JAC%A(2,6) = JAC%PV(2)*JAC%A(1,6)
-      JAC%A(2,7) = JAC%PV(2)*JAC%A(1,7)
+      jac%a(1,1) = a1+g1+ge1
+      jac%a(1,2) = a2
+      jac%a(1,3) = a3
+      jac%a(1,4) = a4
+      jac%a(1,5) = a5+g5+ge5
+      jac%a(1,6) = a6+g6+ge6
+      jac%a(1,7) = a7+g7+ge7
+
+      jac%a(2,1) = jac%pv(2)*jac%a(1,1) + jac%nx(1)
+      jac%a(2,2) = jac%pv(2)*a2 + jac%dv(1)*uuu
+      jac%a(2,3) = jac%pv(2)*a3
+      jac%a(2,4) = jac%pv(2)*a4
+      jac%a(2,5) = jac%pv(2)*jac%a(1,5)
+      jac%a(2,6) = jac%pv(2)*jac%a(1,6)
+      jac%a(2,7) = jac%pv(2)*jac%a(1,7)
         
-      JAC%A(3,1) = JAC%PV(3)*JAC%A(1,1) + JAC%NX(2)
-      JAC%A(3,2) = JAC%PV(3)*A2 
-      JAC%A(3,3) = JAC%PV(3)*A3 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(3,4) = JAC%PV(3)*A4
-      JAC%A(3,5) = JAC%PV(3)*JAC%A(1,5)
-      JAC%A(3,6) = JAC%PV(3)*JAC%A(1,6)
-      JAC%A(3,7) = JAC%PV(3)*JAC%A(1,7)
+      jac%a(3,1) = jac%pv(3)*jac%a(1,1) + jac%nx(2)
+      jac%a(3,2) = jac%pv(3)*a2 
+      jac%a(3,3) = jac%pv(3)*a3 + jac%dv(1)*uuu
+      jac%a(3,4) = jac%pv(3)*a4
+      jac%a(3,5) = jac%pv(3)*jac%a(1,5)
+      jac%a(3,6) = jac%pv(3)*jac%a(1,6)
+      jac%a(3,7) = jac%pv(3)*jac%a(1,7)
 
-      JAC%A(4,1) = JAC%PV(4)*JAC%A(1,1) + JAC%NX(3)
-      JAC%A(4,2) = JAC%PV(4)*A2 
-      JAC%A(4,3) = JAC%PV(4)*A3 
-      JAC%A(4,4) = JAC%PV(4)*A4 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(4,5) = JAC%PV(4)*JAC%A(1,5)
-      JAC%A(4,6) = JAC%PV(4)*JAC%A(1,6)
-      JAC%A(4,7) = JAC%PV(4)*JAC%A(1,7)
+      jac%a(4,1) = jac%pv(4)*jac%a(1,1) + jac%nx(3)
+      jac%a(4,2) = jac%pv(4)*a2 
+      jac%a(4,3) = jac%pv(4)*a3 
+      jac%a(4,4) = jac%pv(4)*a4 + jac%dv(1)*uuu
+      jac%a(4,5) = jac%pv(4)*jac%a(1,5)
+      jac%a(4,6) = jac%pv(4)*jac%a(1,6)
+      jac%a(4,7) = jac%pv(4)*jac%a(1,7)
       
-      JAC%A(5,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*JAC%A(1,1)-LAMDA-VIS
-      JAC%A(5,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
-      JAC%A(5,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
-      JAC%A(5,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(4) +H*A4
-      JAC%A(5,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*JAC%A(1,5)
-      JAC%A(5,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*JAC%A(1,6)
-      JAC%A(5,7) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*JAC%A(1,7)
+      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+h*jac%a(1,1)-lamda-vis
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +h*a2
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +h*a3
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +h*a4
+      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+h*jac%a(1,5)
+      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+h*jac%a(1,6)
+      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+h*jac%a(1,7)
         
-      JAC%A(6,1) = JAC%PV(6)*JAC%A(1,1)
-      JAC%A(6,2) = JAC%PV(6)*A2
-      JAC%A(6,3) = JAC%PV(6)*A3
-      JAC%A(6,4) = JAC%PV(6)*A4
-      JAC%A(6,5) = JAC%PV(6)*JAC%A(1,5)
-      JAC%A(6,6) = JAC%PV(6)*JAC%A(1,6)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(6,7) = JAC%PV(6)*JAC%A(1,7)
+      jac%a(6,1) = jac%pv(6)*jac%a(1,1)
+      jac%a(6,2) = jac%pv(6)*a2
+      jac%a(6,3) = jac%pv(6)*a3
+      jac%a(6,4) = jac%pv(6)*a4
+      jac%a(6,5) = jac%pv(6)*jac%a(1,5)
+      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*uuu
+      jac%a(6,7) = jac%pv(6)*jac%a(1,7)
         
-      JAC%A(7,1) = JAC%PV(7)*JAC%A(1,1)
-      JAC%A(7,2) = JAC%PV(7)*A2
-      JAC%A(7,3) = JAC%PV(7)*A3
-      JAC%A(7,4) = JAC%PV(7)*A4
-      JAC%A(7,5) = JAC%PV(7)*JAC%A(1,5)
-      JAC%A(7,6) = JAC%PV(7)*JAC%A(1,6)
-      JAC%A(7,7) = JAC%PV(7)*JAC%A(1,7)+JAC%DV(1)*(U+LAMDA+VIS)
+      jac%a(7,1) = jac%pv(7)*jac%a(1,1)
+      jac%a(7,2) = jac%pv(7)*a2
+      jac%a(7,3) = jac%pv(7)*a3
+      jac%a(7,4) = jac%pv(7)*a4
+      jac%a(7,5) = jac%pv(7)*jac%a(1,5)
+      jac%a(7,6) = jac%pv(7)*jac%a(1,6)
+      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*uuu
 
-      JAC%A = JAC%A*0.5D0
+      jac%a = jac%a*0.5d0
       
-    END SUBROUTINE FLOWONLY
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE FLOWTURBALL(JAC,SIGN)
-      IMPLICIT NONE
-      CLASS(T_JAC_FLOWTURBALL), INTENT(INOUT) :: JAC
-      INTEGER, INTENT(IN) :: SIGN
-      REAL(8) :: DS,H,U,UP,D,BETA,SNDP2,LAMDA,VIS
-      REAL(8), PARAMETER :: CAPPA = 1.05D0
-      REAL(8) :: A1,A2,A3,A4,A5,A6,A7
-      REAL(8) :: G1,G5,G6,G7,GE1,GE5,GE6,GE7
+    end subroutine flowonly
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine flowturball(jac,sign)
+      implicit none
+      class(t_jac_flowturball), intent(inout) :: jac
+      integer, intent(in) :: sign
+      real(8) :: ds,h,u,up,d,beta,sndp2,lamda,vis
+      real(8), parameter :: cappa = 1.05d0
+      real(8) :: a1,a2,a3,a4,a5,a6,a7
+      real(8) :: g1,g5,g6,g7,ge1,ge5,ge6,ge7,uuu
       
-      DS = JAC%NX(1)**2+JAC%NX(2)**2+JAC%NX(3)**2
-      U = JAC%NX(1)*JAC%PV(2) + JAC%NX(2)*JAC%PV(3)+JAC%NX(3)*JAC%PV(4)
-      H = JAC%DV(2) + 0.5D0*(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
-      SNDP2 = JAC%GETSNDP2(JAC%PV(2)**2+JAC%PV(3)**2+JAC%PV(4)**2)
-      UP = (1.D0+SNDP2/JAC%DV(6))*U
-      D  = DSQRT(U**2*(1.D0-SNDP2/JAC%DV(6))**2+4.D0*SNDP2*DS)
-      LAMDA = DBLE(SIGN)*CAPPA*(DABS(UP)+D)
-      VIS = DBLE(SIGN)*2.D0*JAC%GETEIGENVIS()*DS/JAC%GRD(1)
-      BETA = 1.D0/SNDP2-1.D0/JAC%DV(6)+JAC%DV(7)
+      ds = jac%nx(1)**2+jac%nx(2)**2+jac%nx(3)**2
+      u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
+      h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
+      sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
+      up = (1.d0+sndp2/jac%dv(6))*u
+      d  = dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
+      lamda = dble(sign)*cappa*(dabs(up)+d)
+      vis = dble(sign)*2.d0*jac%geteigenvis()*ds/jac%grd(1)
+      beta = 1.d0/sndp2-1.d0/jac%dv(6)+jac%dv(7)
       
-      A1 = U*JAC%DV(7)
-      A2 = JAC%NX(1)*JAC%DV(1)
-      A3 = JAC%NX(2)*JAC%DV(1)
-      A4 = JAC%NX(3)*JAC%DV(1)
-      A5 = U*JAC%DV(8)
-      A6 = U*JAC%DV(9)
-      A7 = U*JAC%DV(10)
-      G1 = LAMDA*BETA
-      G5 = LAMDA*JAC%DV(8)
-      G6 = LAMDA*JAC%DV(9)
-      G7 = LAMDA*JAC%DV(10)
-      GE1 = VIS*JAC%DV(7)
-      GE5 = VIS*JAC%DV(8)
-      GE6 = VIS*JAC%DV(9)
-      GE7 = VIS*JAC%DV(10)
-      
-      JAC%A(1,1) = A1+G1+GE1
-      JAC%A(1,2) = A2
-      JAC%A(1,3) = A3
-      JAC%A(1,4) = A4
-      JAC%A(1,5) = A5+G5+GE5
-      JAC%A(1,6) = A6+G6+GE6
-      JAC%A(1,7) = A7+G7+GE7
-      JAC%A(1,8) = 0.D0
-      JAC%A(1,9) = 0.D0
-        
-      JAC%A(2,1) = JAC%PV(2)*JAC%A(1,1) + JAC%NX(1)
-      JAC%A(2,2) = JAC%PV(2)*A2 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(2,3) = JAC%PV(2)*A3
-      JAC%A(2,4) = JAC%PV(2)*A4
-      JAC%A(2,5) = JAC%PV(2)*JAC%A(1,5)
-      JAC%A(2,6) = JAC%PV(2)*JAC%A(1,6)
-      JAC%A(2,7) = JAC%PV(2)*JAC%A(1,7)
-      JAC%A(2,8) = 0.D0
-      JAC%A(2,9) = 0.D0
-        
-      JAC%A(3,1) = JAC%PV(3)*JAC%A(1,1) + JAC%NX(2)
-      JAC%A(3,2) = JAC%PV(3)*A2 
-      JAC%A(3,3) = JAC%PV(3)*A3 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(3,4) = JAC%PV(3)*A4
-      JAC%A(3,5) = JAC%PV(3)*JAC%A(1,5)
-      JAC%A(3,6) = JAC%PV(3)*JAC%A(1,6)
-      JAC%A(3,7) = JAC%PV(3)*JAC%A(1,7)
-      JAC%A(3,8) = 0.D0
-      JAC%A(3,9) = 0.D0
+      a1 = u*jac%dv(7)
+      a2 = jac%nx(1)*jac%dv(1)
+      a3 = jac%nx(2)*jac%dv(1)
+      a4 = jac%nx(3)*jac%dv(1)
+      a5 = u*jac%dv(8)
+      a6 = u*jac%dv(9)
+      a7 = u*jac%dv(10)
+      g1 = lamda*beta
+      g5 = lamda*jac%dv(8)
+      g6 = lamda*jac%dv(9)
+      g7 = lamda*jac%dv(10)
+      ge1 = vis*jac%dv(7)
+      ge5 = vis*jac%dv(8)
+      ge6 = vis*jac%dv(9)
+      ge7 = vis*jac%dv(10)
+      uuu = u+lamda+vis
 
-      JAC%A(4,1) = JAC%PV(4)*JAC%A(1,1) + JAC%NX(3)
-      JAC%A(4,2) = JAC%PV(4)*A2 
-      JAC%A(4,3) = JAC%PV(4)*A3 
-      JAC%A(4,4) = JAC%PV(4)*A4 + JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(4,5) = JAC%PV(4)*JAC%A(1,5)
-      JAC%A(4,6) = JAC%PV(4)*JAC%A(1,6)
-      JAC%A(4,7) = JAC%PV(4)*JAC%A(1,7)
-      JAC%A(4,8) = 0.D0
-      JAC%A(4,9) = 0.D0
-      
-      JAC%A(5,1) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(11)+H*JAC%A(1,1)-LAMDA-VIS
-      JAC%A(5,2) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(2) +H*A2
-      JAC%A(5,3) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(3) +H*A3
-      JAC%A(5,4) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%PV(4) +H*A4
-      JAC%A(5,5) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(12)+H*JAC%A(1,5)
-      JAC%A(5,6) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(13)+H*JAC%A(1,6)
-      JAC%A(5,7) = JAC%DV(1)*(U+LAMDA+VIS)*JAC%DV(14)+H*JAC%A(1,7)
-      JAC%A(5,8) = 0.D0
-      JAC%A(5,9) = 0.D0
+      jac%a(1,1) = a1+g1+ge1
+      jac%a(1,2) = a2
+      jac%a(1,3) = a3
+      jac%a(1,4) = a4
+      jac%a(1,5) = a5+g5+ge5
+      jac%a(1,6) = a6+g6+ge6
+      jac%a(1,7) = a7+g7+ge7
+      jac%a(1,8) = 0.d0
+      jac%a(1,9) = 0.d0
         
-      JAC%A(6,1) = JAC%PV(6)*JAC%A(1,1)
-      JAC%A(6,2) = JAC%PV(6)*A2
-      JAC%A(6,3) = JAC%PV(6)*A3
-      JAC%A(6,4) = JAC%PV(6)*A4
-      JAC%A(6,5) = JAC%PV(6)*JAC%A(1,5)
-      JAC%A(6,6) = JAC%PV(6)*JAC%A(1,6)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(6,7) = JAC%PV(6)*JAC%A(1,7)
-      JAC%A(6,8) = 0.D0
-      JAC%A(6,9) = 0.D0
+      jac%a(2,1) = jac%pv(2)*jac%a(1,1) + jac%nx(1)
+      jac%a(2,2) = jac%pv(2)*a2 + jac%dv(1)*uuu
+      jac%a(2,3) = jac%pv(2)*a3
+      jac%a(2,4) = jac%pv(2)*a4
+      jac%a(2,5) = jac%pv(2)*jac%a(1,5)
+      jac%a(2,6) = jac%pv(2)*jac%a(1,6)
+      jac%a(2,7) = jac%pv(2)*jac%a(1,7)
+      jac%a(2,8) = 0.d0
+      jac%a(2,9) = 0.d0
         
-      JAC%A(7,1) = JAC%PV(7)*JAC%A(1,1)
-      JAC%A(7,2) = JAC%PV(7)*A2
-      JAC%A(7,3) = JAC%PV(7)*A3
-      JAC%A(7,4) = JAC%PV(7)*A4
-      JAC%A(7,5) = JAC%PV(7)*JAC%A(1,5)
-      JAC%A(7,6) = JAC%PV(7)*JAC%A(1,6)
-      JAC%A(7,7) = JAC%PV(7)*JAC%A(1,7)+JAC%DV(1)*(U+LAMDA+VIS)
-      JAC%A(7,8) = 0.D0
-      JAC%A(7,9) = 0.D0
+      jac%a(3,1) = jac%pv(3)*jac%a(1,1) + jac%nx(2)
+      jac%a(3,2) = jac%pv(3)*a2 
+      jac%a(3,3) = jac%pv(3)*a3 + jac%dv(1)*uuu
+      jac%a(3,4) = jac%pv(3)*a4
+      jac%a(3,5) = jac%pv(3)*jac%a(1,5)
+      jac%a(3,6) = jac%pv(3)*jac%a(1,6)
+      jac%a(3,7) = jac%pv(3)*jac%a(1,7)
+      jac%a(3,8) = 0.d0
+      jac%a(3,9) = 0.d0
 
-      JAC%A(8,1) = JAC%PV(8)*JAC%A(1,1)
-      JAC%A(8,2) = JAC%PV(8)*A2
-      JAC%A(8,3) = JAC%PV(8)*A3
-      JAC%A(8,4) = JAC%PV(8)*A4
-      JAC%A(8,5) = JAC%PV(8)*JAC%A(1,5)
-      JAC%A(8,6) = JAC%PV(8)*JAC%A(1,6)
-      JAC%A(8,7) = JAC%PV(8)*JAC%A(1,7)
-      JAC%A(8,8) = (U+LAMDA+VIS)*JAC%DV(1)
-      JAC%A(8,9) = 0.D0
+      jac%a(4,1) = jac%pv(4)*jac%a(1,1) + jac%nx(3)
+      jac%a(4,2) = jac%pv(4)*a2 
+      jac%a(4,3) = jac%pv(4)*a3 
+      jac%a(4,4) = jac%pv(4)*a4 + jac%dv(1)*uuu
+      jac%a(4,5) = jac%pv(4)*jac%a(1,5)
+      jac%a(4,6) = jac%pv(4)*jac%a(1,6)
+      jac%a(4,7) = jac%pv(4)*jac%a(1,7)
+      jac%a(4,8) = 0.d0
+      jac%a(4,9) = 0.d0
+      
+      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+h*jac%a(1,1)-lamda-vis
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +h*a2
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +h*a3
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +h*a4
+      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+h*jac%a(1,5)
+      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+h*jac%a(1,6)
+      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+h*jac%a(1,7)
+      jac%a(5,8) = 0.d0
+      jac%a(5,9) = 0.d0
+        
+      jac%a(6,1) = jac%pv(6)*jac%a(1,1)
+      jac%a(6,2) = jac%pv(6)*a2
+      jac%a(6,3) = jac%pv(6)*a3
+      jac%a(6,4) = jac%pv(6)*a4
+      jac%a(6,5) = jac%pv(6)*jac%a(1,5)
+      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*uuu
+      jac%a(6,7) = jac%pv(6)*jac%a(1,7)
+      jac%a(6,8) = 0.d0
+      jac%a(6,9) = 0.d0
+        
+      jac%a(7,1) = jac%pv(7)*jac%a(1,1)
+      jac%a(7,2) = jac%pv(7)*a2
+      jac%a(7,3) = jac%pv(7)*a3
+      jac%a(7,4) = jac%pv(7)*a4
+      jac%a(7,5) = jac%pv(7)*jac%a(1,5)
+      jac%a(7,6) = jac%pv(7)*jac%a(1,6)
+      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*uuu
+      jac%a(7,8) = 0.d0
+      jac%a(7,9) = 0.d0
 
-      JAC%A(9,1) = JAC%PV(9)*JAC%A(1,1)
-      JAC%A(9,2) = JAC%PV(9)*A2
-      JAC%A(9,3) = JAC%PV(9)*A3
-      JAC%A(9,4) = JAC%PV(9)*A4
-      JAC%A(9,5) = JAC%PV(9)*JAC%A(1,5)
-      JAC%A(9,6) = JAC%PV(9)*JAC%A(1,6)
-      JAC%A(9,7) = JAC%PV(9)*JAC%A(1,7)
-      JAC%A(9,8) = 0.D0
-      JAC%A(9,9) = (U+LAMDA+VIS)*JAC%DV(1)
-      
-      JAC%A = JAC%A*0.5D0
-    END SUBROUTINE FLOWTURBALL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION EULER(JAC) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8) :: EIGENVIS
-      
-      EIGENVIS = 0.D0
-      
-    END FUNCTION EULER
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION LAMINAR(JAC) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8) :: EIGENVIS
+      jac%a(8,1) = jac%pv(8)*jac%a(1,1)
+      jac%a(8,2) = jac%pv(8)*a2
+      jac%a(8,3) = jac%pv(8)*a3
+      jac%a(8,4) = jac%pv(8)*a4
+      jac%a(8,5) = jac%pv(8)*jac%a(1,5)
+      jac%a(8,6) = jac%pv(8)*jac%a(1,6)
+      jac%a(8,7) = jac%pv(8)*jac%a(1,7)
+      jac%a(8,8) = uuu*jac%dv(1)
+      jac%a(8,9) = 0.d0
 
-      EIGENVIS = DMAX1(JAC%DV(7)*JAC%TV(2)/(JAC%DV(8)     &
-                       +JAC%DV(12)*JAC%DV(7)*JAC%DV(1)    &
-                       -JAC%DV(11)*JAC%DV(8)*JAC%DV(1)),  &
-                       4.D0/3.D0*JAC%TV(1)/JAC%DV(1)) 
-    END FUNCTION LAMINAR
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION TURBULENT(JAC) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8) :: EIGENVIS
-      REAL(8), PARAMETER :: PR_T = 0.9D0
+      jac%a(9,1) = jac%pv(9)*jac%a(1,1)
+      jac%a(9,2) = jac%pv(9)*a2
+      jac%a(9,3) = jac%pv(9)*a3
+      jac%a(9,4) = jac%pv(9)*a4
+      jac%a(9,5) = jac%pv(9)*jac%a(1,5)
+      jac%a(9,6) = jac%pv(9)*jac%a(1,6)
+      jac%a(9,7) = jac%pv(9)*jac%a(1,7)
+      jac%a(9,8) = 0.d0
+      jac%a(9,9) = uuu*jac%dv(1)
+      
+      jac%a = jac%a*0.5d0
+    end subroutine flowturball
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function euler(jac) result(eigenvis)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: eigenvis
+      
+      eigenvis = 0.d0
+      
+    end function euler
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function laminar(jac) result(eigenvis)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: eigenvis
+
+      eigenvis = dmax1(jac%dv(7)*jac%tv(2)/(jac%dv(8)     &
+                       +jac%dv(12)*jac%dv(7)*jac%dv(1)    &
+                       -jac%dv(11)*jac%dv(8)*jac%dv(1)),  &
+                       4.d0/3.d0*jac%tv(1)/jac%dv(1)) 
+    end function laminar
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function turbulent(jac) result(eigenvis)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: eigenvis
+      real(8), parameter :: pr_t = 0.9d0
    
-      EIGENVIS = DMAX1(JAC%DV(7)*(JAC%TV(2)+JAC%DV(12)*JAC%TV(3)/PR_T) &
-                      /(JAC%DV(8)+JAC%DV(12)*JAC%DV(7)*JAC%DV(1)       &
-                       -JAC%DV(11)*JAC%DV(8)*JAC%DV(1)),               &
-                       4.D0/3.D0*(JAC%TV(1)+JAC%TV(3))/JAC%DV(1))
-    END FUNCTION TURBULENT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION NO_PREC(JAC,U2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8), INTENT(IN) :: U2
-      REAL(8) :: SNDP2
+      eigenvis = dmax1(jac%dv(7)*(jac%tv(2)+jac%dv(12)*jac%tv(3)/pr_t) &
+                      /(jac%dv(8)+jac%dv(12)*jac%dv(7)*jac%dv(1)       &
+                       -jac%dv(11)*jac%dv(8)*jac%dv(1)),               &
+                       4.d0/3.d0*(jac%tv(1)+jac%tv(3))/jac%dv(1))
+    end function turbulent
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_prec(jac,u2) result(sndp2)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8), intent(in) :: u2
+      real(8) :: sndp2
       
-      SNDP2 = JAC%DV(6)
+      sndp2 = jac%dv(6)
       
-    END FUNCTION NO_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION STEADY_PREC(JAC,U2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8), INTENT(IN) :: U2
-      REAL(8) :: SNDP2  
+    end function no_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function steady_prec(jac,u2) result(sndp2)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8), intent(in) :: u2
+      real(8) :: sndp2  
       
-      SNDP2 = DMIN1(JAC%DV(6),DMAX1(U2,JAC%UREF**2))
+      sndp2 = dmin1(jac%dv(6),dmax1(u2,jac%uref**2))
       
-    END FUNCTION STEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION UNSTEADY_PREC(JAC,U2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      REAL(8), INTENT(IN) :: U2
-      REAL(8) :: SNDP2  
+    end function steady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function unsteady_prec(jac,u2) result(sndp2)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8), intent(in) :: u2
+      real(8) :: sndp2  
       
-      SNDP2 = DMIN1(JAC%DV(6),DMAX1(U2,JAC%UREF**2,JAC%STR**2*U2))
+      sndp2 = dmin1(jac%dv(6),dmax1(u2,jac%uref**2,jac%str**2*u2))
       
-    END FUNCTION UNSTEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETA(JAC,I,J)
-      IMPLICIT NONE
-      CLASS(T_JAC), INTENT(IN) :: JAC
-      INTEGER, INTENT(IN) :: I,J
-      REAL(8) :: GETA
+    end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function geta(jac,i,j)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      integer, intent(in) :: i,j
+      real(8) :: geta
       
-      GETA = JAC%A(I,J)
+      geta = jac%a(i,j)
       
-    END FUNCTION GETA
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE JACOBIAN_MODULE
+    end function geta
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module jacobian_module

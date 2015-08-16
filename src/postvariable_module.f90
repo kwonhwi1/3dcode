@@ -1,257 +1,257 @@
-MODULE POSTVARIABLE_MODULE
-  USE CONFIG_MODULE
-  USE EOS_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_VARIABLE
+module postvariable_module
+  use config_module
+  use eos_module
+  implicit none
+  private
+  public :: t_variable
   
-  TYPE T_DOMAIN
-    INTEGER :: RANK,IMAX,JMAX,KMAX
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV,TV,DV
-  END TYPE T_DOMAIN
+  type t_domain
+    integer :: rank,imax,jmax,kmax
+    real(8), dimension(:,:,:,:), allocatable :: pv,tv,dv
+  end type t_domain
   
-  TYPE T_SOLUTION
-    INTEGER :: SIZE,NPS,NTS
-    TYPE(T_DOMAIN), DIMENSION(:), ALLOCATABLE :: DOMAIN
-  END TYPE T_SOLUTION
+  type t_solution
+    integer :: size,nps,nts
+    type(t_domain), dimension(:), allocatable :: domain
+  end type t_solution
   
-  TYPE T_VARIABLE
-    PRIVATE
-    INTEGER :: NPV,NTV,NDV,NSOLUTION
-    TYPE(T_SOLUTION), DIMENSION(:), ALLOCATABLE :: SOLUTION
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: GETNPS
-      PROCEDURE :: GETNTS
-      PROCEDURE :: GETNPV
-      PROCEDURE :: GETNTV
-      PROCEDURE :: GETNDV
-      PROCEDURE :: GETNSOLUTION
-      PROCEDURE :: GETPV
-      PROCEDURE :: GETTV
-      PROCEDURE :: GETDV
-      PROCEDURE :: GETSIZE
-      PROCEDURE :: GETRANK
-      PROCEDURE :: GETIMAX
-      PROCEDURE :: GETJMAX
-      PROCEDURE :: GETKMAX
-  END TYPE T_VARIABLE
+  type t_variable
+    private
+    integer :: npv,ntv,ndv,nsolution
+    type(t_solution), dimension(:), allocatable :: solution
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: getnps
+      procedure :: getnts
+      procedure :: getnpv
+      procedure :: getntv
+      procedure :: getndv
+      procedure :: getnsolution
+      procedure :: getpv
+      procedure :: gettv
+      procedure :: getdv
+      procedure :: getsize
+      procedure :: getrank
+      procedure :: getimax
+      procedure :: getjmax
+      procedure :: getkmax
+  end type t_variable
 
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(VARIABLE,CONFIG,EOS,ISTART,IEND,NSOLUTION)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(OUT) :: VARIABLE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      INTEGER, INTENT(IN) :: ISTART,IEND,NSOLUTION
-      CHARACTER(7) :: ITER_TAG
-      REAL(8) :: VAR
-      INTEGER :: I,J,K,N,M,L,O,IO,NQQ,ITER
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(variable,config,eos,istart,iend,nsolution)
+      implicit none
+      class(t_variable), intent(out) :: variable
+      type(t_config), intent(in) :: config
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: istart,iend,nsolution
+      character(7) :: iter_tag
+      real(8) :: var
+      integer :: i,j,k,n,m,l,o,io,nqq,iter
       
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-3)
-        VARIABLE%NPV = 7
-        VARIABLE%NTV = 0  
-      CASE(-2)
-        VARIABLE%NPV = 7
-        VARIABLE%NTV = 2      
-      CASE(-1,0)
-        VARIABLE%NPV = 9
-        VARIABLE%NTV = 3      
-      END SELECT
-      VARIABLE%NDV = 18
+      select case(config%getiturb())
+      case(-3)
+        variable%npv = 7
+        variable%ntv = 0  
+      case(-2)
+        variable%npv = 7
+        variable%ntv = 2      
+      case(-1,0)
+        variable%npv = 9
+        variable%ntv = 3      
+      end select
+      variable%ndv = 18
 
-      VARIABLE%NSOLUTION = NSOLUTION
+      variable%nsolution = nsolution
       
-      IF(MOD((IEND-ISTART)/CONFIG%GETNEXPORT()+1,VARIABLE%NSOLUTION).NE.0) THEN
-        WRITE(*,*) 'INVALID NSOLUTION'
-        PAUSE
-      ELSE
-        ITER = ((IEND-ISTART)/CONFIG%GETNEXPORT()+1)/VARIABLE%NSOLUTION
-      END IF
+      if(mod((iend-istart)/config%getnexport()+1,variable%nsolution).ne.0) then
+        write(*,*) 'invalid nsolution'
+        pause
+      else
+        iter = ((iend-istart)/config%getnexport()+1)/variable%nsolution
+      end if
       
-      ALLOCATE(VARIABLE%SOLUTION(VARIABLE%NSOLUTION))
+      allocate(variable%solution(variable%nsolution))
       
-      DO L=1,VARIABLE%NSOLUTION
-        IF(CONFIG%GETNSTEADY().EQ.1) THEN
-          WRITE(ITER_TAG,'(I4.4)') ISTART+ITER*CONFIG%GETNEXPORT()*(L-1)
-        ELSE
-          WRITE(ITER_TAG,'(I7.7)') ISTART+ITER*CONFIG%GETNEXPORT()*(L-1)
-        END IF
+      do l=1,variable%nsolution
+        if(config%getnsteady().eq.1) then
+          write(iter_tag,'(i4.4)') istart+iter*config%getnexport()*(l-1)
+        else
+          write(iter_tag,'(i7.7)') istart+iter*config%getnexport()*(l-1)
+        end if
         
-        OPEN(NEWUNIT=IO,FILE='./OUT_'//TRIM(ITER_TAG)//'.DAT',STATUS='OLD',ACTION='READ',FORM='UNFORMATTED',SHARED)
-        READ(IO) VARIABLE%SOLUTION(L)%SIZE,VARIABLE%SOLUTION(L)%NPS,VARIABLE%SOLUTION(L)%NTS,NQQ
+        open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='read',form='unformatted',shared)
+        read(io) variable%solution(l)%size,variable%solution(l)%nps,variable%solution(l)%nts,nqq
         
-        ALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(0:VARIABLE%SOLUTION(L)%SIZE-1))
+        allocate(variable%solution(l)%domain(1:variable%solution(l)%size))
         
-        DO M=0,VARIABLE%SOLUTION(L)%SIZE-1
-          READ(IO) VARIABLE%SOLUTION(L)%DOMAIN(M)%RANK,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX
+        do m=1,variable%solution(l)%size
+          read(io) variable%solution(l)%domain(m)%rank,variable%solution(l)%domain(m)%imax,variable%solution(l)%domain(m)%jmax,variable%solution(l)%domain(m)%kmax
           
-          ALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(VARIABLE%NPV,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX))
-          ALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%DV(VARIABLE%NDV,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX))
-          ALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%TV(VARIABLE%NTV,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX))
+          allocate(variable%solution(l)%domain(m)%pv(variable%npv,variable%solution(l)%domain(m)%imax,variable%solution(l)%domain(m)%jmax,variable%solution(l)%domain(m)%kmax))
+          allocate(variable%solution(l)%domain(m)%dv(variable%ndv,variable%solution(l)%domain(m)%imax,variable%solution(l)%domain(m)%jmax,variable%solution(l)%domain(m)%kmax))
+          allocate(variable%solution(l)%domain(m)%tv(variable%ntv,variable%solution(l)%domain(m)%imax,variable%solution(l)%domain(m)%jmax,variable%solution(l)%domain(m)%kmax))
           
-          READ(IO) ((((VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(N,I,J,K),N=1,VARIABLE%NPV),I=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX),J=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX),K=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX)
-          READ(IO) ((((VARIABLE%SOLUTION(L)%DOMAIN(M)%TV(N,I,J,K),N=1,VARIABLE%NTV),I=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX),J=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX),K=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX)
-          READ(IO) (((((VAR,O=1,NQQ),N=1,VARIABLE%NPV),I=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX),J=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX),K=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX)
+          read(io) ((((variable%solution(l)%domain(m)%pv(n,i,j,k),n=1,variable%npv),i=2,variable%solution(l)%domain(m)%imax),j=2,variable%solution(l)%domain(m)%jmax),k=2,variable%solution(l)%domain(m)%kmax)
+          read(io) ((((variable%solution(l)%domain(m)%tv(n,i,j,k),n=1,variable%ntv),i=2,variable%solution(l)%domain(m)%imax),j=2,variable%solution(l)%domain(m)%jmax),k=2,variable%solution(l)%domain(m)%kmax)
+          read(io) (((((var,o=1,nqq),n=1,variable%npv),i=2,variable%solution(l)%domain(m)%imax),j=2,variable%solution(l)%domain(m)%jmax),k=2,variable%solution(l)%domain(m)%kmax)
           
-          DO K=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX
-            DO J=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX
-              DO I=2,VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX
-                CALL EOS%DETEOS(VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(1,I,J,K),VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(5,I,J,K),VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(6,I,J,K),VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(7,I,J,K) &
-                                ,VARIABLE%SOLUTION(L)%DOMAIN(M)%DV(:,I,J,K)) 
-              END DO
-            END DO
-          END DO
-        END DO
+          do k=2,variable%solution(l)%domain(m)%kmax
+            do j=2,variable%solution(l)%domain(m)%jmax
+              do i=2,variable%solution(l)%domain(m)%imax
+                call eos%deteos(variable%solution(l)%domain(m)%pv(1,i,j,k),variable%solution(l)%domain(m)%pv(5,i,j,k),variable%solution(l)%domain(m)%pv(6,i,j,k),variable%solution(l)%domain(m)%pv(7,i,j,k) &
+                                ,variable%solution(l)%domain(m)%dv(:,i,j,k)) 
+              end do
+            end do
+          end do
+        end do
         
-        CLOSE(IO)
-      END DO
+        close(io)
+      end do
   
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER :: L,M
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(variable)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer :: l,m
       
-      DO L=1,VARIABLE%NSOLUTION
-        DO M=0,VARIABLE%SOLUTION(L)%SIZE-1
-          DEALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%PV)
-          DEALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%DV)
-          DEALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN(M)%TV)
-        END DO
-        DEALLOCATE(VARIABLE%SOLUTION(L)%DOMAIN)
-      END DO
+      do l=1,variable%nsolution
+        do m=1,variable%solution(l)%size
+          deallocate(variable%solution(l)%domain(m)%pv)
+          deallocate(variable%solution(l)%domain(m)%dv)
+          deallocate(variable%solution(l)%domain(m)%tv)
+        end do
+        deallocate(variable%solution(l)%domain)
+      end do
       
-      DEALLOCATE(VARIABLE%SOLUTION)
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNPS(VARIABLE,L)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L
-      INTEGER :: GETNPS
+      deallocate(variable%solution)
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnps(variable,l)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l
+      integer :: getnps
       
-      GETNPS = VARIABLE%SOLUTION(L)%NPS
-    END FUNCTION GETNPS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNTS(VARIABLE,L)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L
-      INTEGER :: GETNTS
+      getnps = variable%solution(l)%nps
+    end function getnps
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnts(variable,l)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l
+      integer :: getnts
       
-      GETNTS = VARIABLE%SOLUTION(L)%NTS
-    END FUNCTION GETNTS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNPV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNPV
+      getnts = variable%solution(l)%nts
+    end function getnts
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnpv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getnpv
       
-      GETNPV = VARIABLE%NPV
+      getnpv = variable%npv
       
-    END FUNCTION GETNPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNTV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNTV
+    end function getnpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getntv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getntv
       
-      GETNTV = VARIABLE%NTV
+      getntv = variable%ntv
       
-    END FUNCTION GETNTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNDV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNDV
+    end function getntv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getndv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getndv
       
-      GETNDV = VARIABLE%NDV
+      getndv = variable%ndv
       
-    END FUNCTION GETNDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNSOLUTION(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNSOLUTION
+    end function getndv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnsolution(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getnsolution
       
-      GETNSOLUTION = VARIABLE%NSOLUTION
+      getnsolution = variable%nsolution
       
-    END FUNCTION GETNSOLUTION
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETPV(VARIABLE,L,M,N,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M,N,I,J,K
-      REAL(8) :: GETPV
+    end function getnsolution
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getpv(variable,l,m,n,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m,n,i,j,k
+      real(8) :: getpv
       
-      GETPV = VARIABLE%SOLUTION(L)%DOMAIN(M)%PV(N,I,J,K)
-    END FUNCTION GETPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETTV(VARIABLE,L,M,N,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M,N,I,J,K
-      REAL(8) :: GETTV
+      getpv = variable%solution(l)%domain(m)%pv(n,i,j,k)
+    end function getpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function gettv(variable,l,m,n,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m,n,i,j,k
+      real(8) :: gettv
       
-      GETTV = VARIABLE%SOLUTION(L)%DOMAIN(M)%TV(N,I,J,K)
-    END FUNCTION GETTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETDV(VARIABLE,L,M,N,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M,N,I,J,K
-      REAL(8) :: GETDV
+      gettv = variable%solution(l)%domain(m)%tv(n,i,j,k)
+    end function gettv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getdv(variable,l,m,n,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m,n,i,j,k
+      real(8) :: getdv
       
-      GETDV = VARIABLE%SOLUTION(L)%DOMAIN(M)%DV(N,I,J,K)
-    END FUNCTION GETDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETSIZE(VARIABLE,L)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L
-      INTEGER :: GETSIZE
-      GETSIZE = VARIABLE%SOLUTION(L)%SIZE
-    END FUNCTION GETSIZE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETRANK(VARIABLE,L,M)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M
-      INTEGER :: GETRANK
+      getdv = variable%solution(l)%domain(m)%dv(n,i,j,k)
+    end function getdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getsize(variable,l)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l
+      integer :: getsize
+      getsize = variable%solution(l)%size
+    end function getsize
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getrank(variable,l,m)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m
+      integer :: getrank
       
-      GETRANK = VARIABLE%SOLUTION(L)%DOMAIN(M)%RANK
-    END FUNCTION GETRANK
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETIMAX(VARIABLE,L,M)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M
-      INTEGER :: GETIMAX
+      getrank = variable%solution(l)%domain(m)%rank
+    end function getrank
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getimax(variable,l,m)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m
+      integer :: getimax
       
-      GETIMAX = VARIABLE%SOLUTION(L)%DOMAIN(M)%IMAX
-    END FUNCTION GETIMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETJMAX(VARIABLE,L,M)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M
-      INTEGER :: GETJMAX
+      getimax = variable%solution(l)%domain(m)%imax
+    end function getimax
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getjmax(variable,l,m)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m
+      integer :: getjmax
       
-      GETJMAX = VARIABLE%SOLUTION(L)%DOMAIN(M)%JMAX
-    END FUNCTION GETJMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETKMAX(VARIABLE,L,M)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: L,M
-      INTEGER :: GETKMAX
+      getjmax = variable%solution(l)%domain(m)%jmax
+    end function getjmax
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getkmax(variable,l,m)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: l,m
+      integer :: getkmax
       
-      GETKMAX = VARIABLE%SOLUTION(L)%DOMAIN(M)%KMAX
-    END FUNCTION GETKMAX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE POSTVARIABLE_MODULE
+      getkmax = variable%solution(l)%domain(m)%kmax
+    end function getkmax
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module postvariable_module

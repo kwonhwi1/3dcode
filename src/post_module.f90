@@ -1,104 +1,104 @@
-MODULE POST_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_POST
+module post_module
+  use config_module
+  use grid_module
+  use variable_module
+  implicit none
+  private
+  public :: t_post
   
-  TYPE T_POST
-    PRIVATE
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV,TV
-    REAL(8), DIMENSION(:,:,:,:,:), ALLOCATABLE :: QQ
-    REAL(8) :: PREF
-    INTEGER :: SIZE,RANK,NSTEADY
-    INTEGER :: IMAX,JMAX,KMAX
-    INTEGER :: NPV,NTV,NQQ
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: EXPORT_VARIABLE
-  END TYPE T_POST
+  type t_post
+    private
+    real(8), dimension(:,:,:,:), allocatable :: pv,tv
+    real(8), dimension(:,:,:,:,:), allocatable :: qq
+    real(8) :: pref
+    integer :: size,rank,nsteady
+    integer :: imax,jmax,kmax
+    integer :: npv,ntv,nqq
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: export_variable
+  end type t_post
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(POST,CONFIG,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_POST), INTENT(OUT) :: POST
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(post,config,grid,variable)
+      implicit none
+      class(t_post), intent(out) :: post
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
       
-      POST%SIZE = CONFIG%GETSIZE()
-      POST%RANK = CONFIG%GETRANK()
-      POST%NSTEADY = CONFIG%GETNSTEADY()
-      POST%PREF = CONFIG%GETPREF()
-      POST%IMAX = GRID%GETIMAX()
-      POST%JMAX = GRID%GETJMAX()
-      POST%KMAX = GRID%GETKMAX()
-      POST%NPV = VARIABLE%GETNPV()
-      POST%NTV = VARIABLE%GETNTV()
-      POST%NQQ = VARIABLE%GETNQQ() 
+      post%size = config%getsize()
+      post%rank = config%getrank()
+      post%nsteady = config%getnsteady()
+      post%pref = config%getpref()
+      post%imax = grid%getimax()
+      post%jmax = grid%getjmax()
+      post%kmax = grid%getkmax()
+      post%npv = variable%getnpv()
+      post%ntv = variable%getntv()
+      post%nqq = variable%getnqq() 
 
-      ALLOCATE(POST%PV(POST%NPV,POST%IMAX,POST%JMAX,POST%KMAX))
-      ALLOCATE(POST%TV(POST%NTV,POST%IMAX,POST%JMAX,POST%KMAX))
-      ALLOCATE(POST%QQ(POST%NQQ,VARIABLE%GETNPV(),POST%IMAX,POST%JMAX,POST%KMAX))
+      allocate(post%pv(post%npv,post%imax,post%jmax,post%kmax))
+      allocate(post%tv(post%ntv,post%imax,post%jmax,post%kmax))
+      allocate(post%qq(post%nqq,variable%getnpv(),post%imax,post%jmax,post%kmax))
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(POST)
-      IMPLICIT NONE
-      CLASS(T_POST), INTENT(INOUT) :: POST
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(post)
+      implicit none
+      class(t_post), intent(inout) :: post
       
-      DEALLOCATE(POST%PV,POST%TV,POST%QQ)
+      deallocate(post%pv,post%tv,post%qq)
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE EXPORT_VARIABLE(POST,VARIABLE,NT_PHY,NT)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_POST), INTENT(INOUT) :: POST
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: NT_PHY,NT
-      INTEGER :: I,J,K,L,N,M,IER,IO
-      CHARACTER(7) :: ITER_TAG
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine export_variable(post,variable,nt_phy,nt)
+      implicit none
+      include 'mpif.h'
+      class(t_post), intent(inout) :: post
+      type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
+      integer :: i,j,k,l,n,m,ier,io
+      character(7) :: iter_tag
     
-      IF(POST%NSTEADY.EQ.1) THEN
-        WRITE(ITER_TAG,'(I4.4)') NT_PHY
-      ELSE
-        WRITE(ITER_TAG,'(I7.7)') NT
-      END IF
+      if(post%nsteady.eq.1) then
+        write(iter_tag,'(i4.4)') nt_phy
+      else
+        write(iter_tag,'(i7.7)') nt
+      end if
       
-      DO M=0,POST%SIZE-1
-        IF(M.EQ.POST%RANK) THEN
-          IF(M.EQ.0) THEN
-            OPEN(NEWUNIT=IO,FILE='./OUT_'//TRIM(ITER_TAG)//'.DAT',STATUS='UNKNOWN',ACTION='WRITE',FORM='UNFORMATTED')
-            WRITE(IO) POST%SIZE,NT_PHY,NT,POST%NQQ
-          ELSE
-            OPEN(NEWUNIT=IO,FILE='./OUT_'//TRIM(ITER_TAG)//'.DAT',STATUS='OLD',ACTION='WRITE',POSITION='APPEND',FORM='UNFORMATTED')          
-          END IF
-          WRITE(IO) POST%RANK,POST%IMAX,POST%JMAX,POST%KMAX
-          DO K=2,POST%KMAX
-            DO J=2,POST%JMAX
-              DO I=2,POST%IMAX
-                POST%PV(:,I,J,K) = VARIABLE%GETPV(I,J,K)
-                POST%PV(1,I,J,K) = POST%PV(1,I,J,K)+POST%PREF 
-                POST%TV(:,I,J,K) = VARIABLE%GETTV(I,J,K)
-                DO N=1,POST%NQQ
-                  POST%QQ(1,:,I,J,K) = VARIABLE%GETQQ(1,I,J,K)
-                  POST%QQ(2,:,I,J,K) = VARIABLE%GETQQ(2,I,J,K)
-                END DO
-              END DO
-            END DO
-          END DO
-          WRITE(IO) ((((POST%PV(N,I,J,K),N=1,POST%NPV),I=2,POST%IMAX),J=2,POST%JMAX),K=2,POST%KMAX)
-          WRITE(IO) ((((POST%TV(N,I,J,K),N=1,POST%NTV),I=2,POST%IMAX),J=2,POST%JMAX),K=2,POST%KMAX)
-          WRITE(IO) (((((POST%QQ(L,N,I,J,K),L=1,POST%NQQ),N=1,POST%NPV),I=2,POST%IMAX),J=2,POST%JMAX),K=2,POST%KMAX)
-          CLOSE(IO)
-        END IF
-        CALL MPI_BARRIER(MPI_COMM_WORLD,IER)
-      END DO
+      do m=0,post%size-1
+        if(m.eq.post%rank) then
+          if(m.eq.0) then
+            open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='unknown',action='write',form='unformatted')
+            write(io) post%size,nt_phy,nt,post%nqq
+          else
+            open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='write',position='append',form='unformatted')          
+          end if
+          write(io) post%rank,post%imax,post%jmax,post%kmax
+          do k=2,post%kmax
+            do j=2,post%jmax
+              do i=2,post%imax
+                post%pv(:,i,j,k) = variable%getpv(i,j,k)
+                post%pv(1,i,j,k) = post%pv(1,i,j,k)+post%pref 
+                post%tv(:,i,j,k) = variable%gettv(i,j,k)
+                do n=1,post%nqq
+                  post%qq(1,:,i,j,k) = variable%getqq(1,i,j,k)
+                  post%qq(2,:,i,j,k) = variable%getqq(2,i,j,k)
+                end do
+              end do
+            end do
+          end do
+          write(io) ((((post%pv(n,i,j,k),n=1,post%npv),i=2,post%imax),j=2,post%jmax),k=2,post%kmax)
+          write(io) ((((post%tv(n,i,j,k),n=1,post%ntv),i=2,post%imax),j=2,post%jmax),k=2,post%kmax)
+          write(io) (((((post%qq(l,n,i,j,k),l=1,post%nqq),n=1,post%npv),i=2,post%imax),j=2,post%jmax),k=2,post%kmax)
+          close(io)
+        end if
+        call mpi_barrier(mpi_comm_world,ier)
+      end do
       
-    END SUBROUTINE EXPORT_VARIABLE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE POST_MODULE
+    end subroutine export_variable
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module post_module

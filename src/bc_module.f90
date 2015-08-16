@@ -137,24 +137,24 @@ module bc_module
           end if 
         end if
         
-        if(trim(bc%bcinfo(n)%bcname).eq.'bcwallinviscid') then
-          bc%bcinfo(n)%bctype => bcwallinviscid
-        else if(trim(bc%bcinfo(n)%bcname).eq.'bcwallviscous') then
+        if(trim(bc%bcinfo(n)%bcname).eq.'BCWall') then 
           select case(config%getiturb())
           case(-1)
             bc%bcinfo(n)%bctype => bcwallviscouske
           case(0)
             bc%bcinfo(n)%bctype => bcwallviscouskw
-          case default
+          case(-2)
             bc%bcinfo(n)%bctype => bcwallviscous
+          case default
+            bc%bcinfo(n)%bctype => bcwallinviscid
           end select
-        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflow') then
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflow') then
           bc%bcinfo(n)%bctype => bcinflow
-        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflowsubsonic') then
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSubsonic') then
           bc%bcinfo(n)%bctype => bcinflowsubsonic
-        else if(trim(bc%bcinfo(n)%bcname).eq.'bcinflowsupersonic') then
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSupersonic') then
           bc%bcinfo(n)%bctype => bcinflowsupersonic
-        else if(trim(bc%bcinfo(n)%bcname).eq.'bcoutflow') then
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCO112utflow') then
           bc%bcinfo(n)%bctype => bcoutflow
         else if(trim(bc%bcinfo(n)%bcname).eq.'bcoutflowsubsonic') then
           bc%bcinfo(n)%bctype => bcoutflowsubsonic

@@ -1,562 +1,562 @@
-MODULE FLUX_MODULE
-  USE CONFIG_MODULE
-  USE VARIABLE_MODULE
-  USE EOS_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_FLUX,T_ROE,T_ROEM,T_AUSMPWP,T_AUSMPUP
+module flux_module
+  use config_module
+  use variable_module
+  use eos_module
+  implicit none
+  private
+  public :: t_flux,t_roe,t_roem,t_ausmpwp,t_ausmpup
 
-  TYPE, ABSTRACT :: T_FLUX
-    PRIVATE
-    INTEGER :: NPV,NDV
-    REAL(8) :: UREF,STR,PREF
-    REAL(8), POINTER, PUBLIC :: PVL(:),PVR(:),DVL(:),DVR(:),SDST(:)
-    REAL(8), POINTER, PUBLIC :: NX(:)
-    PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
-    CONTAINS
-      PROCEDURE :: CONSTRUCT       
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_CALFLUX), DEFERRED :: CALFLUX
-  END TYPE T_FLUX
+  type, abstract :: t_flux
+    private
+    integer :: npv,ndv
+    real(8) :: uref,str,pref
+    real(8), pointer, public :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
+    real(8), pointer, public :: nx(:)
+    procedure(p_getsndp2), pointer :: getsndp2
+    contains
+      procedure :: construct       
+      procedure :: destruct
+      procedure(p_calflux), deferred :: calflux
+  end type t_flux
 
-  ABSTRACT INTERFACE
-    SUBROUTINE P_CALFLUX(FLUX,EOS,FX)
-      IMPORT T_FLUX
-      IMPORT T_EOS
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(IN) :: FLUX
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      REAL(8), INTENT(OUT) :: FX(FLUX%NPV)
-    END SUBROUTINE P_CALFLUX
-  END INTERFACE
+  abstract interface
+    subroutine p_calflux(flux,eos,fx)
+      import t_flux
+      import t_eos
+      implicit none
+      class(t_flux), intent(in) :: flux
+      type(t_eos), intent(in) :: eos
+      real(8), intent(out) :: fx(flux%npv)
+    end subroutine p_calflux
+  end interface
   
-  TYPE, EXTENDS(T_FLUX) :: T_ROE
-    CONTAINS
-      PROCEDURE :: CALFLUX => ROE
-  END TYPE T_ROE
+  type, extends(t_flux) :: t_roe
+    contains
+      procedure :: calflux => roe
+  end type t_roe
 
-  TYPE, EXTENDS(T_FLUX) :: T_ROEM
-    CONTAINS
-      PROCEDURE :: CALFLUX => ROEM
-  END TYPE T_ROEM
+  type, extends(t_flux) :: t_roem
+    contains
+      procedure :: calflux => roem
+  end type t_roem
   
-  TYPE, EXTENDS(T_FLUX) :: T_AUSMPWP
-    CONTAINS
-      PROCEDURE :: CALFLUX => AUSMPWP
-  END TYPE T_AUSMPWP
+  type, extends(t_flux) :: t_ausmpwp
+    contains
+      procedure :: calflux => ausmpwp
+  end type t_ausmpwp
   
-  TYPE, EXTENDS(T_FLUX) :: T_AUSMPUP
-    CONTAINS
-      PROCEDURE :: CALFLUX => AUSMPUP
-  END TYPE T_AUSMPUP
+  type, extends(t_flux) :: t_ausmpup
+    contains
+      procedure :: calflux => ausmpup
+  end type t_ausmpup
   
-  INTERFACE
-    FUNCTION P_GETSNDP2(FLUX,SND2,UUU2,CUT) RESULT(SNDP2)
-      IMPORT T_FLUX
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(IN) :: FLUX
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      INTEGER, INTENT(IN) :: CUT
-      REAL(8) :: SNDP2
-    END FUNCTION P_GETSNDP2
-  END INTERFACE
+  interface
+    function p_getsndp2(flux,snd2,uuu2,cut) result(sndp2)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      integer, intent(in) :: cut
+      real(8) :: sndp2
+    end function p_getsndp2
+  end interface
         
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    SUBROUTINE CONSTRUCT(FLUX,CONFIG,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(OUT) :: FLUX
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    subroutine construct(flux,config,variable)
+      implicit none
+      class(t_flux), intent(out) :: flux
+      type(t_config), intent(in) :: config
+      type(t_variable), intent(in) :: variable
       
-      FLUX%UREF = CONFIG%GETUREF()
-      FLUX%STR  = CONFIG%GETSTR()
-      FLUX%PREF = CONFIG%GETPREF()
+      flux%uref = config%geturef()
+      flux%str  = config%getstr()
+      flux%pref = config%getpref()
             
-      SELECT CASE(CONFIG%GETPRECD())
-      CASE(0)
-        FLUX%GETSNDP2 => NO_PREC
-      CASE(1)
-        FLUX%GETSNDP2 => STEADY_PREC
-      CASE(2)
-        FLUX%GETSNDP2 => UNSTEADY_PREC
-      END SELECT
+      select case(config%getprecd())
+      case(0)
+        flux%getsndp2 => no_prec
+      case(1)
+        flux%getsndp2 => steady_prec
+      case(2)
+        flux%getsndp2 => unsteady_prec
+      end select
 
-      FLUX%NPV = VARIABLE%GETNPV()
-      FLUX%NDV = VARIABLE%GETNDV()
+      flux%npv = variable%getnpv()
+      flux%ndv = variable%getndv()
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-    SUBROUTINE DESTRUCT(FLUX)
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(INOUT) :: FLUX
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    subroutine destruct(flux)
+      implicit none
+      class(t_flux), intent(inout) :: flux
 
-      IF(ASSOCIATED(FLUX%NX))       NULLIFY(FLUX%NX)    
-      IF(ASSOCIATED(FLUX%PVL))      NULLIFY(FLUX%PVL)  
-      IF(ASSOCIATED(FLUX%PVR))      NULLIFY(FLUX%PVR)  
-      IF(ASSOCIATED(FLUX%DVL))      NULLIFY(FLUX%DVL)  
-      IF(ASSOCIATED(FLUX%DVR))      NULLIFY(FLUX%DVR)  
-      IF(ASSOCIATED(FLUX%SDST))     NULLIFY(FLUX%SDST) 
-      IF(ASSOCIATED(FLUX%GETSNDP2)) NULLIFY(FLUX%GETSNDP2)    
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE ROE(FLUX,EOS,FX)
-      IMPLICIT NONE
-      CLASS(T_ROE), INTENT(IN) :: FLUX
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      REAL(8), INTENT(OUT) :: FX(FLUX%NPV)
-      INTEGER :: K
-      REAL(8) :: NX,NY,NZ,DL
-      REAL(8) :: UURR,UULL,HTL,HTR,UV2
-      REAL(8) :: RAVG(FLUX%NPV),RAVG_HT,RDV(FLUX%NDV),RAVG_D
-      REAL(8) :: SNDP2,SNDP2_CUT
-      REAL(8) :: UUU,UUP,DDD,DDD_CUT,C_STAR,C_STAR_CUT,M_STAR,DU,DP
-      REAL(8) :: DF(FLUX%NPV)
+      if(associated(flux%nx))       nullify(flux%nx)    
+      if(associated(flux%pvl))      nullify(flux%pvl)  
+      if(associated(flux%pvr))      nullify(flux%pvr)  
+      if(associated(flux%dvl))      nullify(flux%dvl)  
+      if(associated(flux%dvr))      nullify(flux%dvr)  
+      if(associated(flux%sdst))     nullify(flux%sdst) 
+      if(associated(flux%getsndp2)) nullify(flux%getsndp2)    
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine roe(flux,eos,fx)
+      implicit none
+      class(t_roe), intent(in) :: flux
+      type(t_eos), intent(in) :: eos
+      real(8), intent(out) :: fx(flux%npv)
+      integer :: k
+      real(8) :: nx,ny,nz,dl
+      real(8) :: uurr,uull,htl,htr,uv2
+      real(8) :: ravg(flux%npv),ravg_ht,rdv(flux%ndv),ravg_d
+      real(8) :: sndp2,sndp2_cut
+      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
+      real(8) :: df(flux%npv)
       
-      DL = DSQRT(FLUX%NX(1)**2+FLUX%NX(2)**2+FLUX%NX(3)**2)
+      dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
-      IF(DL.EQ.0.D0) THEN
-        FX = 0.D0
-        RETURN
-      END IF
+      if(dl.eq.0.d0) then
+        fx = 0.d0
+        return
+      end if
       
-      NX = FLUX%NX(1)/DL
-      NY = FLUX%NX(2)/DL
-      NZ = FLUX%NX(3)/DL
+      nx = flux%nx(1)/dl
+      ny = flux%nx(2)/dl
+      nz = flux%nx(3)/dl
       
-      UULL = NX*FLUX%PVL(2) + NY*FLUX%PVL(3) + NZ*FLUX%PVL(4)
-      UURR = NX*FLUX%PVR(2) + NY*FLUX%PVR(3) + NZ*FLUX%PVR(4)
-      HTL = FLUX%DVL(2) + 0.5D0*(FLUX%PVL(2)**2 + FLUX%PVL(3)**2 + FLUX%PVL(4)**2)
-      HTR = FLUX%DVR(2) + 0.5D0*(FLUX%PVR(2)**2 + FLUX%PVR(3)**2 + FLUX%PVR(4)**2)
+      uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
+      uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
+      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
-      ! ROE AVERAGE - 1/2 VALUES
-      RAVG(1) = 0.5D0*(FLUX%PVR(1)+FLUX%PVL(1))+FLUX%PREF
-      RAVG_D = 1.D0/(DSQRT(FLUX%DVL(1))+DSQRT(FLUX%DVR(1)))
-      DO K=2,FLUX%NPV
-        RAVG(K) = (DSQRT(FLUX%DVL(1))*FLUX%PVL(K)+DSQRT(FLUX%DVR(1))*FLUX%PVR(K))*RAVG_D
-      END DO
+      ! roe average - 1/2 values
+      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
+      do k=2,flux%npv
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
 
-      CALL EOS%DETEOS(RAVG(1),RAVG(5),RAVG(6),RAVG(7),RDV)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
       
-      UV2 = RAVG(2)**2+RAVG(3)**2+RAVG(4)**2
-      RAVG_HT = RDV(2)+0.5D0*UV2
-      UUU = NX*RAVG(2) + NY*RAVG(3) + NZ*RAVG(4)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
+      ravg_ht = rdv(2)+0.5d0*uv2
+      uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
-      SNDP2     = FLUX%GETSNDP2(RDV(6),UV2,0)
-      SNDP2_CUT = FLUX%GETSNDP2(RDV(6),UV2,1)
+      sndp2     = flux%getsndp2(rdv(6),uv2,0)
+      sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
-      UUP = 0.5D0*(1.D0+SNDP2/RDV(6))*UUU
-      DDD = 0.5D0*DSQRT((1.D0-SNDP2/RDV(6))**2*UUU**2+4.D0*SNDP2)
-      DDD_CUT = 0.5D0*DSQRT((1.D0-SNDP2_CUT/RDV(6))**2*UUU**2+4.D0*SNDP2_CUT)
+      uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
+      ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
+      ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      C_STAR = 0.5D0*(DABS(UUP+DDD)+DABS(UUP-DDD))
-      C_STAR_CUT = 0.5D0*(DABS(UUP+DDD_CUT)+DABS(UUP-DDD_CUT))
-      M_STAR = 0.5D0*(DABS(UUP+DDD_CUT)-DABS(UUP-DDD_CUT))/DDD_CUT
+      c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
+      c_star_cut = 0.5d0*(dabs(uup+ddd_cut)+dabs(uup-ddd_cut))
+      m_star = 0.5d0*(dabs(uup+ddd_cut)-dabs(uup-ddd_cut))/ddd_cut
 
-      DU = M_STAR*(UURR-UULL)+(C_STAR_CUT-SNDP2/RDV(6)*DABS(UUU)-0.5D0*(1.D0-SNDP2/RDV(6))*UUU*M_STAR)*(FLUX%PVR(1)-FLUX%PVL(1))/RDV(1)/SNDP2_CUT
-      DP = M_STAR*(FLUX%PVR(1)-FLUX%PVL(1))+(C_STAR-DABS(UUU)+0.5D0*(1.D0-SNDP2/RDV(6))*UUU*M_STAR)*RDV(1)*(UURR-UULL)
+      du = m_star*(uurr-uull)+(c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/sndp2_cut
+      dp = m_star*(flux%pvr(1)-flux%pvl(1))+(c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*rdv(1)*(uurr-uull)
       
-      DF(1) = DABS(UUU)*(FLUX%DVR(1)                 - FLUX%DVL(1)                ) + DU*RDV(1)
-      DF(2) = DABS(UUU)*(FLUX%DVR(1)*FLUX%PVR(2)     - FLUX%DVL(1)*FLUX%PVL(2)    ) + DU*RDV(1)*RAVG(2)  + DP*NX
-      DF(3) = DABS(UUU)*(FLUX%DVR(1)*FLUX%PVR(3)     - FLUX%DVL(1)*FLUX%PVL(3)    ) + DU*RDV(1)*RAVG(3)  + DP*NY
-      DF(4) = DABS(UUU)*(FLUX%DVR(1)*FLUX%PVR(4)     - FLUX%DVL(1)*FLUX%PVL(4)    ) + DU*RDV(1)*RAVG(4)  + DP*NZ
-      DF(5) = DABS(UUU)*(FLUX%DVR(1)*HTR-(FLUX%PVR(1)+FLUX%PREF) - (FLUX%DVL(1)*HTL-(FLUX%PVL(1)+FLUX%PREF))) + DU*RDV(1)*RAVG_HT  + DP*UUU
-      DO K=6,FLUX%NPV
-        DF(K) = DABS(UUU)*(FLUX%DVR(1)*FLUX%PVR(K) - FLUX%DVL(1)*FLUX%PVL(K)) + DU*RDV(1)*RAVG(K)
-      END DO
+      df(1) = dabs(uuu)*(flux%dvr(1)                 - flux%dvl(1)                ) + du*rdv(1)
+      df(2) = dabs(uuu)*(flux%dvr(1)*flux%pvr(2)     - flux%dvl(1)*flux%pvl(2)    ) + du*rdv(1)*ravg(2)  + dp*nx
+      df(3) = dabs(uuu)*(flux%dvr(1)*flux%pvr(3)     - flux%dvl(1)*flux%pvl(3)    ) + du*rdv(1)*ravg(3)  + dp*ny
+      df(4) = dabs(uuu)*(flux%dvr(1)*flux%pvr(4)     - flux%dvl(1)*flux%pvl(4)    ) + du*rdv(1)*ravg(4)  + dp*nz
+      df(5) = dabs(uuu)*(flux%dvr(1)*htr-(flux%pvr(1)+flux%pref) - (flux%dvl(1)*htl-(flux%pvl(1)+flux%pref))) + du*rdv(1)*ravg_ht  + dp*uuu
+      do k=6,flux%npv
+        df(k) = dabs(uuu)*(flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)) + du*rdv(1)*ravg(k)
+      end do
       
-      FX(1) = 0.5D0*(FLUX%DVL(1)*UULL                            + FLUX%DVR(1)*UURR                            - DF(1))*DL
-      FX(2) = 0.5D0*(FLUX%DVL(1)*UULL*FLUX%PVL(2)+NX*(FLUX%PVL(1)+FLUX%PREF) + FLUX%DVR(1)*UURR*FLUX%PVR(2)+NX*(FLUX%PVR(1)+FLUX%PREF) - DF(2))*DL
-      FX(3) = 0.5D0*(FLUX%DVL(1)*UULL*FLUX%PVL(3)+NY*(FLUX%PVL(1)+FLUX%PREF) + FLUX%DVR(1)*UURR*FLUX%PVR(3)+NY*(FLUX%PVR(1)+FLUX%PREF) - DF(3))*DL
-      FX(4) = 0.5D0*(FLUX%DVL(1)*UULL*FLUX%PVL(4)+NZ*(FLUX%PVL(1)+FLUX%PREF) + FLUX%DVR(1)*UURR*FLUX%PVR(4)+NZ*(FLUX%PVR(1)+FLUX%PREF) - DF(4))*DL
-      FX(5) = 0.5D0*(FLUX%DVL(1)*UULL*HTL                        + FLUX%DVR(1)*UURR*HTR                        - DF(5))*DL
-      DO K=6,FLUX%NPV
-        FX(K) = 0.5D0*(FLUX%DVL(1)*UULL*FLUX%PVL(K) + FLUX%DVR(1)*UURR*FLUX%PVR(K) - DF(K))*DL
-      END DO    
-    END SUBROUTINE ROE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-    SUBROUTINE ROEM(FLUX,EOS,FX)
-      IMPLICIT NONE
-      CLASS(T_ROEM), INTENT(IN) :: FLUX
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      REAL(8), INTENT(OUT) :: FX(FLUX%NPV)
-      INTEGER :: K
-      REAL(8) :: NX,NY,NZ,DL
-      REAL(8) :: UURR,UULL,HTL,HTR,UV2
-      REAL(8) :: RAVG(FLUX%NPV),RAVG_HT,RAVG_D
-      REAL(8) :: SNDP2,SNDP2_CUT
-      REAL(8) :: UUU,UUP,DDD,DDD_CUT,C_STAR,C_STAR_CUT,M_STAR
-      REAL(8) :: AAA,ADD,B1,B2,RRR,FF,GG,SDST(18),B1B2,PP_L,PP_R  
-      REAL(8) :: DQP(FLUX%NPV),FL(FLUX%NPV),FR(FLUX%NPV),BDQ(FLUX%NPV),DQ(FLUX%NPV)
-      REAL(8) :: RDV(FLUX%NDV)
+      fx(1) = 0.5d0*(flux%dvl(1)*uull                            + flux%dvr(1)*uurr                            - df(1))*dl
+      fx(2) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref) - df(2))*dl
+      fx(3) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref) - df(3))*dl
+      fx(4) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref) - df(4))*dl
+      fx(5) = 0.5d0*(flux%dvl(1)*uull*htl                        + flux%dvr(1)*uurr*htr                        - df(5))*dl
+      do k=6,flux%npv
+        fx(k) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(k) + flux%dvr(1)*uurr*flux%pvr(k) - df(k))*dl
+      end do    
+    end subroutine roe
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    subroutine roem(flux,eos,fx)
+      implicit none
+      class(t_roem), intent(in) :: flux
+      type(t_eos), intent(in) :: eos
+      real(8), intent(out) :: fx(flux%npv)
+      integer :: k
+      real(8) :: nx,ny,nz,dl
+      real(8) :: uurr,uull,htl,htr,uv2
+      real(8) :: ravg(flux%npv),ravg_ht,ravg_d
+      real(8) :: sndp2,sndp2_cut
+      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
+      real(8) :: aaa,add,b1,b2,rrr,ff,gg,sdst(18),b1b2,pp_l,pp_r  
+      real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
+      real(8) :: rdv(flux%ndv)
       
-      DL = DSQRT(FLUX%NX(1)**2+FLUX%NX(2)**2+FLUX%NX(3)**2)
+      dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
-      IF(DL.EQ.0.D0) THEN
-        FX = 0.D0
-        RETURN
-      END IF
+      if(dl.eq.0.d0) then
+        fx = 0.d0
+        return
+      end if
       
-      NX = FLUX%NX(1)/DL
-      NY = FLUX%NX(2)/DL
-      NZ = FLUX%NX(3)/DL
+      nx = flux%nx(1)/dl
+      ny = flux%nx(2)/dl
+      nz = flux%nx(3)/dl
       
-      UULL = NX*FLUX%PVL(2) + NY*FLUX%PVL(3) + NZ*FLUX%PVL(4)
-      UURR = NX*FLUX%PVR(2) + NY*FLUX%PVR(3) + NZ*FLUX%PVR(4)
-      HTL = FLUX%DVL(2) + 0.5D0*(FLUX%PVL(2)**2 + FLUX%PVL(3)**2 + FLUX%PVL(4)**2)
-      HTR = FLUX%DVR(2) + 0.5D0*(FLUX%PVR(2)**2 + FLUX%PVR(3)**2 + FLUX%PVR(4)**2)
+      uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
+      uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
+      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
-      ! ROE AVERAGE - 1/2 VALUES
-      RAVG(1) = 0.5D0*(FLUX%PVR(1)+FLUX%PVL(1))+FLUX%PREF
-      RAVG_D = 1.D0/(DSQRT(FLUX%DVL(1))+DSQRT(FLUX%DVR(1)))
-      DO K=2,FLUX%NPV
-        RAVG(K) = (DSQRT(FLUX%DVL(1))*FLUX%PVL(K)+DSQRT(FLUX%DVR(1))*FLUX%PVR(K))*RAVG_D
-      END DO
+      ! roe average - 1/2 values
+      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
+      do k=2,flux%npv
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
 
-      CALL EOS%DETEOS(RAVG(1),RAVG(5),RAVG(6),RAVG(7),RDV)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
       
-      UV2 = RAVG(2)**2+RAVG(3)**2+RAVG(4)**2
-      RAVG_HT = RDV(2)+0.5D0*UV2
-      UUU = NX*RAVG(2) + NY*RAVG(3) + NZ*RAVG(4)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
+      ravg_ht = rdv(2)+0.5d0*uv2
+      uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
-      SNDP2     = FLUX%GETSNDP2(RDV(6),UV2,0)
-      SNDP2_CUT = FLUX%GETSNDP2(RDV(6),UV2,1)
+      sndp2     = flux%getsndp2(rdv(6),uv2,0)
+      sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
-      UUP = 0.5D0*(1.D0+SNDP2/RDV(6))*UUU
-      DDD = 0.5D0*DSQRT((1.D0-SNDP2/RDV(6))**2*UUU**2+4.D0*SNDP2)
-      DDD_CUT = 0.5D0*DSQRT((1.D0-SNDP2_CUT/RDV(6))**2*UUU**2+4.D0*SNDP2_CUT)
+      uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
+      ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
+      ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      C_STAR = 0.5D0*(DABS(UUP+DDD)+DABS(UUP-DDD))
-      C_STAR_CUT = 0.5D0*(DABS(UUP+DDD_CUT)+DABS(UUP-DDD_CUT))
-      M_STAR = 0.5D0*(DABS(UUP+DDD_CUT)-DABS(UUP-DDD_CUT))/DDD_CUT
+      c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
+      c_star_cut = 0.5d0*(dabs(uup+ddd_cut)+dabs(uup-ddd_cut))
+      m_star = 0.5d0*(dabs(uup+ddd_cut)-dabs(uup-ddd_cut))/ddd_cut
 
-      B1 = DMAX1(0.D0,UUP + DDD_CUT,0.5D0*(1.D0+SNDP2/RDV(6))*UURR + DDD_CUT)
-      B2 = DMIN1(0.D0,UUP - DDD_CUT,0.5D0*(1.D0+SNDP2/RDV(6))*UULL - DDD_CUT)
+      b1 = dmax1(0.d0,uup + ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd_cut)
+      b2 = dmin1(0.d0,uup - ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd_cut)
       
-      DO K=1,FLUX%NPV
-        DQP(K) = FLUX%PVR(K)-FLUX%PVL(K)
-      END DO
+      do k=1,flux%npv
+        dqp(k) = flux%pvr(k)-flux%pvl(k)
+      end do
       
-      DQ(1) = FLUX%DVR(1)             - FLUX%DVL(1) 
-      DQ(2) = FLUX%DVR(1)*FLUX%PVR(2) - FLUX%DVL(1)*FLUX%PVL(2)
-      DQ(3) = FLUX%DVR(1)*FLUX%PVR(3) - FLUX%DVL(1)*FLUX%PVL(3)
-      DQ(4) = FLUX%DVR(1)*FLUX%PVR(4) - FLUX%DVL(1)*FLUX%PVL(4)
-      DQ(5) = FLUX%DVR(1)*HTR         - FLUX%DVL(1)*HTL
-      DO K=6,FLUX%NPV
-        DQ(K) = FLUX%DVR(1)*FLUX%PVR(K) - FLUX%DVL(1)*FLUX%PVL(K)
-      END DO
+      dq(1) = flux%dvr(1)             - flux%dvl(1) 
+      dq(2) = flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)
+      dq(3) = flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)
+      dq(4) = flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)
+      dq(5) = flux%dvr(1)*htr         - flux%dvl(1)*htl
+      do k=6,flux%npv
+        dq(k) = flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)
+      end do
       
-      FL(1) = FLUX%DVL(1)*UULL
-      FL(2) = FLUX%DVL(1)*UULL*FLUX%PVL(2)+NX*(FLUX%PVL(1)+FLUX%PREF)
-      FL(3) = FLUX%DVL(1)*UULL*FLUX%PVL(3)+NY*(FLUX%PVL(1)+FLUX%PREF)
-      FL(4) = FLUX%DVL(1)*UULL*FLUX%PVL(4)+NZ*(FLUX%PVL(1)+FLUX%PREF)
-      FL(5) = FLUX%DVL(1)*UULL*HTL
-      DO K=6,FLUX%NPV
-        FL(K) = FLUX%DVL(1)*UULL*FLUX%PVL(K)
-      END DO
+      fl(1) = flux%dvl(1)*uull
+      fl(2) = flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref)
+      fl(3) = flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref)
+      fl(4) = flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref)
+      fl(5) = flux%dvl(1)*uull*htl
+      do k=6,flux%npv
+        fl(k) = flux%dvl(1)*uull*flux%pvl(k)
+      end do
       
-      FR(1) = FLUX%DVR(1)*UURR
-      FR(2) = FLUX%DVR(1)*UURR*FLUX%PVR(2)+NX*(FLUX%PVR(1)+FLUX%PREF)
-      FR(3) = FLUX%DVR(1)*UURR*FLUX%PVR(3)+NY*(FLUX%PVR(1)+FLUX%PREF)
-      FR(4) = FLUX%DVR(1)*UURR*FLUX%PVR(4)+NZ*(FLUX%PVR(1)+FLUX%PREF)
-      FR(5) = FLUX%DVR(1)*UURR*HTR
-      DO K=6,FLUX%NPV
-        FR(K) = FLUX%DVR(1)*UURR*FLUX%PVR(K)
-      END DO
+      fr(1) = flux%dvr(1)*uurr
+      fr(2) = flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref)
+      fr(3) = flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref)
+      fr(4) = flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref)
+      fr(5) = flux%dvr(1)*uurr*htr
+      do k=6,flux%npv
+        fr(k) = flux%dvr(1)*uurr*flux%pvr(k)
+      end do
       
-      DO K=1,18
-        SDST(K) = FLUX%SDST(K)+0.5D0*FLUX%PREF+RDV(1)*RDV(6)
-      END DO
+      do k=1,18
+        sdst(k) = flux%sdst(k)+0.5d0*flux%pref+rdv(1)*rdv(6)
+      end do
       
-      FF = 1.D0 - DMIN1(SDST(9)/SDST(10),SDST(10)/SDST(9) &
-                       ,SDST(11)/SDST(9),SDST(9)/SDST(11),SDST(9)/SDST(7),SDST(7)/SDST(9)     &
-                       ,SDST(9)/SDST(3),SDST(3)/SDST(9),SDST(9)/SDST(15),SDST(15)/SDST(9)     &
-                       ,SDST(10)/SDST(12),SDST(12)/SDST(10),SDST(10)/SDST(8),SDST(8)/SDST(10) &
-                       ,SDST(4)/SDST(10),SDST(10)/SDST(4),SDST(10)/SDST(16),SDST(16)/SDST(10) )
+      ff = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9) &
+                       ,sdst(11)/sdst(9),sdst(9)/sdst(11),sdst(9)/sdst(7),sdst(7)/sdst(9)     &
+                       ,sdst(9)/sdst(3),sdst(3)/sdst(9),sdst(9)/sdst(15),sdst(15)/sdst(9)     &
+                       ,sdst(10)/sdst(12),sdst(12)/sdst(10),sdst(10)/sdst(8),sdst(8)/sdst(10) &
+                       ,sdst(4)/sdst(10),sdst(10)/sdst(4),sdst(10)/sdst(16),sdst(16)/sdst(10) )
       
-      IF(UUU .NE. 0.D0) THEN
-        FF = (DABS(UUU)/DSQRT(RDV(6)))**FF
-      ELSE
-        FF = 1.D0
-      END IF
+      if(uuu .ne. 0.d0) then
+        ff = (dabs(uuu)/dsqrt(rdv(6)))**ff
+      else
+        ff = 1.d0
+      end if
       
-      PP_L = FLUX%PVL(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
-      PP_R = FLUX%PVR(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
-      GG = 1.D0 - DMIN1(PP_L/PP_R,PP_R/PP_L)
+      pp_l = flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      pp_r = flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      gg = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)
       
-      IF(UUU .NE. 0.D0) THEN
-        GG = (DABS(UUU)/DSQRT(RDV(6)))**GG
-      ELSE
-        GG = 1.D0
-      END IF
+      if(uuu .ne. 0.d0) then
+        gg = (dabs(uuu)/dsqrt(rdv(6)))**gg
+      else
+        gg = 1.d0
+      end if
       
-      ADD = C_STAR-DABS(UUU)+0.5D0*(1.D0-SNDP2/RDV(6))*UUU*M_STAR
-      AAA = (C_STAR_CUT-SNDP2/RDV(6)*DABS(UUU)-0.5D0*(1.D0-SNDP2/RDV(6))*UUU*M_STAR)
+      add = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
+      aaa = (c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)
       
-      IF((M_STAR*UUP-C_STAR).EQ.0.D0) THEN
-        RRR = 0.D0
-      ELSE
-        RRR = -1.D0/(M_STAR*UUP-C_STAR)
-      END IF
+      if((m_star*uup-c_star).eq.0.d0) then
+        rrr = 0.d0
+      else
+        rrr = -1.d0/(m_star*uup-c_star)
+      end if
       
-      BDQ(1) = (ADD*DQ(1)-FF*AAA*DQP(1)/SNDP2_CUT) 
-      BDQ(2) = BDQ(1)*RAVG(2)  + RDV(1)*ADD*(DQP(2)-NX*(UURR-UULL))
-      BDQ(3) = BDQ(1)*RAVG(3)  + RDV(1)*ADD*(DQP(3)-NY*(UURR-UULL))
-      BDQ(4) = BDQ(1)*RAVG(4)  + RDV(1)*ADD*(DQP(4)-NZ*(UURR-UULL))
-      BDQ(5) = BDQ(1)*RAVG_HT  + RDV(1)*ADD*(HTR-HTL)
-      DO K=6,FLUX%NPV
-        BDQ(K) = BDQ(1)*RAVG(K) + RDV(1)*ADD*DQP(K)
-      END DO
-      B1B2 = B1*B2 + DDD_CUT**2 - DDD*DDD_CUT
-      DO K=1,FLUX%NPV
-        FX(K) = (B1*FL(K)-B2*FR(K)+B1B2*DQ(K)-GG*B1B2*RRR*BDQ(K))/(B1-B2)*DL
-      END DO
+      bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
+      bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*(dqp(2)-nx*(uurr-uull))
+      bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*(dqp(3)-ny*(uurr-uull))
+      bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*(dqp(4)-nz*(uurr-uull))
+      bdq(5) = bdq(1)*ravg_ht  + rdv(1)*add*(htr-htl)
+      do k=6,flux%npv
+        bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
+      end do
+      b1b2 = b1*b2 + ddd_cut**2 - ddd*ddd_cut
+      do k=1,flux%npv
+        fx(k) = (b1*fl(k)-b2*fr(k)+b1b2*dq(k)-gg*b1b2*rrr*bdq(k))/(b1-b2)*dl
+      end do
     
-    END SUBROUTINE ROEM
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC     
-    SUBROUTINE AUSMPWP(FLUX,EOS,FX)
-      IMPLICIT NONE
-      CLASS(T_AUSMPWP), INTENT(IN) :: FLUX
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      REAL(8), INTENT(OUT) :: FX(FLUX%NPV)
-      INTEGER :: K
-      REAL(8) :: NX,NY,NZ,DL
-      REAL(8) :: UURR,UULL,HTR,HTL
-      REAL(8) :: RAVG(FLUX%NPV),RDV(FLUX%NDV),RAVG_D
-      REAL(8) :: AMID,ZML,ZMR,AM2MID
-      REAL(8) :: AM2RMID,AM2RMID1,FMID,FMID1,ALPHA
-      REAL(8) :: ZMMR,PMR,ZMPL,PPL,PMID,ZMID
-      REAL(8) :: WW1,WW2,WW,SDST(18),PP_L,PP_R
-      REAL(8) :: PMT,PWL,PWR,ZMPL1,ZMMR1
-      REAL(8), PARAMETER :: BETA = 0.D0, KU = 0.25D0
+    end subroutine roem
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     
+    subroutine ausmpwp(flux,eos,fx)
+      implicit none
+      class(t_ausmpwp), intent(in) :: flux
+      type(t_eos), intent(in) :: eos
+      real(8), intent(out) :: fx(flux%npv)
+      integer :: k
+      real(8) :: nx,ny,nz,dl
+      real(8) :: uurr,uull,htr,htl
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: amid,zml,zmr,am2mid
+      real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
+      real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
+      real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
+      real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
+      real(8), parameter :: beta = 0.d0, ku = 0.25d0
       
-      DL = DSQRT(FLUX%NX(1)**2+FLUX%NX(2)**2+FLUX%NX(3)**2)
+      dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
-      IF(DL.EQ.0.D0) THEN
-        FX = 0.D0
-        RETURN
-      END IF
+      if(dl.eq.0.d0) then
+        fx = 0.d0
+        return
+      end if
       
-      NX = FLUX%NX(1)/DL
-      NY = FLUX%NX(2)/DL
-      NZ = FLUX%NX(3)/DL
+      nx = flux%nx(1)/dl
+      ny = flux%nx(2)/dl
+      nz = flux%nx(3)/dl
       
-      UULL = NX*FLUX%PVL(2) + NY*FLUX%PVL(3) + NZ*FLUX%PVL(4)
-      UURR = NX*FLUX%PVR(2) + NY*FLUX%PVR(3) + NZ*FLUX%PVR(4)
-      HTL = FLUX%DVL(2) + 0.5D0*(FLUX%PVL(2)**2 + FLUX%PVL(3)**2 + FLUX%PVL(4)**2)
-      HTR = FLUX%DVR(2) + 0.5D0*(FLUX%PVR(2)**2 + FLUX%PVR(3)**2 + FLUX%PVR(4)**2)
+      uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
+      uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
+      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
-      ! ROE AVERAGE - 1/2 VALUES
-      RAVG(1) = 0.5D0*(FLUX%PVR(1)+FLUX%PVL(1))+FLUX%PREF
-      RAVG_D = 1.D0/(DSQRT(FLUX%DVL(1))+DSQRT(FLUX%DVR(1)))
-      DO K=2,FLUX%NPV
-        RAVG(K) = (DSQRT(FLUX%DVL(1))*FLUX%PVL(K)+DSQRT(FLUX%DVR(1))*FLUX%PVR(K))*RAVG_D
-      END DO
+      ! roe average - 1/2 values
+      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
+      do k=2,flux%npv
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
 
-      CALL EOS%DETEOS(RAVG(1),RAVG(5),RAVG(6),RAVG(7),RDV)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
       
-      AMID = DSQRT(RDV(6))
+      amid = dsqrt(rdv(6))
       
-      ZMR = UURR/AMID
-      ZML = UULL/AMID
+      zmr = uurr/amid
+      zml = uull/amid
 
-      AM2MID = (RAVG(2)**2+RAVG(3)**2+RAVG(4)**2)/RDV(6)
-      AM2RMID  = FLUX%GETSNDP2(RDV(6),AM2MID*RDV(6),1)/RDV(6)
-      AM2MID = 0.5D0*(ZML**2+ZMR**2)
-      AM2RMID1 = FLUX%GETSNDP2(RDV(6),AM2MID*RDV(6),0)/RDV(6)
+      am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      am2mid = 0.5d0*(zml**2+zmr**2)
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
 
             
-      FMID = DSQRT(AM2RMID)*(2.D0-DSQRT(AM2RMID))
-      FMID1 = DSQRT(AM2RMID1)*(2.D0-DSQRT(AM2RMID1))
+      fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
+      fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
       
-      ALPHA = 3.D0/16.D0*(-4.D0+5.D0*FMID1**2)
-      ALPHA = DMAX1(DMIN1(ALPHA,3.D0/16.D0),-3.D0/4.D0)
+      alpha = 3.d0/16.d0*(-4.d0+5.d0*fmid1**2)
+      alpha = dmax1(dmin1(alpha,3.d0/16.d0),-3.d0/4.d0)
       
-      IF(DABS(ZMR).GE.1.D0) THEN
-        ZMMR = 0.5D0*(ZMR-DABS(ZMR))
-        PMR = 0.5D0*(1.D0-ZMR/DABS(ZMR))
-      ELSE
-        ZMMR = -0.25D0*(ZMR-1.D0)**2 - BETA*(ZMR**2-1.D0)**2
-        PMR = 0.25D0*(ZMR-1.D0)**2*(2.D0+ZMR) - ALPHA*ZMR*(ZMR**2-1.D0)**2
-      END IF
+      if(dabs(zmr).ge.1.d0) then
+        zmmr = 0.5d0*(zmr-dabs(zmr))
+        pmr = 0.5d0*(1.d0-zmr/dabs(zmr))
+      else
+        zmmr = -0.25d0*(zmr-1.d0)**2 - beta*(zmr**2-1.d0)**2
+        pmr = 0.25d0*(zmr-1.d0)**2*(2.d0+zmr) - alpha*zmr*(zmr**2-1.d0)**2
+      end if
       
-      IF(DABS(ZML).GE.1.D0) THEN
-        ZMPL = 0.5D0*(ZML+DABS(ZML))
-        PPL = 0.5D0*(1.D0+ZML/DABS(ZML))
-      ELSE
-        ZMPL = 0.25D0*(ZML+1.D0)**2 + BETA*(ZML**2-1.D0)**2  
-        PPL = 0.25D0*(ZML+1.D0)**2*(2.D0-ZML) + ALPHA*ZML*(ZML**2-1.D0)**2
-      END IF
+      if(dabs(zml).ge.1.d0) then
+        zmpl = 0.5d0*(zml+dabs(zml))
+        ppl = 0.5d0*(1.d0+zml/dabs(zml))
+      else
+        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2  
+        ppl = 0.25d0*(zml+1.d0)**2*(2.d0-zml) + alpha*zml*(zml**2-1.d0)**2
+      end if
       
-      ZMID = ZMPL + ZMMR
-      PMID = PPL*(FLUX%PVL(1)+FLUX%PREF) + PMR*(FLUX%PVR(1)+FLUX%PREF) - KU*2.D0*PPL*PMR*RDV(1)*FMID1*AMID*(UURR-UULL)
+      zmid = zmpl + zmmr
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
-      DO K=1,18
-        SDST(K) = FLUX%SDST(K)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
-      END DO
+      do k=1,18
+        sdst(k) = flux%sdst(k)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      end do
       
-      PP_L = FLUX%PVL(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
-      PP_R = FLUX%PVR(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6)
-      WW1 = 1.D0 - DMIN1(PP_L/PP_R,PP_R/PP_L)**3
-      WW2 = 1.D0-DMIN1(1.D0,DMIN1(SDST(7),SDST(8),SDST(11),SDST(12),SDST(3),SDST(4),SDST(15),SDST(16))/DMAX1(SDST(7),SDST(8),SDST(11),SDST(12),SDST(3),SDST(4),SDST(15),SDST(16)))**2
-      !WW2 = (1.D0-DMIN1(1.D0,4.D0*(SDST(4)-SDST(3))/(SDST(6)+SDST(5)-SDST(1)-SDST(2)+1.D-12)))**2*(1.D0-DMIN1(SDST(3)/SDST(4),SDST(4)/SDST(3)))**2
-      WW = DMAX1(WW1,WW2)
-      PMT = PMID + 0.5D0*RDV(1)*RDV(6)
+      pp_l = flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      pp_r = flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      ww1 = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)**3
+      ww2 = 1.d0-dmin1(1.d0,dmin1(sdst(7),sdst(8),sdst(11),sdst(12),sdst(3),sdst(4),sdst(15),sdst(16))/dmax1(sdst(7),sdst(8),sdst(11),sdst(12),sdst(3),sdst(4),sdst(15),sdst(16)))**2
+      !ww2 = (1.d0-dmin1(1.d0,4.d0*(sdst(4)-sdst(3))/(sdst(6)+sdst(5)-sdst(1)-sdst(2)+1.d-12)))**2*(1.d0-dmin1(sdst(3)/sdst(4),sdst(4)/sdst(3)))**2
+      ww = dmax1(ww1,ww2)
+      pmt = pmid + 0.5d0*rdv(1)*rdv(6)
       
-      IF(PMT.NE.0.D0) THEN
-        PWL = ((FLUX%PVL(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6))/PMT-1.D0)*(1.D0-WW2)/FMID
-        PWR = ((FLUX%PVR(1)+FLUX%PREF+0.5D0*RDV(1)*RDV(6))/PMT-1.D0)*(1.D0-WW2)/FMID
-      ELSE
-        PWL = 0.D0
-        PWR = 0.D0
-      END IF
+      if(pmt.ne.0.d0) then
+        pwl = ((flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
+        pwr = ((flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
+      else
+        pwl = 0.d0
+        pwr = 0.d0
+      end if
       
-      IF( ZMID .GE. 0.D0) THEN
-        ZMPL1 = ZMPL + ZMMR*((1.D0-WW)*(1.D0+PWR)-PWL)
-        ZMMR1 = ZMMR*WW*(1.D0+PWR)
-      ELSE
-        ZMPL1 = ZMPL*WW*(1.D0+PWL)
-        ZMMR1 = ZMMR + ZMPL*((1.D0-WW)*(1.D0+PWL)-PWR)
-      END IF
+      if( zmid .ge. 0.d0) then
+        zmpl1 = zmpl + zmmr*((1.d0-ww)*(1.d0+pwr)-pwl)
+        zmmr1 = zmmr*ww*(1.d0+pwr)
+      else
+        zmpl1 = zmpl*ww*(1.d0+pwl)
+        zmmr1 = zmmr + zmpl*((1.d0-ww)*(1.d0+pwl)-pwr)
+      end if
       
-      FX(1) = (ZMPL1*AMID*FLUX%DVL(1)              + ZMMR1*AMID*FLUX%DVR(1)                      )*DL
-      FX(2) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(2)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(2) + PMID*NX)*DL
-      FX(3) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(3)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(3) + PMID*NY)*DL
-      FX(4) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(4)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(4) + PMID*NZ)*DL
-      FX(5) = (ZMPL1*AMID*FLUX%DVL(1)*HTL          + ZMMR1*AMID*FLUX%DVR(1)*HTR                  )*DL
-      DO K=6,FLUX%NPV
-        FX(K) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(K)+ ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(K))*DL
-      END DO
+      fx(1) = (zmpl1*amid*flux%dvl(1)              + zmmr1*amid*flux%dvr(1)                      )*dl
+      fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
+      fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
+      fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
+      fx(5) = (zmpl1*amid*flux%dvl(1)*htl          + zmmr1*amid*flux%dvr(1)*htr                  )*dl
+      do k=6,flux%npv
+        fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
+      end do
         
-    END SUBROUTINE AUSMPWP
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-    SUBROUTINE AUSMPUP(FLUX,EOS,FX)
-      IMPLICIT NONE
-      CLASS(T_AUSMPUP), INTENT(IN) :: FLUX
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      REAL(8), INTENT(OUT) :: FX(FLUX%NPV)
-      INTEGER :: K
-      REAL(8) :: NX,NY,NZ,DL
-      REAL(8) :: UURR,UULL,HTR,HTL
-      REAL(8) :: RAVG(FLUX%NPV),RDV(FLUX%NDV),RAVG_D
-      REAL(8) :: AMID,ZML,ZMR,AM2MID
-      REAL(8) :: AM2RMID,AM2RMID1,FMID,FMID1,ALPHA
-      REAL(8) :: ZMMR,PMR,ZMPL,PPL,PMID,ZMID
-      REAL(8) :: ZMPL1,ZMMR1  
-      REAL(8), PARAMETER :: BETA = 1.D0/8.D0, KP = 0.25D0, KU = 0.25D0  
+    end subroutine ausmpwp
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    subroutine ausmpup(flux,eos,fx)
+      implicit none
+      class(t_ausmpup), intent(in) :: flux
+      type(t_eos), intent(in) :: eos
+      real(8), intent(out) :: fx(flux%npv)
+      integer :: k
+      real(8) :: nx,ny,nz,dl
+      real(8) :: uurr,uull,htr,htl
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: amid,zml,zmr,am2mid
+      real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
+      real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
+      real(8) :: zmpl1,zmmr1  
+      real(8), parameter :: beta = 1.d0/8.d0, kp = 0.25d0, ku = 0.25d0  
       
 
-      DL = DSQRT(FLUX%NX(1)**2+FLUX%NX(2)**2+FLUX%NX(3)**2)
+      dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
-      IF(DL.EQ.0.D0) THEN
-        FX = 0.D0
-        RETURN
-      END IF
+      if(dl.eq.0.d0) then
+        fx = 0.d0
+        return
+      end if
       
-      NX = FLUX%NX(1)/DL
-      NY = FLUX%NX(2)/DL
-      NZ = FLUX%NX(3)/DL
+      nx = flux%nx(1)/dl
+      ny = flux%nx(2)/dl
+      nz = flux%nx(3)/dl
       
-      UULL = NX*FLUX%PVL(2) + NY*FLUX%PVL(3) + NZ*FLUX%PVL(4)
-      UURR = NX*FLUX%PVR(2) + NY*FLUX%PVR(3) + NZ*FLUX%PVR(4)
-      HTL = FLUX%DVL(2) + 0.5D0*(FLUX%PVL(2)**2 + FLUX%PVL(3)**2 + FLUX%PVL(4)**2)
-      HTR = FLUX%DVR(2) + 0.5D0*(FLUX%PVR(2)**2 + FLUX%PVR(3)**2 + FLUX%PVR(4)**2)
+      uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
+      uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
+      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
-      ! ROE AVERAGE - 1/2 VALUES
-      RAVG(1) = 0.5D0*(FLUX%PVR(1)+FLUX%PVL(1))+FLUX%PREF
-      RAVG_D = 1.D0/(DSQRT(FLUX%DVL(1))+DSQRT(FLUX%DVR(1)))
-      DO K=2,FLUX%NPV
-        RAVG(K) = (DSQRT(FLUX%DVL(1))*FLUX%PVL(K)+DSQRT(FLUX%DVR(1))*FLUX%PVR(K))*RAVG_D
-      END DO
+      ! roe average - 1/2 values
+      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
+      do k=2,flux%npv
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
 
-      CALL EOS%DETEOS(RAVG(1),RAVG(5),RAVG(6),RAVG(7),RDV)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
       
-      AMID = DSQRT(RDV(6))
+      amid = dsqrt(rdv(6))
       
-      ZMR = UURR/AMID
-      ZML = UULL/AMID
+      zmr = uurr/amid
+      zml = uull/amid
 
-      AM2MID = (RAVG(2)**2+RAVG(3)**2+RAVG(4)**2)/RDV(6)
-      AM2RMID  = FLUX%GETSNDP2(RDV(6),AM2MID*RDV(6),1)/RDV(6)
-      AM2MID = 0.5D0*(ZML**2+ZMR**2)
-      AM2RMID1 = FLUX%GETSNDP2(RDV(6),AM2MID*RDV(6),0)/RDV(6)
+      am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      am2mid = 0.5d0*(zml**2+zmr**2)
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
 
             
-      FMID = DSQRT(AM2RMID)*(2.D0-DSQRT(AM2RMID))
-      FMID1 = DSQRT(AM2RMID1)*(2.D0-DSQRT(AM2RMID1))
+      fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
+      fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
       
-      ALPHA = 3.D0/16.D0*(-4.D0+5.D0*FMID1**2)
-      ALPHA = DMAX1(DMIN1(ALPHA,3.D0/16.D0),-3.D0/4.D0)
+      alpha = 3.d0/16.d0*(-4.d0+5.d0*fmid1**2)
+      alpha = dmax1(dmin1(alpha,3.d0/16.d0),-3.d0/4.d0)
       
-      IF(DABS(ZMR).GE.1.D0) THEN
-        ZMMR = 0.5D0*(ZMR-DABS(ZMR))
-        PMR = 0.5D0*(1.D0-ZMR/DABS(ZMR))
-      ELSE
-        ZMMR = -0.25D0*(ZMR-1.D0)**2 - BETA*(ZMR**2-1.D0)**2
-        PMR = 0.25D0*(ZMR-1.D0)**2*(2.D0+ZMR) - ALPHA*ZMR*(ZMR**2-1.D0)**2
-      END IF
+      if(dabs(zmr).ge.1.d0) then
+        zmmr = 0.5d0*(zmr-dabs(zmr))
+        pmr = 0.5d0*(1.d0-zmr/dabs(zmr))
+      else
+        zmmr = -0.25d0*(zmr-1.d0)**2 - beta*(zmr**2-1.d0)**2
+        pmr = 0.25d0*(zmr-1.d0)**2*(2.d0+zmr) - alpha*zmr*(zmr**2-1.d0)**2
+      end if
       
-      IF(DABS(ZML).GE.1.D0) THEN
-        ZMPL = 0.5D0*(ZML+DABS(ZML))
-        PPL = 0.5D0*(1.D0+ZML/DABS(ZML))
-      ELSE
-        ZMPL = 0.25D0*(ZML+1.D0)**2 + BETA*(ZML**2-1.D0)**2  
-        PPL = 0.25D0*(ZML+1.D0)**2*(2.D0-ZML) + ALPHA*ZML*(ZML**2-1.D0)**2
-      END IF
+      if(dabs(zml).ge.1.d0) then
+        zmpl = 0.5d0*(zml+dabs(zml))
+        ppl = 0.5d0*(1.d0+zml/dabs(zml))
+      else
+        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2  
+        ppl = 0.25d0*(zml+1.d0)**2*(2.d0-zml) + alpha*zml*(zml**2-1.d0)**2
+      end if
       
-      ZMID = ZMPL + ZMMR - KP*DMAX1(1.D0-AM2MID,0.D0)*(FLUX%PVR(1)-FLUX%PVL(1))/RDV(1)/RDV(6)/FMID
-      PMID = PPL*(FLUX%PVL(1)+FLUX%PREF) + PMR*(FLUX%PVR(1)+FLUX%PREF) - KU*2.D0*PPL*PMR*RDV(1)*FMID1*AMID*(UURR-UULL)
+      zmid = zmpl + zmmr - kp*dmax1(1.d0-am2mid,0.d0)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/rdv(6)/fmid
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
-      IF(ZMID.GT.0.D0) THEN
-        ZMPL1 = ZMID 
-        ZMMR1 = 0.D0
-      ELSE
-        ZMMR1 = ZMID
-        ZMPL1 = 0.D0
-      END IF
+      if(zmid.gt.0.d0) then
+        zmpl1 = zmid 
+        zmmr1 = 0.d0
+      else
+        zmmr1 = zmid
+        zmpl1 = 0.d0
+      end if
       
-      FX(1) = (ZMPL1*AMID*FLUX%DVL(1)              + ZMMR1*AMID*FLUX%DVR(1)                      )*DL
-      FX(2) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(2)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(2) + PMID*NX)*DL
-      FX(3) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(3)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(3) + PMID*NY)*DL
-      FX(4) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(4)  + ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(4) + PMID*NZ)*DL
-      FX(5) = (ZMPL1*AMID*FLUX%DVL(1)*HTL          + ZMMR1*AMID*FLUX%DVR(1)*HTR                  )*DL
-      DO K=6,FLUX%NPV
-        FX(K) = (ZMPL1*AMID*FLUX%DVL(1)*FLUX%PVL(K)+ ZMMR1*AMID*FLUX%DVR(1)*FLUX%PVR(K))*DL
-      END DO
+      fx(1) = (zmpl1*amid*flux%dvl(1)              + zmmr1*amid*flux%dvr(1)                      )*dl
+      fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
+      fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
+      fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
+      fx(5) = (zmpl1*amid*flux%dvl(1)*htl          + zmmr1*amid*flux%dvr(1)*htr                  )*dl
+      do k=6,flux%npv
+        fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
+      end do
      
-    END SUBROUTINE AUSMPUP
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION NO_PREC(FLUX,SND2,UUU2,CUT) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(IN) :: FLUX
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      INTEGER, INTENT(IN) :: CUT
-      REAL(8) :: SNDP2
+    end subroutine ausmpup
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_prec(flux,snd2,uuu2,cut) result(sndp2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      integer, intent(in) :: cut
+      real(8) :: sndp2
       
-      SNDP2 = SND2
+      sndp2 = snd2
       
-    END FUNCTION NO_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION STEADY_PREC(FLUX,SND2,UUU2,CUT) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(IN) :: FLUX
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      INTEGER, INTENT(IN) :: CUT
-      REAL(8) :: SNDP2  
+    end function no_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function steady_prec(flux,snd2,uuu2,cut) result(sndp2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      integer, intent(in) :: cut
+      real(8) :: sndp2  
       
-      SNDP2 = DMIN1(SND2,DMAX1(UUU2,DBLE(CUT)*FLUX%UREF**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2))
       
-    END FUNCTION STEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION UNSTEADY_PREC(FLUX,SND2,UUU2,CUT) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_FLUX), INTENT(IN) :: FLUX
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      INTEGER, INTENT(IN) :: CUT
-      REAL(8) :: SNDP2  
+    end function steady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function unsteady_prec(flux,snd2,uuu2,cut) result(sndp2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      integer, intent(in) :: cut
+      real(8) :: sndp2  
       
-      SNDP2 = DMIN1(SND2,DMAX1(UUU2,DBLE(CUT)*FLUX%UREF**2,DBLE(CUT)*FLUX%STR**2*UUU2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2,dble(cut)*flux%str**2*uuu2))
       
-    END FUNCTION UNSTEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE FLUX_MODULE
+    end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module flux_module

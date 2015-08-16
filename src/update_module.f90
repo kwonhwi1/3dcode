@@ -1,960 +1,960 @@
-MODULE UPDATE_MODULE
-  USE CONFIG_MODULE 
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-! SUBORDINATE TO UPDATE MODULE  
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC  
-  USE RHS_MODULE
-  USE TIMESTEP_MODULE
-  USE LHS_MODULE
-  USE JACOBIAN_MODULE
-  USE EDDY_MODULE
-  USE BC_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_UPDATE,T_EULEREX,T_RK3RD,T_LUSGS
+module update_module
+  use config_module 
+  use grid_module
+  use variable_module
+  use eos_module
+  use prop_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+! subordinate to update module  
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
+  use rhs_module
+  use timestep_module
+  use lhs_module
+  use jacobian_module
+  use eddy_module
+  use bc_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+  implicit none
+  private
+  public :: t_update,t_eulerex,t_rk3rd,t_lusgs
   
-  TYPE, ABSTRACT :: T_UPDATE
-    PRIVATE
-    INTEGER :: NPV,NDV,NTV,NGRD,IMAX,JMAX,KMAX
-    LOGICAL :: L_TIMESTEP,L_LHS,L_EDDY,L_JAC,L_TV,L_TURB,L_CAV
-    REAL(8) :: PREF,KREF,OREF
-    CLASS(T_LHS), ALLOCATABLE :: LHS
-    CLASS(T_TIMESTEP), ALLOCATABLE :: TIMESTEP
-    CLASS(T_EDDY), ALLOCATABLE :: EDDY
-    CLASS(T_JAC), ALLOCATABLE :: JAC
-    CLASS(T_RHS), ALLOCATABLE :: RHS
-    CLASS(T_BC), ALLOCATABLE :: BC
-    CONTAINS
-      PROCEDURE :: CONSTRUCT => CONSTRUCT_EULEREX
-      PROCEDURE :: DESTRUCT  => DESTRUCT_EULEREX
-      PROCEDURE(P_TIMEINTEG), DEFERRED :: TIMEINTEG
-  END TYPE T_UPDATE
+  type, abstract :: t_update
+    private
+    integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
+    logical :: l_timestep,l_lhs,l_eddy,l_jac,l_tv,l_turb,l_cav
+    real(8) :: pref,kref,oref
+    class(t_lhs), allocatable :: lhs
+    class(t_timestep), allocatable :: timestep
+    class(t_eddy), allocatable :: eddy
+    class(t_jac), allocatable :: jac
+    class(t_rhs), allocatable :: rhs
+    class(t_bc), allocatable :: bc
+    contains
+      procedure :: construct => construct_eulerex
+      procedure :: destruct  => destruct_eulerex
+      procedure(p_timeinteg), deferred :: timeinteg
+  end type t_update
   
-  ABSTRACT INTERFACE
-    SUBROUTINE P_TIMEINTEG(UPDATE,GRID,VARIABLE,EOS,PROP)
-      IMPORT T_UPDATE
-      IMPORT T_GRID
-      IMPORT T_VARIABLE
-      IMPORT T_EOS
-      IMPORT T_PROP
-      IMPLICIT NONE
-      CLASS(T_UPDATE), INTENT(INOUT) :: UPDATE
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-    END SUBROUTINE P_TIMEINTEG
-  END INTERFACE
+  abstract interface
+    subroutine p_timeinteg(update,grid,variable,eos,prop)
+      import t_update
+      import t_grid
+      import t_variable
+      import t_eos
+      import t_prop
+      implicit none
+      class(t_update), intent(inout) :: update
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+    end subroutine p_timeinteg
+  end interface
   
-  TYPE, EXTENDS(T_UPDATE) :: T_EULEREX
-    CONTAINS
-      PROCEDURE :: TIMEINTEG => EULEREX
-  END TYPE T_EULEREX
+  type, extends(t_update) :: t_eulerex
+    contains
+      procedure :: timeinteg => eulerex
+  end type t_eulerex
   
-  TYPE, EXTENDS(T_UPDATE) :: T_RK3RD
-    PRIVATE
-    REAL(8) :: A1(3),A2(3),A3(3)
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: RK
-    CONTAINS
-      PROCEDURE :: CONSTRUCT => CONSTRUCT_RK3RD
-      PROCEDURE :: DESTRUCT  => DESTRUCT_RK3RD
-      PROCEDURE :: TIMEINTEG => RK3RD
-  END TYPE T_RK3RD
+  type, extends(t_update) :: t_rk3rd
+    private
+    real(8) :: a1(3),a2(3),a3(3)
+    real(8), dimension(:,:,:,:), allocatable :: rk
+    contains
+      procedure :: construct => construct_rk3rd
+      procedure :: destruct  => destruct_rk3rd
+      procedure :: timeinteg => rk3rd
+  end type t_rk3rd
   
-  TYPE, EXTENDS(T_UPDATE) :: T_LUSGS
-    PRIVATE
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE  :: DQS,DCV
-    REAL(8), DIMENSION(:,:,:,:,:), ALLOCATABLE :: INV
-    CONTAINS
-      PROCEDURE :: CONSTRUCT => CONSTRUCT_LUSGS
-      PROCEDURE :: DESTRUCT  => DESTRUCT_LUSGS
-      PROCEDURE :: TIMEINTEG => LUSGS
-  END TYPE T_LUSGS
+  type, extends(t_update) :: t_lusgs
+    private
+    real(8), dimension(:,:,:,:), allocatable  :: dqs,dcv
+    real(8), dimension(:,:,:,:,:), allocatable :: inv
+    contains
+      procedure :: construct => construct_lusgs
+      procedure :: destruct  => destruct_lusgs
+      procedure :: timeinteg => lusgs
+  end type t_lusgs
   
 
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT_EULEREX(UPDATE,CONFIG,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_UPDATE), INTENT(OUT) :: UPDATE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP   
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct_eulerex(update,config,grid,variable,eos,prop)
+      implicit none
+      class(t_update), intent(out) :: update
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop   
       
-      UPDATE%PREF = CONFIG%GETPREF()
-      UPDATE%KREF = CONFIG%GETKREF()*1.D-12
-      UPDATE%OREF = CONFIG%GETOREF()*1.D-12
+      update%pref = config%getpref()
+      update%kref = config%getkref()*1.d-12
+      update%oref = config%getoref()*1.d-12
       
-      UPDATE%L_TIMESTEP = .FALSE.
-      UPDATE%L_LHS = .FALSE.
-      UPDATE%L_EDDY = .FALSE.
-      UPDATE%L_JAC = .FALSE.
+      update%l_timestep = .false.
+      update%l_lhs = .false.
+      update%l_eddy = .false.
+      update%l_jac = .false.
       
-      SELECT CASE(CONFIG%GETLOCAL())
-      CASE(-1)
-        ALLOCATE(T_FIXEDTIME::UPDATE%TIMESTEP)
-      CASE(0)
-        ALLOCATE(T_MINTIME::UPDATE%TIMESTEP)
-      CASE(1)
-        ALLOCATE(T_LOCALTIME::UPDATE%TIMESTEP)
-      END SELECT
+      select case(config%getlocal())
+      case(-1)
+        allocate(t_fixedtime::update%timestep)
+      case(0)
+        allocate(t_mintime::update%timestep)
+      case(1)
+        allocate(t_localtime::update%timestep)
+      end select
             
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(0)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-      CASE(-1)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-      CASE(-2)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-      CASE(-3)
-        UPDATE%L_TV = .FALSE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-      END SELECT
+      select case(config%getiturb())
+      case(0)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_kwsst::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs) 
+      case(-1)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_ke::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs)
+      case(-2)
+        update%l_tv = .true.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+      case(-3)
+        update%l_tv = .false.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+      end select
       
-      SELECT CASE(CONFIG%GETNCAV())
-      CASE(0)
-        UPDATE%L_CAV = .FALSE.
-      CASE(1,2,3)
-        UPDATE%L_CAV = .TRUE.
-      END SELECT
+      select case(config%getncav())
+      case(0)
+        update%l_cav = .false.
+      case(1,2,3)
+        update%l_cav = .true.
+      end select
       
-      IF(ALLOCATED(UPDATE%TIMESTEP)) THEN
-        CALL UPDATE%TIMESTEP%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        UPDATE%L_TIMESTEP = .TRUE.
-      END IF
+      if(allocated(update%timestep)) then
+        call update%timestep%construct(config,grid,variable)
+        update%l_timestep = .true.
+      end if
 
-      IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
-        UPDATE%L_LHS = .TRUE.
-      END IF
+      if(allocated(update%lhs)) then
+        call update%lhs%construct(config,variable)
+        update%l_lhs = .true.
+      end if
       
-      IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT()
-        UPDATE%L_EDDY = .TRUE.
-      END IF
+      if(allocated(update%eddy)) then
+        call update%eddy%construct()
+        update%l_eddy = .true.
+      end if
       
-      ALLOCATE(UPDATE%RHS)
-      CALL UPDATE%RHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+      allocate(update%rhs)
+      call update%rhs%construct(config,grid,variable)
 
-      ALLOCATE(UPDATE%BC)
-      CALL UPDATE%BC%CONSTRUCT(CONFIG,GRID,VARIABLE,EOS,PROP)
+      allocate(update%bc)
+      call update%bc%construct(config,grid,variable,eos,prop)
       
-      UPDATE%NPV = VARIABLE%GETNPV()
-      UPDATE%NDV = VARIABLE%GETNDV()
-      UPDATE%NTV = VARIABLE%GETNTV()
-      UPDATE%NGRD = GRID%GETNGRD()
-      UPDATE%IMAX = GRID%GETIMAX()
-      UPDATE%JMAX = GRID%GETJMAX()
-      UPDATE%KMAX = GRID%GETKMAX()
+      update%npv = variable%getnpv()
+      update%ndv = variable%getndv()
+      update%ntv = variable%getntv()
+      update%ngrd = grid%getngrd()
+      update%imax = grid%getimax()
+      update%jmax = grid%getjmax()
+      update%kmax = grid%getkmax()
       
-    END SUBROUTINE CONSTRUCT_EULEREX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT_RK3RD(UPDATE,CONFIG,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_RK3RD), INTENT(OUT) :: UPDATE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP 
+    end subroutine construct_eulerex
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct_rk3rd(update,config,grid,variable,eos,prop)
+      implicit none
+      class(t_rk3rd), intent(out) :: update
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop 
       
-      UPDATE%PREF = CONFIG%GETPREF()
-      UPDATE%KREF = CONFIG%GETKREF()*1.D-12
-      UPDATE%OREF = CONFIG%GETOREF()*1.D-12
+      update%pref = config%getpref()
+      update%kref = config%getkref()*1.d-12
+      update%oref = config%getoref()*1.d-12
       
-      UPDATE%L_TIMESTEP = .FALSE.
-      UPDATE%L_LHS = .FALSE.
-      UPDATE%L_EDDY = .FALSE.
-      UPDATE%L_JAC = .FALSE.
+      update%l_timestep = .false.
+      update%l_lhs = .false.
+      update%l_eddy = .false.
+      update%l_jac = .false.
       
-      SELECT CASE(CONFIG%GETLOCAL())
-      CASE(-1)
-        ALLOCATE(T_FIXEDTIME::UPDATE%TIMESTEP)
-      CASE(0)
-        ALLOCATE(T_MINTIME::UPDATE%TIMESTEP)
-      CASE(1)
-        ALLOCATE(T_LOCALTIME::UPDATE%TIMESTEP)
-      END SELECT
+      select case(config%getlocal())
+      case(-1)
+        allocate(t_fixedtime::update%timestep)
+      case(0)
+        allocate(t_mintime::update%timestep)
+      case(1)
+        allocate(t_localtime::update%timestep)
+      end select
             
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(0)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-      CASE(-1)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-      CASE(-2)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-      CASE(-3)
-        UPDATE%L_TV = .FALSE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-      END SELECT
+      select case(config%getiturb())
+      case(0)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_kwsst::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs) 
+      case(-1)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_ke::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs)
+      case(-2)
+        update%l_tv = .true.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+      case(-3)
+        update%l_tv = .false.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+      end select
       
-      SELECT CASE(CONFIG%GETNCAV())
-      CASE(0)
-        UPDATE%L_CAV = .FALSE.
-      CASE(1,2,3)
-        UPDATE%L_CAV = .TRUE.
-      END SELECT
+      select case(config%getncav())
+      case(0)
+        update%l_cav = .false.
+      case(1,2,3)
+        update%l_cav = .true.
+      end select
       
-      IF(ALLOCATED(UPDATE%TIMESTEP)) THEN
-        CALL UPDATE%TIMESTEP%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        UPDATE%L_TIMESTEP = .TRUE.
-      END IF
+      if(allocated(update%timestep)) then
+        call update%timestep%construct(config,grid,variable)
+        update%l_timestep = .true.
+      end if
 
-      IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
-        UPDATE%L_LHS = .TRUE.
-      END IF
+      if(allocated(update%lhs)) then
+        call update%lhs%construct(config,variable)
+        update%l_lhs = .true.
+      end if
       
-      IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT()
-        UPDATE%L_EDDY = .TRUE.
-      END IF
+      if(allocated(update%eddy)) then
+        call update%eddy%construct()
+        update%l_eddy = .true.
+      end if
       
-      ALLOCATE(UPDATE%RHS)
-      CALL UPDATE%RHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+      allocate(update%rhs)
+      call update%rhs%construct(config,grid,variable)
 
-      ALLOCATE(UPDATE%BC)
-      CALL UPDATE%BC%CONSTRUCT(CONFIG,GRID,VARIABLE,EOS,PROP)
+      allocate(update%bc)
+      call update%bc%construct(config,grid,variable,eos,prop)
       
-      UPDATE%NPV = VARIABLE%GETNPV()
-      UPDATE%NDV = VARIABLE%GETNDV()
-      UPDATE%NTV = VARIABLE%GETNTV()
-      UPDATE%NGRD = GRID%GETNGRD()
-      UPDATE%IMAX = GRID%GETIMAX()
-      UPDATE%JMAX = GRID%GETJMAX()
-      UPDATE%KMAX = GRID%GETKMAX()
+      update%npv = variable%getnpv()
+      update%ndv = variable%getndv()
+      update%ntv = variable%getntv()
+      update%ngrd = grid%getngrd()
+      update%imax = grid%getimax()
+      update%jmax = grid%getjmax()
+      update%kmax = grid%getkmax()
       
-      UPDATE%A1=(/0.D0,0.75D0,1.D0/3.D0/)
-      UPDATE%A2=(/1.D0,0.25D0,2.D0/3.D0/)
-      UPDATE%A3=(/1.D0,0.25D0,2.D0/3.D0/)
+      update%a1=(/0.d0,0.75d0,1.d0/3.d0/)
+      update%a2=(/1.d0,0.25d0,2.d0/3.d0/)
+      update%a3=(/1.d0,0.25d0,2.d0/3.d0/)
       
-      ALLOCATE(UPDATE%RK(UPDATE%NPV,UPDATE%IMAX,UPDATE%JMAX,UPDATE%KMAX))
-    END SUBROUTINE CONSTRUCT_RK3RD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT_LUSGS(UPDATE,CONFIG,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_LUSGS), INTENT(OUT) :: UPDATE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP   
+      allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
+    end subroutine construct_rk3rd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct_lusgs(update,config,grid,variable,eos,prop)
+      implicit none
+      class(t_lusgs), intent(out) :: update
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop   
       
-      UPDATE%PREF = CONFIG%GETPREF()
-      UPDATE%KREF = CONFIG%GETKREF()*1.D-12
-      UPDATE%OREF = CONFIG%GETOREF()*1.D-12
+      update%pref = config%getpref()
+      update%kref = config%getkref()*1.d-12
+      update%oref = config%getoref()*1.d-12
       
-      UPDATE%L_TIMESTEP = .FALSE.
-      UPDATE%L_LHS = .FALSE.
-      UPDATE%L_EDDY = .FALSE.
-      UPDATE%L_JAC = .FALSE.
+      update%l_timestep = .false.
+      update%l_lhs = .false.
+      update%l_eddy = .false.
+      update%l_jac = .false.
       
-      SELECT CASE(CONFIG%GETLOCAL())
-      CASE(-1)
-        ALLOCATE(T_FIXEDTIME::UPDATE%TIMESTEP)
-      CASE(0)
-        ALLOCATE(T_MINTIME::UPDATE%TIMESTEP)
-      CASE(1)
-        ALLOCATE(T_LOCALTIME::UPDATE%TIMESTEP)
-      END SELECT
+      select case(config%getlocal())
+      case(-1)
+        allocate(t_fixedtime::update%timestep)
+      case(0)
+        allocate(t_mintime::update%timestep)
+      case(1)
+        allocate(t_localtime::update%timestep)
+      end select
             
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(0)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KWSST::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS) 
-        ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
-      CASE(-1)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .TRUE.
-        ALLOCATE(T_EDDY_KE::UPDATE%EDDY)
-        ALLOCATE(T_LHS_FLOWTURBALL::UPDATE%LHS)
-        ALLOCATE(T_JAC_FLOWTURBALL::UPDATE%JAC)
-      CASE(-2)
-        UPDATE%L_TV = .TRUE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
-      CASE(-3)
-        UPDATE%L_TV = .FALSE.
-        UPDATE%L_TURB = .FALSE.
-        ALLOCATE(T_LHS_FLOWONLY::UPDATE%LHS)
-        ALLOCATE(T_JAC_FLOWONLY::UPDATE%JAC)
-      END SELECT
+      select case(config%getiturb())
+      case(0)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_kwsst::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs) 
+        allocate(t_jac_flowturball::update%jac)
+      case(-1)
+        update%l_tv = .true.
+        update%l_turb = .true.
+        allocate(t_eddy_ke::update%eddy)
+        allocate(t_lhs_flowturball::update%lhs)
+        allocate(t_jac_flowturball::update%jac)
+      case(-2)
+        update%l_tv = .true.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_jac_flowonly::update%jac)
+      case(-3)
+        update%l_tv = .false.
+        update%l_turb = .false.
+        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_jac_flowonly::update%jac)
+      end select
       
-      SELECT CASE(CONFIG%GETNCAV())
-      CASE(0)
-        UPDATE%L_CAV = .FALSE.
-      CASE(1,2,3)
-        UPDATE%L_CAV = .TRUE.
-      END SELECT
+      select case(config%getncav())
+      case(0)
+        update%l_cav = .false.
+      case(1,2,3)
+        update%l_cav = .true.
+      end select
       
-      IF(ALLOCATED(UPDATE%TIMESTEP)) THEN
-        CALL UPDATE%TIMESTEP%CONSTRUCT(CONFIG,GRID,VARIABLE)
-        UPDATE%L_TIMESTEP = .TRUE.
-      END IF
+      if(allocated(update%timestep)) then
+        call update%timestep%construct(config,grid,variable)
+        update%l_timestep = .true.
+      end if
 
-      IF(ALLOCATED(UPDATE%LHS)) THEN
-        CALL UPDATE%LHS%CONSTRUCT(CONFIG,VARIABLE)
-        UPDATE%L_LHS = .TRUE.
-      END IF
+      if(allocated(update%lhs)) then
+        call update%lhs%construct(config,variable)
+        update%l_lhs = .true.
+      end if
       
-      IF(ALLOCATED(UPDATE%EDDY)) THEN
-        CALL UPDATE%EDDY%CONSTRUCT()
-        UPDATE%L_EDDY = .TRUE.
-      END IF
+      if(allocated(update%eddy)) then
+        call update%eddy%construct()
+        update%l_eddy = .true.
+      end if
       
-      IF(ALLOCATED(UPDATE%JAC)) THEN
-        CALL UPDATE%JAC%CONSTRUCT(CONFIG,VARIABLE)
-        UPDATE%L_JAC = .TRUE.
-      END IF
+      if(allocated(update%jac)) then
+        call update%jac%construct(config,variable)
+        update%l_jac = .true.
+      end if
       
-      ALLOCATE(UPDATE%RHS)
-      CALL UPDATE%RHS%CONSTRUCT(CONFIG,GRID,VARIABLE)
+      allocate(update%rhs)
+      call update%rhs%construct(config,grid,variable)
 
-      ALLOCATE(UPDATE%BC)
-      CALL UPDATE%BC%CONSTRUCT(CONFIG,GRID,VARIABLE,EOS,PROP)
+      allocate(update%bc)
+      call update%bc%construct(config,grid,variable,eos,prop)
       
-      UPDATE%NPV = VARIABLE%GETNPV()
-      UPDATE%NDV = VARIABLE%GETNDV()
-      UPDATE%NTV = VARIABLE%GETNTV()
-      UPDATE%NGRD = GRID%GETNGRD()
-      UPDATE%IMAX = GRID%GETIMAX()
-      UPDATE%JMAX = GRID%GETJMAX()
-      UPDATE%KMAX = GRID%GETKMAX()
+      update%npv = variable%getnpv()
+      update%ndv = variable%getndv()
+      update%ntv = variable%getntv()
+      update%ngrd = grid%getngrd()
+      update%imax = grid%getimax()
+      update%jmax = grid%getjmax()
+      update%kmax = grid%getkmax()
       
-      ALLOCATE(UPDATE%DQS(UPDATE%NPV,UPDATE%IMAX+1,UPDATE%JMAX+1,UPDATE%KMAX+1))
-      ALLOCATE(UPDATE%DCV(UPDATE%NPV,UPDATE%IMAX+1,UPDATE%JMAX+1,UPDATE%KMAX+1))
-      ALLOCATE(UPDATE%INV(UPDATE%NPV,UPDATE%NPV,UPDATE%IMAX,UPDATE%JMAX,UPDATE%KMAX))
+      allocate(update%dqs(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
+      allocate(update%dcv(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
+      allocate(update%inv(update%npv,update%npv,update%imax,update%jmax,update%kmax))
       
-    END SUBROUTINE CONSTRUCT_LUSGS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT_EULEREX(UPDATE)
-      IMPLICIT NONE
-      CLASS(T_UPDATE), INTENT(INOUT) :: UPDATE
+    end subroutine construct_lusgs
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct_eulerex(update)
+      implicit none
+      class(t_update), intent(inout) :: update
           
-      IF(UPDATE%L_TIMESTEP) THEN
-        CALL UPDATE%TIMESTEP%DESTRUCT()
-        DEALLOCATE(UPDATE%TIMESTEP)
-      END IF
+      if(update%l_timestep) then
+        call update%timestep%destruct()
+        deallocate(update%timestep)
+      end if
       
-      IF(UPDATE%L_LHS) THEN
-        CALL UPDATE%LHS%DESTRUCT()
-        DEALLOCATE(UPDATE%LHS)
-      END IF
+      if(update%l_lhs) then
+        call update%lhs%destruct()
+        deallocate(update%lhs)
+      end if
       
-      IF(UPDATE%L_EDDY) THEN
-        CALL UPDATE%EDDY%DESTRUCT()
-        DEALLOCATE(UPDATE%EDDY)
-      END IF
+      if(update%l_eddy) then
+        call update%eddy%destruct()
+        deallocate(update%eddy)
+      end if
 
-      CALL UPDATE%RHS%DESTRUCT()
-      DEALLOCATE(UPDATE%RHS)
+      call update%rhs%destruct()
+      deallocate(update%rhs)
 
-      CALL UPDATE%BC%DESTRUCT()
-      DEALLOCATE(UPDATE%BC)
+      call update%bc%destruct()
+      deallocate(update%bc)
       
-    END SUBROUTINE DESTRUCT_EULEREX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT_RK3RD(UPDATE)
-      IMPLICIT NONE
-      CLASS(T_RK3RD), INTENT(INOUT) :: UPDATE
+    end subroutine destruct_eulerex
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct_rk3rd(update)
+      implicit none
+      class(t_rk3rd), intent(inout) :: update
           
-      IF(UPDATE%L_TIMESTEP) THEN
-        CALL UPDATE%TIMESTEP%DESTRUCT()
-        DEALLOCATE(UPDATE%TIMESTEP)
-      END IF
+      if(update%l_timestep) then
+        call update%timestep%destruct()
+        deallocate(update%timestep)
+      end if
       
-      IF(UPDATE%L_LHS) THEN
-        CALL UPDATE%LHS%DESTRUCT()
-        DEALLOCATE(UPDATE%LHS)
-      END IF
+      if(update%l_lhs) then
+        call update%lhs%destruct()
+        deallocate(update%lhs)
+      end if
       
-      IF(UPDATE%L_EDDY) THEN
-        CALL UPDATE%EDDY%DESTRUCT()
-        DEALLOCATE(UPDATE%EDDY)
-      END IF
+      if(update%l_eddy) then
+        call update%eddy%destruct()
+        deallocate(update%eddy)
+      end if
 
-      CALL UPDATE%RHS%DESTRUCT()
-      DEALLOCATE(UPDATE%RHS)
+      call update%rhs%destruct()
+      deallocate(update%rhs)
 
-      CALL UPDATE%BC%DESTRUCT()
-      DEALLOCATE(UPDATE%BC)
+      call update%bc%destruct()
+      deallocate(update%bc)
       
-      DEALLOCATE(UPDATE%RK)
-    END SUBROUTINE DESTRUCT_RK3RD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT_LUSGS(UPDATE)
-      IMPLICIT NONE
-      CLASS(T_LUSGS), INTENT(INOUT) :: UPDATE
+      deallocate(update%rk)
+    end subroutine destruct_rk3rd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct_lusgs(update)
+      implicit none
+      class(t_lusgs), intent(inout) :: update
           
-      IF(UPDATE%L_TIMESTEP) THEN
-        CALL UPDATE%TIMESTEP%DESTRUCT()
-        DEALLOCATE(UPDATE%TIMESTEP)
-      END IF
+      if(update%l_timestep) then
+        call update%timestep%destruct()
+        deallocate(update%timestep)
+      end if
       
-      IF(UPDATE%L_LHS) THEN
-        CALL UPDATE%LHS%DESTRUCT()
-        DEALLOCATE(UPDATE%LHS)
-      END IF
+      if(update%l_lhs) then
+        call update%lhs%destruct()
+        deallocate(update%lhs)
+      end if
       
-      IF(UPDATE%L_EDDY) THEN
-        CALL UPDATE%EDDY%DESTRUCT()
-        DEALLOCATE(UPDATE%EDDY)
-      END IF
+      if(update%l_eddy) then
+        call update%eddy%destruct()
+        deallocate(update%eddy)
+      end if
 
-      IF(UPDATE%L_JAC) THEN
-        CALL UPDATE%JAC%DESTRUCT()
-        DEALLOCATE(UPDATE%JAC)
-      END IF
+      if(update%l_jac) then
+        call update%jac%destruct()
+        deallocate(update%jac)
+      end if
       
-      CALL UPDATE%RHS%DESTRUCT()
-      DEALLOCATE(UPDATE%RHS)
+      call update%rhs%destruct()
+      deallocate(update%rhs)
 
-      CALL UPDATE%BC%DESTRUCT()
-      DEALLOCATE(UPDATE%BC)
+      call update%bc%destruct()
+      deallocate(update%bc)
 
-      DEALLOCATE(UPDATE%DQS,UPDATE%DCV,UPDATE%INV)
+      deallocate(update%dqs,update%dcv,update%inv)
       
-    END SUBROUTINE DESTRUCT_LUSGS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE EULEREX(UPDATE,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_EULEREX), INTENT(INOUT) :: UPDATE
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,N,L
-      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT
-      REAL(8), TARGET :: X(7,UPDATE%NPV)
-      REAL(8) :: DPV(UPDATE%NPV)
+    end subroutine destruct_lusgs
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine eulerex(update,grid,variable,eos,prop)
+      implicit none
+      class(t_eulerex), intent(inout) :: update
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,n,l
+      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8), target :: grd(update%ngrd),dt
+      real(8), target :: x(7,update%npv)
+      real(8) :: dpv(update%npv)
 
       
-      CALL UPDATE%BC%SETBC(GRID,VARIABLE,EOS,PROP)
-      CALL UPDATE%TIMESTEP%CALTIMESTEP(GRID,VARIABLE)
-      CALL UPDATE%RHS%CALRHS(GRID,VARIABLE,EOS)
+      call update%bc%setbc(grid,variable,eos,prop)
+      call update%timestep%caltimestep(grid,variable)
+      call update%rhs%calrhs(grid,variable,eos)
       
-      DO K=2,UPDATE%KMAX
-        DO J=2,UPDATE%JMAX
-          DO I=2,UPDATE%IMAX
+      do k=2,update%kmax
+        do j=2,update%jmax
+          do i=2,update%imax
           
-            NX1 = GRID%GETCX(I-1,J,K)
-            NX2 = GRID%GETCX(I,J,K)
-            NX3 = GRID%GETEX(I,J-1,K)
-            NX4 = GRID%GETEX(I,J,K)
-            NX5 = GRID%GETTX(I,J,K-1)
-            NX6 = GRID%GETTX(I,J,K)
-            GRD = GRID%GETGRD(I,J,K)
-            PV = VARIABLE%GETPV(I,J,K)
-            DV = VARIABLE%GETDV(I,J,K)
-            TV = VARIABLE%GETTV(I,J,K)
-            DT = UPDATE%TIMESTEP%GETDT(I,J,K)
+            nx1 = grid%getcx(i-1,j,k)
+            nx2 = grid%getcx(i,j,k)
+            nx3 = grid%getex(i,j-1,k)
+            nx4 = grid%getex(i,j,k)
+            nx5 = grid%gettx(i,j,k-1)
+            nx6 = grid%gettx(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            pv = variable%getpv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dt = update%timestep%getdt(i,j,k)
 
             
-            UPDATE%LHS%CX1 => NX1
-            UPDATE%LHS%CX2 => NX2
-            UPDATE%LHS%EX1 => NX3
-            UPDATE%LHS%EX2 => NX4
-            UPDATE%LHS%TX1 => NX5
-            UPDATE%LHS%TX2 => NX6
-            UPDATE%LHS%GRD => GRD
-            UPDATE%LHS%PV => PV
-            UPDATE%LHS%DV => DV
-            UPDATE%LHS%TV => TV
-            UPDATE%LHS%DT => DT
-            CALL UPDATE%LHS%INVERSE()
+            update%lhs%cx1 => nx1
+            update%lhs%cx2 => nx2
+            update%lhs%ex1 => nx3
+            update%lhs%ex2 => nx4
+            update%lhs%tx1 => nx5
+            update%lhs%tx2 => nx6
+            update%lhs%grd => grd
+            update%lhs%pv => pv
+            update%lhs%dv => dv
+            update%lhs%tv => tv
+            update%lhs%dt => dt
+            call update%lhs%inverse()
             
-            DPV = 0.D0
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                DPV(N) = DPV(N) + UPDATE%LHS%GETX(N,L)*UPDATE%RHS%GETRES(L,I,J,K)
-              END DO
-            END DO
+            dpv = 0.d0
+            do n=1,update%npv
+              do l=1,update%npv
+                dpv(n) = dpv(n) + update%lhs%getx(n,l)*update%rhs%getres(l,i,j,k)
+              end do
+            end do
             
-            PV = PV + DPV
-            PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
-            PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
-            PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
-            IF(UPDATE%L_TURB) THEN
-              PV(8) = DMAX1(PV(8),UPDATE%KREF)
-              PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
-            END IF
-            DO N=1,UPDATE%NPV
-              CALL VARIABLE%SETPV(N,I,J,K,PV(N))
-            END DO
+            pv = pv + dpv
+            pv(1) = dmax1(-update%pref+100.d0,pv(1))
+            pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
+            pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
+            if(update%l_turb) then
+              pv(8) = dmax1(pv(8),update%kref)
+              pv(9) = dmax1(pv(9),update%oref,update%rhs%getomega_cut(i,j,k))
+            end if
+            do n=1,update%npv
+              call variable%setpv(n,i,j,k,pv(n))
+            end do
             
-            CALL EOS%DETEOS(PV(1)+UPDATE%PREF,PV(5),PV(6),PV(7),DV)
+            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv)
             
-            DO N=1,UPDATE%NDV
-              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-            END DO
+            do n=1,update%ndv
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
             
-            IF(UPDATE%L_TV) THEN
-              CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-            END IF
+            if(update%l_tv) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
         
-            DO N=1,UPDATE%NTV
-              CALL VARIABLE%SETTV(N,I,J,K,TV(N))
-            END DO
-          END DO
-        END DO
-      END DO
+            do n=1,update%ntv
+              call variable%settv(n,i,j,k,tv(n))
+            end do
+          end do
+        end do
+      end do
       
-      IF(UPDATE%L_EDDY) THEN
-        DO K=2,UPDATE%KMAX
-          DO J=2,UPDATE%JMAX
-            DO I=2,UPDATE%IMAX
-              NX1 = GRID%GETCX(I-1,J,K)
-              NX2 = GRID%GETCX(I,J,K)
-              NX3 = GRID%GETEX(I,J-1,K)
-              NX4 = GRID%GETEX(I,J,K)
-              NX5 = GRID%GETTX(I,J,K-1)
-              NX6 = GRID%GETTX(I,J,K)
-              GRD = GRID%GETGRD(I,J,K)
-              DV = VARIABLE%GETDV(I,J,K)
-              TV = VARIABLE%GETTV(I,J,K)
-              X(1,:) = VARIABLE%GETPV(I-1,J,K)
-              X(2,:) = VARIABLE%GETPV(I,J,K)
-              X(3,:) = VARIABLE%GETPV(I+1,J,K)
-              X(4,:) = VARIABLE%GETPV(I,J-1,K)
-              X(5,:) = VARIABLE%GETPV(I,J+1,K)
-              X(6,:) = VARIABLE%GETPV(I,J,K-1)
-              X(7,:) = VARIABLE%GETPV(I,J,K+1)
-              UPDATE%EDDY%CX1 => NX1
-              UPDATE%EDDY%CX2 => NX2
-              UPDATE%EDDY%EX1 => NX3
-              UPDATE%EDDY%EX2 => NX4
-              UPDATE%EDDY%TX1 => NX5
-              UPDATE%EDDY%TX2 => NX6
-              UPDATE%EDDY%GRD => GRD
-              UPDATE%EDDY%PV => X
-              UPDATE%EDDY%DV => DV
-              UPDATE%EDDY%TV => TV
-              TV(3) = UPDATE%EDDY%CALEDDY()
-              CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-            END DO
-          END DO
-        END DO
-      END IF
-    END SUBROUTINE EULEREX
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE RK3RD(UPDATE,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_RK3RD), INTENT(INOUT) :: UPDATE
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,N,L,M
-      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT
-      REAL(8), TARGET :: X(7,UPDATE%NPV)
-      REAL(8) :: DPV(UPDATE%NPV)
+      if(update%l_eddy) then
+        do k=2,update%kmax
+          do j=2,update%jmax
+            do i=2,update%imax
+              nx1 = grid%getcx(i-1,j,k)
+              nx2 = grid%getcx(i,j,k)
+              nx3 = grid%getex(i,j-1,k)
+              nx4 = grid%getex(i,j,k)
+              nx5 = grid%gettx(i,j,k-1)
+              nx6 = grid%gettx(i,j,k)
+              grd = grid%getgrd(i,j,k)
+              dv = variable%getdv(i,j,k)
+              tv = variable%gettv(i,j,k)
+              x(1,:) = variable%getpv(i-1,j,k)
+              x(2,:) = variable%getpv(i,j,k)
+              x(3,:) = variable%getpv(i+1,j,k)
+              x(4,:) = variable%getpv(i,j-1,k)
+              x(5,:) = variable%getpv(i,j+1,k)
+              x(6,:) = variable%getpv(i,j,k-1)
+              x(7,:) = variable%getpv(i,j,k+1)
+              update%eddy%cx1 => nx1
+              update%eddy%cx2 => nx2
+              update%eddy%ex1 => nx3
+              update%eddy%ex2 => nx4
+              update%eddy%tx1 => nx5
+              update%eddy%tx2 => nx6
+              update%eddy%grd => grd
+              update%eddy%pv => x
+              update%eddy%dv => dv
+              update%eddy%tv => tv
+              tv(3) = update%eddy%caleddy()
+              call variable%settv(3,i,j,k,tv(3))
+            end do
+          end do
+        end do
+      end if
+    end subroutine eulerex
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine rk3rd(update,grid,variable,eos,prop)
+      implicit none
+      class(t_rk3rd), intent(inout) :: update
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,n,l,m
+      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8), target :: grd(update%ngrd),dt
+      real(8), target :: x(7,update%npv)
+      real(8) :: dpv(update%npv)
 
       
       
-      DO M=1,3
-        CALL UPDATE%BC%SETBC(GRID,VARIABLE,EOS,PROP)
-        IF(M.EQ.1) CALL UPDATE%TIMESTEP%CALTIMESTEP(GRID,VARIABLE)
-        CALL UPDATE%RHS%CALRHS(GRID,VARIABLE,EOS)
-        DO K=2,UPDATE%KMAX
-          DO J=2,UPDATE%JMAX
-            DO I=2,UPDATE%IMAX
-              IF(M.EQ.1) UPDATE%RK(:,I,J,K) = VARIABLE%GETPV(I,J,K)
-              NX1 = GRID%GETCX(I-1,J,K)
-              NX2 = GRID%GETCX(I,J,K)
-              NX3 = GRID%GETEX(I,J-1,K)
-              NX4 = GRID%GETEX(I,J,K)
-              NX5 = GRID%GETTX(I,J,K-1)
-              NX6 = GRID%GETTX(I,J,K)
-              GRD = GRID%GETGRD(I,J,K)
-              PV = VARIABLE%GETPV(I,J,K)
-              DV = VARIABLE%GETDV(I,J,K)
-              TV = VARIABLE%GETTV(I,J,K)
-              DT = UPDATE%TIMESTEP%GETDT(I,J,K)
+      do m=1,3
+        call update%bc%setbc(grid,variable,eos,prop)
+        if(m.eq.1) call update%timestep%caltimestep(grid,variable)
+        call update%rhs%calrhs(grid,variable,eos)
+        do k=2,update%kmax
+          do j=2,update%jmax
+            do i=2,update%imax
+              if(m.eq.1) update%rk(:,i,j,k) = variable%getpv(i,j,k)
+              nx1 = grid%getcx(i-1,j,k)
+              nx2 = grid%getcx(i,j,k)
+              nx3 = grid%getex(i,j-1,k)
+              nx4 = grid%getex(i,j,k)
+              nx5 = grid%gettx(i,j,k-1)
+              nx6 = grid%gettx(i,j,k)
+              grd = grid%getgrd(i,j,k)
+              pv = variable%getpv(i,j,k)
+              dv = variable%getdv(i,j,k)
+              tv = variable%gettv(i,j,k)
+              dt = update%timestep%getdt(i,j,k)
             
-              UPDATE%LHS%CX1 => NX1
-              UPDATE%LHS%CX2 => NX2
-              UPDATE%LHS%EX1 => NX3
-              UPDATE%LHS%EX2 => NX4
-              UPDATE%LHS%TX1 => NX5
-              UPDATE%LHS%TX2 => NX6
-              UPDATE%LHS%GRD => GRD
-              UPDATE%LHS%PV => PV
-              UPDATE%LHS%DV => DV
-              UPDATE%LHS%TV => TV
-              UPDATE%LHS%DT => DT
-              CALL UPDATE%LHS%INVERSE()
+              update%lhs%cx1 => nx1
+              update%lhs%cx2 => nx2
+              update%lhs%ex1 => nx3
+              update%lhs%ex2 => nx4
+              update%lhs%tx1 => nx5
+              update%lhs%tx2 => nx6
+              update%lhs%grd => grd
+              update%lhs%pv => pv
+              update%lhs%dv => dv
+              update%lhs%tv => tv
+              update%lhs%dt => dt
+              call update%lhs%inverse()
             
-              DPV = 0.D0
-              DO N=1,UPDATE%NPV
-                DO L=1,UPDATE%NPV
-                  DPV(N) = DPV(N) + UPDATE%LHS%GETX(N,L)*UPDATE%RHS%GETRES(L,I,J,K)
-                END DO
-              END DO
+              dpv = 0.d0
+              do n=1,update%npv
+                do l=1,update%npv
+                  dpv(n) = dpv(n) + update%lhs%getx(n,l)*update%rhs%getres(l,i,j,k)
+                end do
+              end do
             
-              PV = UPDATE%A1(M)*UPDATE%RK(:,I,J,K) + UPDATE%A2(M)*PV + UPDATE%A3(M)*DPV
+              pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*dpv
           
-              PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
-              PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
-              PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
-              IF(UPDATE%L_TURB) THEN
-                PV(8) = DMAX1(PV(8),UPDATE%KREF)
-                PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
-              END IF
-              DO N=1,UPDATE%NPV
-                CALL VARIABLE%SETPV(N,I,J,K,PV(N))
-              END DO
+              pv(1) = dmax1(-update%pref+100.d0,pv(1))
+              pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
+              pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
+              if(update%l_turb) then
+                pv(8) = dmax1(pv(8),update%kref)
+                pv(9) = dmax1(pv(9),update%oref,update%rhs%getomega_cut(i,j,k))
+              end if
+              do n=1,update%npv
+                call variable%setpv(n,i,j,k,pv(n))
+              end do
                      
-              CALL EOS%DETEOS(PV(1)+UPDATE%PREF,PV(5),PV(6),PV(7),DV)
+              call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv)
             
-              DO N=1,UPDATE%NDV
-                CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-              END DO
+              do n=1,update%ndv
+                call variable%setdv(n,i,j,k,dv(n))
+              end do
             
-              IF(UPDATE%L_TV) THEN
-                CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-              END IF
+              if(update%l_tv) then
+                call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+              end if
           
-              DO N=1,UPDATE%NTV
-                CALL VARIABLE%SETTV(N,I,J,K,TV(N))
-              END DO
+              do n=1,update%ntv
+                call variable%settv(n,i,j,k,tv(n))
+              end do
               
-            END DO
-          END DO
-        END DO
-        IF(UPDATE%L_EDDY) THEN
-          DO K=2,UPDATE%KMAX
-            DO J=2,UPDATE%JMAX
-              DO I=2,UPDATE%IMAX
-                NX1 = GRID%GETCX(I-1,J,K)
-                NX2 = GRID%GETCX(I,J,K)
-                NX3 = GRID%GETEX(I,J-1,K)
-                NX4 = GRID%GETEX(I,J,K)
-                NX5 = GRID%GETTX(I,J,K-1)
-                NX6 = GRID%GETTX(I,J,K)
-                GRD = GRID%GETGRD(I,J,K)
-                DV = VARIABLE%GETDV(I,J,K)
-                TV = VARIABLE%GETTV(I,J,K)
-                X(1,:) = VARIABLE%GETPV(I-1,J,K)
-                X(2,:) = VARIABLE%GETPV(I,J,K)
-                X(3,:) = VARIABLE%GETPV(I+1,J,K)
-                X(4,:) = VARIABLE%GETPV(I,J-1,K)
-                X(5,:) = VARIABLE%GETPV(I,J+1,K)
-                X(6,:) = VARIABLE%GETPV(I,J,K-1)
-                X(7,:) = VARIABLE%GETPV(I,J,K+1)
-                UPDATE%EDDY%CX1 => NX1
-                UPDATE%EDDY%CX2 => NX2
-                UPDATE%EDDY%EX1 => NX3
-                UPDATE%EDDY%EX2 => NX4
-                UPDATE%EDDY%TX1 => NX5
-                UPDATE%EDDY%TX2 => NX6
-                UPDATE%EDDY%GRD => GRD
-                UPDATE%EDDY%PV => X
-                UPDATE%EDDY%DV => DV
-                UPDATE%EDDY%TV => TV
-                TV(3) = UPDATE%EDDY%CALEDDY()
-                CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-              END DO
-            END DO
-          END DO
-        END IF
-      END DO
+            end do
+          end do
+        end do
+        if(update%l_eddy) then
+          do k=2,update%kmax
+            do j=2,update%jmax
+              do i=2,update%imax
+                nx1 = grid%getcx(i-1,j,k)
+                nx2 = grid%getcx(i,j,k)
+                nx3 = grid%getex(i,j-1,k)
+                nx4 = grid%getex(i,j,k)
+                nx5 = grid%gettx(i,j,k-1)
+                nx6 = grid%gettx(i,j,k)
+                grd = grid%getgrd(i,j,k)
+                dv = variable%getdv(i,j,k)
+                tv = variable%gettv(i,j,k)
+                x(1,:) = variable%getpv(i-1,j,k)
+                x(2,:) = variable%getpv(i,j,k)
+                x(3,:) = variable%getpv(i+1,j,k)
+                x(4,:) = variable%getpv(i,j-1,k)
+                x(5,:) = variable%getpv(i,j+1,k)
+                x(6,:) = variable%getpv(i,j,k-1)
+                x(7,:) = variable%getpv(i,j,k+1)
+                update%eddy%cx1 => nx1
+                update%eddy%cx2 => nx2
+                update%eddy%ex1 => nx3
+                update%eddy%ex2 => nx4
+                update%eddy%tx1 => nx5
+                update%eddy%tx2 => nx6
+                update%eddy%grd => grd
+                update%eddy%pv => x
+                update%eddy%dv => dv
+                update%eddy%tv => tv
+                tv(3) = update%eddy%caleddy()
+                call variable%settv(3,i,j,k,tv(3))
+              end do
+            end do
+          end do
+        end if
+      end do
       
-    END SUBROUTINE RK3RD
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE LUSGS(UPDATE,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_LUSGS), INTENT(INOUT) :: UPDATE
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: I,J,K,N,L
-      REAL(8), TARGET :: NX1(3),NX2(3),NX3(3),NX4(3),NX5(3),NX6(3)
-      REAL(8), TARGET :: PV(UPDATE%NPV),DV(UPDATE%NDV),TV(UPDATE%NTV)
-      REAL(8), TARGET :: GRD(UPDATE%NGRD),DT,C(4),T(4)
-      REAL(8), TARGET :: X(7,UPDATE%NPV)
+    end subroutine rk3rd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine lusgs(update,grid,variable,eos,prop)
+      implicit none
+      class(t_lusgs), intent(inout) :: update
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,n,l
+      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8), target :: grd(update%ngrd),dt,c(4),t(4)
+      real(8), target :: x(7,update%npv)
             
-      CALL UPDATE%BC%SETBC(GRID,VARIABLE,EOS,PROP)
-      CALL UPDATE%TIMESTEP%CALTIMESTEP(GRID,VARIABLE)
-      CALL UPDATE%RHS%CALRHS(GRID,VARIABLE,EOS)
+      call update%bc%setbc(grid,variable,eos,prop)
+      call update%timestep%caltimestep(grid,variable)
+      call update%rhs%calrhs(grid,variable,eos)
       
-      UPDATE%DCV = 0.D0
-      UPDATE%DQS = 0.D0
-      DO K=2,UPDATE%KMAX
-        DO J=2,UPDATE%JMAX
-          DO I=2,UPDATE%IMAX
-            NX1 = GRID%GETCX(I-1,J,K)
-            NX2 = GRID%GETCX(I,J,K)
-            NX3 = GRID%GETEX(I,J-1,K)
-            NX4 = GRID%GETEX(I,J,K)
-            NX5 = GRID%GETTX(I,J,K-1)
-            NX6 = GRID%GETTX(I,J,K)
-            GRD = GRID%GETGRD(I,J,K)
-            PV = VARIABLE%GETPV(I,J,K)
-            DV = VARIABLE%GETDV(I,J,K)
-            TV = VARIABLE%GETTV(I,J,K)
-            DT = UPDATE%TIMESTEP%GETDT(I,J,K)
+      update%dcv = 0.d0
+      update%dqs = 0.d0
+      do k=2,update%kmax
+        do j=2,update%jmax
+          do i=2,update%imax
+            nx1 = grid%getcx(i-1,j,k)
+            nx2 = grid%getcx(i,j,k)
+            nx3 = grid%getex(i,j-1,k)
+            nx4 = grid%getex(i,j,k)
+            nx5 = grid%gettx(i,j,k-1)
+            nx6 = grid%gettx(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            pv = variable%getpv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dt = update%timestep%getdt(i,j,k)
             
-            UPDATE%LHS%CX1 => NX1
-            UPDATE%LHS%CX2 => NX2
-            UPDATE%LHS%EX1 => NX3
-            UPDATE%LHS%EX2 => NX4
-            UPDATE%LHS%TX1 => NX5
-            UPDATE%LHS%TX2 => NX6
-            UPDATE%LHS%GRD => GRD
-            UPDATE%LHS%PV => PV
-            UPDATE%LHS%DV => DV
-            UPDATE%LHS%TV => TV
-            UPDATE%LHS%DT => DT
+            update%lhs%cx1 => nx1
+            update%lhs%cx2 => nx2
+            update%lhs%ex1 => nx3
+            update%lhs%ex2 => nx4
+            update%lhs%tx1 => nx5
+            update%lhs%tx2 => nx6
+            update%lhs%grd => grd
+            update%lhs%pv => pv
+            update%lhs%dv => dv
+            update%lhs%tv => tv
+            update%lhs%dt => dt
             
-            IF(UPDATE%L_CAV) THEN
-              C = UPDATE%RHS%GETICAV(I,J,K)
-              UPDATE%LHS%C => C
-            END IF
-            IF(UPDATE%L_TURB) THEN
-              T = UPDATE%RHS%GETITT(I,J,K)
-              UPDATE%LHS%T => T
-            END IF
+            if(update%l_cav) then
+              c = update%rhs%geticav(i,j,k)
+              update%lhs%c => c
+            end if
+            if(update%l_turb) then
+              t = update%rhs%getitt(i,j,k)
+              update%lhs%t => t
+            end if
             
-            CALL UPDATE%LHS%INVERSE()
+            call update%lhs%inverse()
             
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%INV(N,L,I,J,K) = UPDATE%LHS%GETX(N,L)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%inv(n,l,i,j,k) = update%lhs%getx(n,l)
+              end do
+            end do
             
-            NX1 = GRID%GETCX(I-1,J,K)
-            GRD = GRID%GETGRD(I-1,J,K)
-            PV = VARIABLE%GETPV(I-1,J,K)
-            DV = VARIABLE%GETDV(I-1,J,K)
-            TV = VARIABLE%GETTV(I-1,J,K)
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(1)
+            nx1 = grid%getcx(i-1,j,k)
+            grd = grid%getgrd(i-1,j,k)
+            pv = variable%getpv(i-1,j,k)
+            dv = variable%getdv(i-1,j,k)
+            tv = variable%gettv(i-1,j,k)
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(1)
             
-            DO N=1,UPDATE%NPV
-              UPDATE%DCV(N,I,J,K) = UPDATE%RHS%GETRES(N,I,J,K)
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) + UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I-1,J,K)
-              END DO
-            END DO
+            do n=1,update%npv
+              update%dcv(n,i,j,k) = update%rhs%getres(n,i,j,k)
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) + update%jac%geta(n,l)*update%dqs(l,i-1,j,k)
+              end do
+            end do
             
-            NX1 = GRID%GETEX(I,J-1,K)
-            GRD = GRID%GETGRD(I,J-1,K)
-            PV = VARIABLE%GETPV(I,J-1,K)
-            DV = VARIABLE%GETDV(I,J-1,K)
-            TV = VARIABLE%GETTV(I,J-1,K)          
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(1)
+            nx1 = grid%getex(i,j-1,k)
+            grd = grid%getgrd(i,j-1,k)
+            pv = variable%getpv(i,j-1,k)
+            dv = variable%getdv(i,j-1,k)
+            tv = variable%gettv(i,j-1,k)          
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(1)
         
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) + UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I,J-1,K)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) + update%jac%geta(n,l)*update%dqs(l,i,j-1,k)
+              end do
+            end do
 
-            NX1 = GRID%GETTX(I,J,K-1)
-            GRD = GRID%GETGRD(I,J,K-1)
-            PV = VARIABLE%GETPV(I,J,K-1)
-            DV = VARIABLE%GETDV(I,J,K-1)
-            TV = VARIABLE%GETTV(I,J,K-1)          
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(1)
+            nx1 = grid%gettx(i,j,k-1)
+            grd = grid%getgrd(i,j,k-1)
+            pv = variable%getpv(i,j,k-1)
+            dv = variable%getdv(i,j,k-1)
+            tv = variable%gettv(i,j,k-1)          
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(1)
         
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) + UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I,J,K-1)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) + update%jac%geta(n,l)*update%dqs(l,i,j,k-1)
+              end do
+            end do
             
-            DO N=1,UPDATE%NPV
-              UPDATE%DQS(N,I,J,K) = DOT_PRODUCT(UPDATE%INV(N,:,I,J,K),UPDATE%DCV(:,I,J,K))
-            END DO
+            do n=1,update%npv
+              update%dqs(n,i,j,k) = dot_product(update%inv(n,:,i,j,k),update%dcv(:,i,j,k))
+            end do
             
-          END DO
-        END DO
-      END DO
+          end do
+        end do
+      end do
       
-      UPDATE%DQS = 0.D0
-      DO K=UPDATE%KMAX,2,-1
-        DO J=UPDATE%JMAX,2,-1
-          DO I=UPDATE%IMAX,2,-1
+      update%dqs = 0.d0
+      do k=update%kmax,2,-1
+        do j=update%jmax,2,-1
+          do i=update%imax,2,-1
             
-            NX1 = GRID%GETCX(I,J,K)
-            GRD = GRID%GETGRD(I+1,J,K)
-            PV = VARIABLE%GETPV(I+1,J,K)
-            DV = VARIABLE%GETDV(I+1,J,K)
-            TV = VARIABLE%GETTV(I+1,J,K)
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(-1)
+            nx1 = grid%getcx(i,j,k)
+            grd = grid%getgrd(i+1,j,k)
+            pv = variable%getpv(i+1,j,k)
+            dv = variable%getdv(i+1,j,k)
+            tv = variable%gettv(i+1,j,k)
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(-1)
         
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) - UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I+1,J,K)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) - update%jac%geta(n,l)*update%dqs(l,i+1,j,k)
+              end do
+            end do
             
-            NX1 = GRID%GETEX(I,J,K)
-            GRD = GRID%GETGRD(I,J+1,K)
-            PV = VARIABLE%GETPV(I,J+1,K)
-            DV = VARIABLE%GETDV(I,J+1,K)
-            TV = VARIABLE%GETTV(I,J+1,K)          
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(-1)
+            nx1 = grid%getex(i,j,k)
+            grd = grid%getgrd(i,j+1,k)
+            pv = variable%getpv(i,j+1,k)
+            dv = variable%getdv(i,j+1,k)
+            tv = variable%gettv(i,j+1,k)          
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(-1)
             
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) - UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I,J+1,K)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) - update%jac%geta(n,l)*update%dqs(l,i,j+1,k)
+              end do
+            end do
 
-            NX1 = GRID%GETTX(I,J,K)
-            GRD = GRID%GETGRD(I,J,K+1)
-            PV = VARIABLE%GETPV(I,J,K+1)
-            DV = VARIABLE%GETDV(I,J,K+1)
-            TV = VARIABLE%GETTV(I,J,K+1)          
-            UPDATE%JAC%NX => NX1
-            UPDATE%JAC%GRD => GRD
-            UPDATE%JAC%PV => PV
-            UPDATE%JAC%DV => DV
-            UPDATE%JAC%TV => TV
-            CALL UPDATE%JAC%CALJAC(-1)
+            nx1 = grid%gettx(i,j,k)
+            grd = grid%getgrd(i,j,k+1)
+            pv = variable%getpv(i,j,k+1)
+            dv = variable%getdv(i,j,k+1)
+            tv = variable%gettv(i,j,k+1)          
+            update%jac%nx => nx1
+            update%jac%grd => grd
+            update%jac%pv => pv
+            update%jac%dv => dv
+            update%jac%tv => tv
+            call update%jac%caljac(-1)
             
-            DO N=1,UPDATE%NPV
-              DO L=1,UPDATE%NPV
-                UPDATE%DCV(N,I,J,K) = UPDATE%DCV(N,I,J,K) - UPDATE%JAC%GETA(N,L)*UPDATE%DQS(L,I,J,K+1)
-              END DO
-            END DO
+            do n=1,update%npv
+              do l=1,update%npv
+                update%dcv(n,i,j,k) = update%dcv(n,i,j,k) - update%jac%geta(n,l)*update%dqs(l,i,j,k+1)
+              end do
+            end do
             
-            DO N=1,UPDATE%NPV
-              UPDATE%DQS(N,I,J,K) = DOT_PRODUCT(UPDATE%INV(N,:,I,J,K),UPDATE%DCV(:,I,J,K))
-            END DO
-          END DO
-        END DO
-      END DO
+            do n=1,update%npv
+              update%dqs(n,i,j,k) = dot_product(update%inv(n,:,i,j,k),update%dcv(:,i,j,k))
+            end do
+          end do
+        end do
+      end do
       
-      DO K=2,UPDATE%KMAX
-        DO J=2,UPDATE%JMAX
-          DO I=2,UPDATE%IMAX
-            PV = VARIABLE%GETPV(I,J,K) + UPDATE%DQS(:,I,J,K)
+      do k=2,update%kmax
+        do j=2,update%jmax
+          do i=2,update%imax
+            pv = variable%getpv(i,j,k) + update%dqs(:,i,j,k)
             
-            PV(1) = DMAX1(-UPDATE%PREF+100.D0,PV(1))
-            PV(6) = DMIN1(1.D0,DMAX1(0.D0,PV(6)))
-            PV(7) = DMIN1(1.D0,DMAX1(0.D0,PV(7)))
-            IF(UPDATE%L_TURB) THEN
-              PV(8) = DMAX1(PV(8),UPDATE%KREF)
-              PV(9) = DMAX1(PV(9),UPDATE%OREF,UPDATE%RHS%GETOMEGA_CUT(I,J,K))
-            END IF
+            pv(1) = dmax1(-update%pref+100.d0,pv(1))
+            pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
+            pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
+            if(update%l_turb) then
+              pv(8) = dmax1(pv(8),update%kref)
+              pv(9) = dmax1(pv(9),update%oref,update%rhs%getomega_cut(i,j,k))
+            end if
             
-            DO N=1,UPDATE%NPV
-              CALL VARIABLE%SETPV(N,I,J,K,PV(N))
-            END DO
+            do n=1,update%npv
+              call variable%setpv(n,i,j,k,pv(n))
+            end do
             
-            CALL EOS%DETEOS(PV(1)+UPDATE%PREF,PV(5),PV(6),PV(7),DV)
+            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv)
             
-            DO N=1,UPDATE%NDV
-              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-            END DO
+            do n=1,update%ndv
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
             
-            IF(UPDATE%L_TV) THEN
-              CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-            END IF
+            if(update%l_tv) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
         
         
-            DO N=1,UPDATE%NTV
-              CALL VARIABLE%SETTV(N,I,J,K,TV(N))
-            END DO
-          END DO
-        END DO
-      END DO
-      IF(UPDATE%L_EDDY) THEN
-        DO K=2,UPDATE%KMAX
-          DO J=2,UPDATE%JMAX
-            DO I=2,UPDATE%IMAX
-              NX1 = GRID%GETCX(I-1,J,K)
-              NX2 = GRID%GETCX(I,J,K)
-              NX3 = GRID%GETEX(I,J-1,K)
-              NX4 = GRID%GETEX(I,J,K)
-              NX5 = GRID%GETTX(I,J,K-1)
-              NX6 = GRID%GETTX(I,J,K)
-              GRD = GRID%GETGRD(I,J,K)
-              DV = VARIABLE%GETDV(I,J,K)
-              TV = VARIABLE%GETTV(I,J,K)
-              X(1,:) = VARIABLE%GETPV(I-1,J,K)
-              X(2,:) = VARIABLE%GETPV(I,J,K)
-              X(3,:) = VARIABLE%GETPV(I+1,J,K)
-              X(4,:) = VARIABLE%GETPV(I,J-1,K)
-              X(5,:) = VARIABLE%GETPV(I,J+1,K)
-              X(6,:) = VARIABLE%GETPV(I,J,K-1)
-              X(7,:) = VARIABLE%GETPV(I,J,K+1)
-              UPDATE%EDDY%CX1 => NX1
-              UPDATE%EDDY%CX2 => NX2
-              UPDATE%EDDY%EX1 => NX3
-              UPDATE%EDDY%EX2 => NX4
-              UPDATE%EDDY%TX1 => NX5
-              UPDATE%EDDY%TX2 => NX6
-              UPDATE%EDDY%GRD => GRD
-              UPDATE%EDDY%PV => X
-              UPDATE%EDDY%DV => DV
-              UPDATE%EDDY%TV => TV
-              TV(3) = UPDATE%EDDY%CALEDDY()
-              CALL VARIABLE%SETTV(3,I,J,K,TV(3))
-            END DO
-          END DO
-        END DO
-      END IF
-    END SUBROUTINE LUSGS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE UPDATE_MODULE
+            do n=1,update%ntv
+              call variable%settv(n,i,j,k,tv(n))
+            end do
+          end do
+        end do
+      end do
+      if(update%l_eddy) then
+        do k=2,update%kmax
+          do j=2,update%jmax
+            do i=2,update%imax
+              nx1 = grid%getcx(i-1,j,k)
+              nx2 = grid%getcx(i,j,k)
+              nx3 = grid%getex(i,j-1,k)
+              nx4 = grid%getex(i,j,k)
+              nx5 = grid%gettx(i,j,k-1)
+              nx6 = grid%gettx(i,j,k)
+              grd = grid%getgrd(i,j,k)
+              dv = variable%getdv(i,j,k)
+              tv = variable%gettv(i,j,k)
+              x(1,:) = variable%getpv(i-1,j,k)
+              x(2,:) = variable%getpv(i,j,k)
+              x(3,:) = variable%getpv(i+1,j,k)
+              x(4,:) = variable%getpv(i,j-1,k)
+              x(5,:) = variable%getpv(i,j+1,k)
+              x(6,:) = variable%getpv(i,j,k-1)
+              x(7,:) = variable%getpv(i,j,k+1)
+              update%eddy%cx1 => nx1
+              update%eddy%cx2 => nx2
+              update%eddy%ex1 => nx3
+              update%eddy%ex2 => nx4
+              update%eddy%tx1 => nx5
+              update%eddy%tx2 => nx6
+              update%eddy%grd => grd
+              update%eddy%pv => x
+              update%eddy%dv => dv
+              update%eddy%tv => tv
+              tv(3) = update%eddy%caleddy()
+              call variable%settv(3,i,j,k,tv(3))
+            end do
+          end do
+        end do
+      end if
+    end subroutine lusgs
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module update_module

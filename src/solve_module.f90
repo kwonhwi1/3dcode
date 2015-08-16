@@ -1,190 +1,190 @@
-MODULE SOLVE_MODULE
-  USE CONFIG_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-! SUBORDINATE TO UPDATE MODULE  
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-  USE INITIAL_MODULE
-  USE UPDATE_MODULE
-  USE RESIDUAL_MODULE
-  USE POST_MODULE
-!CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC   
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_SOLVE
+module solve_module
+  use config_module
+  use eos_module
+  use prop_module
+  use grid_module
+  use variable_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+! subordinate to update module  
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  use initial_module
+  use update_module
+  use residual_module
+  use post_module
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc   
+  implicit none
+  private
+  public :: t_solve
   
-  TYPE T_SOLVE
-    PRIVATE
-    LOGICAL :: L_UPDATE,L_NSTEADY,L_INI
-    INTEGER :: NPV,NDV,IMAX,JMAX,KMAX
-    INTEGER :: NPMAX,NTMAX,NEXPORT
-    REAL(8) :: PREF
-    CLASS(T_UPDATE), ALLOCATABLE :: UPDATE
-    CLASS(T_INI), ALLOCATABLE :: INI
-    CLASS(T_RESI), ALLOCATABLE :: RESI
-    CLASS(T_POST), ALLOCATABLE :: POST
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: SOLVE_EQUATION
-      PROCEDURE,PRIVATE :: UNSTEADYUPDATE
-  END TYPE T_SOLVE
+  type t_solve
+    private
+    logical :: l_update,l_nsteady,l_ini
+    integer :: npv,ndv,imax,jmax,kmax
+    integer :: npmax,ntmax,nexport
+    real(8) :: pref
+    class(t_update), allocatable :: update
+    class(t_ini), allocatable :: ini
+    class(t_resi), allocatable :: resi
+    class(t_post), allocatable :: post
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: solve_equation
+      procedure,private :: unsteadyupdate
+  end type t_solve
 
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(SOLVE,CONFIG,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_SOLVE), INTENT(OUT) :: SOLVE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(solve,config,grid,variable,eos,prop)
+      implicit none
+      class(t_solve), intent(out) :: solve
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
       
-      SOLVE%NPMAX = CONFIG%GETNPMAX()
-      SOLVE%NTMAX = CONFIG%GETNTMAX()
-      SOLVE%NEXPORT = CONFIG%GETNEXPORT()
+      solve%npmax = config%getnpmax()
+      solve%ntmax = config%getntmax()
+      solve%nexport = config%getnexport()
       
-      SOLVE%PREF = CONFIG%GETPREF()
+      solve%pref = config%getpref()
 
-      SOLVE%L_UPDATE = .FALSE.
-      SOLVE%L_INI = .FALSE.
+      solve%l_update = .false.
+      solve%l_ini = .false.
       
-      SELECT CASE(CONFIG%GETTIMEMETHOD())
-      CASE(1)
-        ALLOCATE(T_EULEREX::SOLVE%UPDATE)
-      CASE(2)
-        ALLOCATE(T_RK3RD::SOLVE%UPDATE)
-      CASE(3)
-        ALLOCATE(T_LUSGS::SOLVE%UPDATE)
-      END SELECT
+      select case(config%gettimemethod())
+      case(1)
+        allocate(t_eulerex::solve%update)
+      case(2)
+        allocate(t_rk3rd::solve%update)
+      case(3)
+        allocate(t_lusgs::solve%update)
+      end select
       
-      SELECT CASE(CONFIG%GETIREAD())
-      CASE(0)
-        ALLOCATE(T_INI_INITIAL::SOLVE%INI)
-      CASE(1)
-        ALLOCATE(T_INI_RESTART::SOLVE%INI)
-      END SELECT
+      select case(config%getiread())
+      case(0)
+        allocate(t_ini_initial::solve%ini)
+      case(1)
+        allocate(t_ini_restart::solve%ini)
+      end select
       
-      SELECT CASE(CONFIG%GETNSTEADY())
-      CASE(0)
-        SOLVE%L_NSTEADY = .FALSE.
-      CASE(1)
-        SOLVE%L_NSTEADY = .TRUE.
-      END SELECT
+      select case(config%getnsteady())
+      case(0)
+        solve%l_nsteady = .false.
+      case(1)
+        solve%l_nsteady = .true.
+      end select
       
-      IF(ALLOCATED(SOLVE%UPDATE)) THEN
-        CALL SOLVE%UPDATE%CONSTRUCT(CONFIG,GRID,VARIABLE,EOS,PROP)
-        SOLVE%L_UPDATE = .TRUE.
-      END IF
+      if(allocated(solve%update)) then
+        call solve%update%construct(config,grid,variable,eos,prop)
+        solve%l_update = .true.
+      end if
       
-      IF(ALLOCATED(SOLVE%INI)) THEN
-        CALL SOLVE%INI%CONSTRUCT(CONFIG,GRID)
-        SOLVE%L_INI = .TRUE.
-      END IF
+      if(allocated(solve%ini)) then
+        call solve%ini%construct(config,grid)
+        solve%l_ini = .true.
+      end if
       
-      ALLOCATE(SOLVE%RESI)
-      CALL SOLVE%RESI%CONSTRUCT(CONFIG,GRID,VARIABLE)
-      ALLOCATE(SOLVE%POST)
-      CALL SOLVE%POST%CONSTRUCT(CONFIG,GRID,VARIABLE)
+      allocate(solve%resi)
+      call solve%resi%construct(config,grid,variable)
+      allocate(solve%post)
+      call solve%post%construct(config,grid,variable)
      
-      SOLVE%IMAX = GRID%GETIMAX()
-      SOLVE%JMAX = GRID%GETJMAX()
-      SOLVE%KMAX = GRID%GETKMAX()
-      SOLVE%NPV = VARIABLE%GETNPV()
-      SOLVE%NDV = VARIABLE%GETNDV()
+      solve%imax = grid%getimax()
+      solve%jmax = grid%getjmax()
+      solve%kmax = grid%getkmax()
+      solve%npv = variable%getnpv()
+      solve%ndv = variable%getndv()
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(SOLVE)
-      IMPLICIT NONE
-      CLASS(T_SOLVE), INTENT(INOUT) :: SOLVE
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(solve)
+      implicit none
+      class(t_solve), intent(inout) :: solve
       
-      IF(SOLVE%L_UPDATE) THEN
-        CALL SOLVE%UPDATE%DESTRUCT()
-        DEALLOCATE(SOLVE%UPDATE)
-      END IF
+      if(solve%l_update) then
+        call solve%update%destruct()
+        deallocate(solve%update)
+      end if
       
-      IF(SOLVE%L_INI) THEN
-        CALL SOLVE%INI%DESTRUCT()
-        DEALLOCATE(SOLVE%INI)
-      END IF
+      if(solve%l_ini) then
+        call solve%ini%destruct()
+        deallocate(solve%ini)
+      end if
       
-      CALL SOLVE%RESI%DESTRUCT()
-      DEALLOCATE(SOLVE%RESI)
-      CALL SOLVE%POST%DESTRUCT()
-      DEALLOCATE(SOLVE%POST)
+      call solve%resi%destruct()
+      deallocate(solve%resi)
+      call solve%post%destruct()
+      deallocate(solve%post)
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SOLVE_EQUATION(SOLVE,GRID,VARIABLE,EOS,PROP)
-      IMPLICIT NONE
-      CLASS(T_SOLVE), INTENT(INOUT) :: SOLVE
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER :: NT_PHY,NT,NPS,NTS
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine solve_equation(solve,grid,variable,eos,prop)
+      implicit none
+      class(t_solve), intent(inout) :: solve
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: nt_phy,nt,nps,nts
       
-      CALL SOLVE%INI%INITIALIZE(GRID,VARIABLE,EOS,PROP,NPS,NTS)
+      call solve%ini%initialize(grid,variable,eos,prop,nps,nts)
 
-      DO NT_PHY=NPS,SOLVE%NPMAX
-        DO NT=NTS,SOLVE%NTMAX
-          CALL SOLVE%RESI%SETQRES(VARIABLE)
-          CALL SOLVE%UPDATE%TIMEINTEG(GRID,VARIABLE,EOS,PROP)
-          CALL SOLVE%RESI%RESIDUAL(VARIABLE,NT_PHY,NT)        
-          IF(SOLVE%RESI%GETCONVERGE()) THEN
-            CALL SOLVE%POST%EXPORT_VARIABLE(VARIABLE,NT_PHY,NT)
-            EXIT
-          END IF
-          IF((MOD(NT,SOLVE%NEXPORT).EQ.0).AND.(.NOT.SOLVE%L_NSTEADY)) THEN
-            CALL SOLVE%POST%EXPORT_VARIABLE(VARIABLE,NT_PHY,NT)
-          END IF
-        END DO
-        IF(.NOT.SOLVE%L_NSTEADY) THEN
-          CALL SOLVE%POST%EXPORT_VARIABLE(VARIABLE,NT_PHY,NT-1)
-        END IF
-        IF(SOLVE%L_NSTEADY) THEN
-          IF(MOD(NT_PHY,SOLVE%NEXPORT).EQ.0) THEN
-            CALL SOLVE%POST%EXPORT_VARIABLE(VARIABLE,NT_PHY,NT-1)
-          END IF
-          CALL SOLVE%UNSTEADYUPDATE(VARIABLE)
-        END IF
-      END DO
+      do nt_phy=nps,solve%npmax
+        do nt=nts,solve%ntmax
+          call solve%resi%setqres(variable)
+          call solve%update%timeinteg(grid,variable,eos,prop)
+          call solve%resi%residual(variable,nt_phy,nt)        
+          if(solve%resi%getconverge()) then
+            call solve%post%export_variable(variable,nt_phy,nt)
+            exit
+          end if
+          if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
+            call solve%post%export_variable(variable,nt_phy,nt)
+          end if
+        end do
+        if(.not.solve%l_nsteady) then
+          call solve%post%export_variable(variable,nt_phy,nt-1)
+        end if
+        if(solve%l_nsteady) then
+          if(mod(nt_phy,solve%nexport).eq.0) then
+            call solve%post%export_variable(variable,nt_phy,nt-1)
+          end if
+          call solve%unsteadyupdate(variable)
+        end if
+      end do
       
-    END SUBROUTINE SOLVE_EQUATION
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE UNSTEADYUPDATE(SOLVE,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_SOLVE), INTENT(INOUT) :: SOLVE
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER :: I,J,K,N
-      REAL(8) :: QQ(SOLVE%NPV),DV(SOLVE%NDV),PV(SOLVE%NPV)
+    end subroutine solve_equation
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine unsteadyupdate(solve,variable)
+      implicit none
+      class(t_solve), intent(inout) :: solve
+      type(t_variable), intent(inout) :: variable
+      integer :: i,j,k,n
+      real(8) :: qq(solve%npv),dv(solve%ndv),pv(solve%npv)
       
-      DO K=2,SOLVE%KMAX
-        DO J=2,SOLVE%JMAX
-          DO I=2,SOLVE%IMAX
-            QQ = VARIABLE%GETQQ(1,I,J,K)
-            CALL VARIABLE%SETQQ(2,I,J,K,QQ)
-            DV = VARIABLE%GETDV(I,J,K)
-            PV = VARIABLE%GETPV(I,J,K)
-            QQ(1) = DV(1)
-            QQ(2) = DV(1)*PV(2)
-            QQ(3) = DV(1)*PV(3)
-            QQ(4) = DV(1)*PV(4)
-            QQ(5) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2+PV(4)**2))-PV(1)-SOLVE%PREF
-            DO N=6,SOLVE%NPV
-              QQ(N) = DV(1)*PV(N)
-            END DO
+      do k=2,solve%kmax
+        do j=2,solve%jmax
+          do i=2,solve%imax
+            qq = variable%getqq(1,i,j,k)
+            call variable%setqq(2,i,j,k,qq)
+            dv = variable%getdv(i,j,k)
+            pv = variable%getpv(i,j,k)
+            qq(1) = dv(1)
+            qq(2) = dv(1)*pv(2)
+            qq(3) = dv(1)*pv(3)
+            qq(4) = dv(1)*pv(4)
+            qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-solve%pref
+            do n=6,solve%npv
+              qq(n) = dv(1)*pv(n)
+            end do
             
-            CALL VARIABLE%SETQQ(1,I,J,K,QQ)
+            call variable%setqq(1,i,j,k,qq)
             
-          END DO
-        END DO
-      END DO
-    END SUBROUTINE UNSTEADYUPDATE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE SOLVE_MODULE
+          end do
+        end do
+      end do
+    end subroutine unsteadyupdate
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module solve_module

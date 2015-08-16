@@ -1,366 +1,366 @@
-MODULE INITIAL_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  USE EOS_MODULE
-  USE PROP_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_INI,T_INI_INITIAL,T_INI_RESTART
+module initial_module
+  use config_module
+  use grid_module
+  use variable_module
+  use eos_module
+  use prop_module
+  implicit none
+  private
+  public :: t_ini,t_ini_initial,t_ini_restart
   
-  TYPE, ABSTRACT :: T_INI
-    PRIVATE
-    LOGICAL :: L_INI
-    INTEGER :: SIZE,RANK,IMAX,JMAX,KMAX
-    INTEGER :: ITURB,NSTEADY,RSTNUM
-    REAL(8) :: PREF,UREF,AOA,TREF,Y1REF,Y2REF,KREF,OREF,EMUTREF
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_INITIALIZE), DEFERRED :: INITIALIZE    
-  END TYPE T_INI
+  type, abstract :: t_ini
+    private
+    logical :: l_ini
+    integer :: size,rank,imax,jmax,kmax
+    integer :: iturb,nsteady,rstnum
+    real(8) :: pref,uref,aoa,tref,y1ref,y2ref,kref,oref,emutref
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure(p_initialize), deferred :: initialize    
+  end type t_ini
   
-  TYPE, EXTENDS(T_INI) :: T_INI_INITIAL
-    CONTAINS
-      PROCEDURE :: INITIALIZE => INITIAL
-  END TYPE T_INI_INITIAL
+  type, extends(t_ini) :: t_ini_initial
+    contains
+      procedure :: initialize => initial
+  end type t_ini_initial
 
-  TYPE, EXTENDS(T_INI) :: T_INI_RESTART
-    CONTAINS
-      PROCEDURE :: INITIALIZE => RESTART
-  END TYPE T_INI_RESTART
+  type, extends(t_ini) :: t_ini_restart
+    contains
+      procedure :: initialize => restart
+  end type t_ini_restart
   
-  ABSTRACT INTERFACE
-    SUBROUTINE P_INITIALIZE(INI,GRID,VARIABLE,EOS,PROP,NPS,NTS)
-      IMPORT T_INI
-      IMPORT T_GRID
-      IMPORT T_VARIABLE
-      IMPORT T_EOS
-      IMPORT T_PROP
-      IMPLICIT NONE
-      CLASS(T_INI), INTENT(INOUT) :: INI
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER, INTENT(OUT) :: NPS,NTS
-    END SUBROUTINE P_INITIALIZE
-  END INTERFACE
+  abstract interface
+    subroutine p_initialize(ini,grid,variable,eos,prop,nps,nts)
+      import t_ini
+      import t_grid
+      import t_variable
+      import t_eos
+      import t_prop
+      implicit none
+      class(t_ini), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+    end subroutine p_initialize
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(INI,CONFIG,GRID)
-      IMPLICIT NONE
-      CLASS(T_INI), INTENT(OUT) :: INI
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(ini,config,grid)
+      implicit none
+      class(t_ini), intent(out) :: ini
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
       
-      INI%PREF = CONFIG%GETPREF()
-      INI%UREF = CONFIG%GETUREF()
-      INI%AOA = CONFIG%GETAOA()
-      INI%TREF = CONFIG%GETTREF()
-      INI%Y1REF = CONFIG%GETY1REF()
-      INI%Y2REF = CONFIG%GETY2REF()
-      INI%ITURB = CONFIG%GETITURB()
-      INI%NSTEADY = CONFIG%GETNSTEADY()
-      INI%RSTNUM = CONFIG%GETRSTNUM()
-      INI%SIZE = CONFIG%GETSIZE()
-      INI%RANK = CONFIG%GETRANK()
-      INI%KREF = CONFIG%GETKREF()
-      INI%OREF = CONFIG%GETOREF()
-      INI%EMUTREF = CONFIG%GETEMUTREF()
-      INI%IMAX = GRID%GETIMAX()
-      INI%JMAX = GRID%GETJMAX()
-      INI%KMAX = GRID%GETKMAX()
+      ini%pref = config%getpref()
+      ini%uref = config%geturef()
+      ini%aoa = config%getaoa()
+      ini%tref = config%gettref()
+      ini%y1ref = config%gety1ref()
+      ini%y2ref = config%gety2ref()
+      ini%iturb = config%getiturb()
+      ini%nsteady = config%getnsteady()
+      ini%rstnum = config%getrstnum()
+      ini%size = config%getsize()
+      ini%rank = config%getrank()
+      ini%kref = config%getkref()
+      ini%oref = config%getoref()
+      ini%emutref = config%getemutref()
+      ini%imax = grid%getimax()
+      ini%jmax = grid%getjmax()
+      ini%kmax = grid%getkmax()
       
-      INI%L_INI = .TRUE.
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(INI)
-      IMPLICIT NONE
-      CLASS(T_INI), INTENT(INOUT) :: INI
+      ini%l_ini = .true.
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(ini)
+      implicit none
+      class(t_ini), intent(inout) :: ini
 
-      INI%L_INI = .FALSE.
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE RESTART(INI,GRID,VARIABLE,EOS,PROP,NPS,NTS)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      CLASS(T_INI_RESTART), INTENT(INOUT) :: INI
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER, INTENT(OUT) :: NPS,NTS
-      INTEGER :: I,J,K,L,N,M,IO,MM,IER
-      REAL(8) :: DV(VARIABLE%GETNDV())
-      REAL(8), DIMENSION(:), ALLOCATABLE :: QQ_TEMP
-      REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV,TV
-      REAL(8), DIMENSION(:,:,:,:,:), ALLOCATABLE :: QQ
-      CHARACTER(7) :: ITER_TAG
-      INTEGER :: SIZE,RANK,IMAX,JMAX,KMAX,NQQ
-      REAL(8) :: VAR1,VAR2,VAR3
+      ini%l_ini = .false.
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine restart(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      include 'mpif.h'
+      class(t_ini_restart), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,l,n,m,io,mm,ier
+      real(8) :: dv(variable%getndv())
+      real(8), dimension(:), allocatable :: qq_temp
+      real(8), dimension(:,:,:,:), allocatable :: pv,tv
+      real(8), dimension(:,:,:,:,:), allocatable :: qq
+      character(7) :: iter_tag
+      integer :: size,rank,imax,jmax,kmax,nqq
+      real(8) :: var1,var2,var3
       
-      ALLOCATE(PV(VARIABLE%GETNPV(),INI%IMAX,INI%JMAX,INI%KMAX))
-      ALLOCATE(TV(VARIABLE%GETNTV(),INI%IMAX,INI%JMAX,INI%KMAX))
-      ALLOCATE(QQ_TEMP(VARIABLE%GETNPV()))
+      allocate(pv(variable%getnpv(),ini%imax,ini%jmax,ini%kmax))
+      allocate(tv(variable%getntv(),ini%imax,ini%jmax,ini%kmax))
+      allocate(qq_temp(variable%getnpv()))
       
-      IF(INI%NSTEADY.EQ.1) THEN
-        WRITE(ITER_TAG,'(I4.4)') INI%RSTNUM
-      ELSE
-        WRITE(ITER_TAG,'(I7.7)') INI%RSTNUM
-      END IF
+      if(ini%nsteady.eq.1) then
+        write(iter_tag,'(i4.4)') ini%rstnum
+      else
+        write(iter_tag,'(i7.7)') ini%rstnum
+      end if
 
-      DO MM=0,INI%SIZE-1
-        IF(MM.EQ.INI%RANK) THEN
-          OPEN(NEWUNIT=IO,FILE='./OUT_'//TRIM(ITER_TAG)//'.DAT',STATUS='OLD',ACTION='READ',FORM='UNFORMATTED')
-          READ(IO) SIZE,NPS,NTS,NQQ
-          ALLOCATE(QQ(NQQ,VARIABLE%GETNPV(),INI%IMAX,INI%JMAX,INI%KMAX))
-          IF(SIZE.NE.INI%SIZE) WRITE(*,*) 'INVALID SIZE'
+      do mm=0,ini%size-1
+        if(mm.eq.ini%rank) then
+          open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='read',form='unformatted')
+          read(io) size,nps,nts,nqq
+          allocate(qq(nqq,variable%getnpv(),ini%imax,ini%jmax,ini%kmax))
+          if(size.ne.ini%size) write(*,*) 'invalid size'
           
-          DO M=0,INI%SIZE-1
-            READ(IO) RANK,IMAX,JMAX,KMAX
-            IF((RANK.EQ.INI%RANK).AND.(IMAX.EQ.INI%IMAX).AND.(JMAX.EQ.INI%JMAX).AND.(KMAX.EQ.INI%KMAX)) THEN
-              READ(IO) ((((PV(N,I,J,K),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
-              READ(IO) ((((TV(N,I,J,K),N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
-              READ(IO) (((((QQ(L,N,I,J,K),L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)    
-            ELSE       
-              READ(IO) ((((VAR1,N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
-              READ(IO) ((((VAR2,N=1,VARIABLE%GETNTV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
-              READ(IO) (((((VAR3,L=1,NQQ),N=1,VARIABLE%GETNPV()),I=2,IMAX),J=2,JMAX),K=2,KMAX)
-            END IF
-          END DO
+          do m=0,ini%size-1
+            read(io) rank,imax,jmax,kmax
+            if((rank.eq.ini%rank).and.(imax.eq.ini%imax).and.(jmax.eq.ini%jmax).and.(kmax.eq.ini%kmax)) then
+              read(io) ((((pv(n,i,j,k),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
+              read(io) ((((tv(n,i,j,k),n=1,variable%getntv()),i=2,imax),j=2,jmax),k=2,kmax)
+              read(io) (((((qq(l,n,i,j,k),l=1,nqq),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)    
+            else       
+              read(io) ((((var1,n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
+              read(io) ((((var2,n=1,variable%getntv()),i=2,imax),j=2,jmax),k=2,kmax)
+              read(io) (((((var3,l=1,nqq),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
+            end if
+          end do
       
-          CLOSE(IO)
-        END IF
-        CALL MPI_BARRIER(MPI_COMM_WORLD,IER)
-      END DO
+          close(io)
+        end if
+        call mpi_barrier(mpi_comm_world,ier)
+      end do
       
-      DO K=2,INI%KMAX
-        DO J=2,INI%JMAX
-          DO I=2,INI%IMAX
-            CALL VARIABLE%SETPV(1,I,J,K,PV(1,I,J,K)-INI%PREF)
-            DO N=2,VARIABLE%GETNPV()
-              CALL VARIABLE%SETPV(N,I,J,K,PV(N,I,J,K))
-            END DO
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            call variable%setpv(1,i,j,k,pv(1,i,j,k)-ini%pref)
+            do n=2,variable%getnpv()
+              call variable%setpv(n,i,j,k,pv(n,i,j,k))
+            end do
         
-            DO N=1,VARIABLE%GETNTV()
-              CALL VARIABLE%SETTV(N,I,J,K,TV(N,I,J,K))
-            END DO      
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n,i,j,k))
+            end do      
             
-            CALL EOS%DETEOS(PV(1,I,J,K),PV(5,I,J,K),PV(6,I,J,K),PV(7,I,J,K),DV)
+            call eos%deteos(pv(1,i,j,k),pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
             
-            DO N=1,VARIABLE%GETNDV()
-              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-            END DO
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
         
-            IF(NQQ.NE.VARIABLE%GETNQQ()) THEN
-              QQ_TEMP(1) = DV(1)
-              QQ_TEMP(2) = DV(1)*PV(2,I,J,K)
-              QQ_TEMP(3) = DV(1)*PV(3,I,J,K)
-              QQ_TEMP(4) = DV(1)*PV(4,I,J,K)
-              QQ_TEMP(5) = DV(1)*(DV(2)+0.5D0*(PV(2,I,J,K)**2+PV(3,I,J,K)**2+PV(4,I,J,K)**2))-PV(1,I,J,K)
-              DO N=6,VARIABLE%GETNPV()
-                QQ_TEMP(N) = DV(1)*PV(N,I,J,K)
-              END DO
+            if(nqq.ne.variable%getnqq()) then
+              qq_temp(1) = dv(1)
+              qq_temp(2) = dv(1)*pv(2,i,j,k)
+              qq_temp(3) = dv(1)*pv(3,i,j,k)
+              qq_temp(4) = dv(1)*pv(4,i,j,k)
+              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)
+              do n=6,variable%getnpv()
+                qq_temp(n) = dv(1)*pv(n,i,j,k)
+              end do
               
-              CALL VARIABLE%SETQQ(1,I,J,K,QQ_TEMP)
-              CALL VARIABLE%SETQQ(2,I,J,K,QQ_TEMP)
-            ELSE
-              DO N=1,VARIABLE%GETNQQ()
-                QQ_TEMP = QQ(N,:,I,J,K)
-                CALL VARIABLE%SETQQ(N,I,J,K,QQ_TEMP)
-              END DO          
-            END IF
-          END DO
-        END DO
-      END DO
-      IF(ALLOCATED(QQ_TEMP)) DEALLOCATE(QQ_TEMP)
-      DEALLOCATE(PV,TV,QQ)
+              call variable%setqq(1,i,j,k,qq_temp)
+              call variable%setqq(2,i,j,k,qq_temp)
+            else
+              do n=1,variable%getnqq()
+                qq_temp = qq(n,:,i,j,k)
+                call variable%setqq(n,i,j,k,qq_temp)
+              end do          
+            end if
+          end do
+        end do
+      end do
+      if(allocated(qq_temp)) deallocate(qq_temp)
+      deallocate(pv,tv,qq)
 
-      NTS = NTS + 1
-      NPS = NPS + 1
+      nts = nts + 1
+      nps = nps + 1
       
-      IF(INI%NSTEADY.EQ.1) THEN
-        NTS = 1
-      END IF
-      IF(NQQ.EQ.0) THEN
-        IF(INI%NSTEADY.EQ.1) THEN
-          WRITE(*,*) 'INVALID RESTART OPTION : UNSTEADY -> STEADY'
-        ELSE
-          NPS = 1
-        END IF
-      END IF
+      if(ini%nsteady.eq.1) then
+        nts = 1
+      end if
+      if(nqq.eq.0) then
+        if(ini%nsteady.eq.1) then
+          write(*,*) 'invalid restart option : unsteady -> steady'
+        else
+          nps = 1
+        end if
+      end if
       
-    END SUBROUTINE RESTART
-#IFDEF TEST
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE INITIAL(INI,GRID,VARIABLE,EOS,PROP,NPS,NTS)
-      IMPLICIT NONE
-      CLASS(T_INI_INITIAL), INTENT(INOUT) :: INI
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER, INTENT(OUT) :: NPS,NTS
-      INTEGER :: I,J,K,N
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV())
-      REAL(8) :: TV(VARIABLE%GETNTV()),QQ(VARIABLE%GETNPV())
+    end subroutine restart
+#ifdef test
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      class(t_ini_initial), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,n
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv())
+      real(8) :: tv(variable%getntv()),qq(variable%getnpv())
       
-      DO K=2,INI%KMAX
-        DO J=2,INI%JMAX
-          DO I=2,INI%IMAX
-            CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(2,I,J,K,INI%UREF*DCOS(INI%AOA))
-            CALL VARIABLE%SETPV(3,I,J,K,INI%UREF*DSIN(INI%AOA))
-            CALL VARIABLE%SETPV(4,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(5,I,J,K,INI%TREF)
-            CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
-            CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            call variable%setpv(1,i,j,k,0.d0)
+            call variable%setpv(2,i,j,k,ini%uref*dcos(ini%aoa))
+            call variable%setpv(3,i,j,k,ini%uref*dsin(ini%aoa))
+            call variable%setpv(4,i,j,k,0.d0)
+            call variable%setpv(5,i,j,k,ini%tref)
+            call variable%setpv(6,i,j,k,ini%y1ref)
+            call variable%setpv(7,i,j,k,ini%y2ref)
             
-            PV = VARIABLE%GETPV(I,J,K)   
+            pv = variable%getpv(i,j,k)   
         
-            CALL EOS%DETEOS(PV(1)+INI%PREF,PV(5),PV(6),PV(7),DV)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
             
-            DO N=1,VARIABLE%GETNDV()
-              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-            END DO
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
             
-            IF(INI%ITURB.GE.-2) THEN
-              CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-            END IF
+            if(ini%iturb.ge.-2) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
             
-            IF(INI%ITURB.GE.-1) THEN
-              TV(3) = INI%EMUTREF
-              CALL VARIABLE%SETPV(8,I,J,K,INI%KREF)
-              CALL VARIABLE%SETPV(9,I,J,K,INI%OREF)          
-            END IF
+            if(ini%iturb.ge.-1) then
+              tv(3) = ini%emutref
+              call variable%setpv(8,i,j,k,ini%kref)
+              call variable%setpv(9,i,j,k,ini%oref)          
+            end if
             
-            DO N=1,VARIABLE%GETNTV()
-              CALL VARIABLE%SETTV(N,I,J,K,TV(N))
-            END DO
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n))
+            end do
             
-            IF(INI%NSTEADY.EQ.1) THEN
-              QQ(1) = DV(1)
-              QQ(2) = DV(1)*PV(2)
-              QQ(3) = DV(1)*PV(3)
-              QQ(4) = DV(1)*PV(4)
-              QQ(5) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2+PV(4)**2))-PV(1)-INI%PREF
-              DO N=6,VARIABLE%GETNPV()
-                QQ(N) = DV(1)*PV(N)
-              END DO
+            if(ini%nsteady.eq.1) then
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
               
-              CALL VARIABLE%SETQQ(1,I,J,K,QQ)
-              CALL VARIABLE%SETQQ(2,I,J,K,QQ)
-            END IF
-          END DO
-        END DO
-      END DO
-      NPS = 1
-      NTS = 1
-    END SUBROUTINE INITIAL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-#ELIF TEST1
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE INITIAL(INI,GRID,VARIABLE,EOS,PROP,NPS,NTS)
-      IMPLICIT NONE
-      CLASS(T_INI_INITIAL), INTENT(INOUT) :: INI
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      TYPE(T_EOS), INTENT(IN) :: EOS
-      TYPE(T_PROP), INTENT(IN) :: PROP
-      INTEGER, INTENT(OUT) :: NPS,NTS
-      INTEGER :: I,J,K,N
-      REAL(8) :: PV(VARIABLE%GETNPV()),DV(VARIABLE%GETNDV())
-      REAL(8) :: TV(VARIABLE%GETNTV()),QQ(VARIABLE%GETNPV())
-      REAL(8) :: X(5)
+              call variable%setqq(1,i,j,k,qq)
+              call variable%setqq(2,i,j,k,qq)
+            end if
+          end do
+        end do
+      end do
+      nps = 1
+      nts = 1
+    end subroutine initial
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+#elif test1
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      class(t_ini_initial), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,n
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv())
+      real(8) :: tv(variable%getntv()),qq(variable%getnpv())
+      real(8) :: x(5)
       
-      DO K=2,INI%KMAX
-        DO J=2,INI%JMAX
-          DO I=2,INI%IMAX
-            X = GRID%GETGRD(I,J,K)
-            IF(X(2).LT.5.D0) THEN
-           ! IF(((1.D0-X(3))/(X(2)-5.D0).LE.-1.D0).AND.((1.D0-X(4))/(X(2)-5.D0).LE.-1.D0)) THEN
-           ! CALL VARIABLE%SETPV(1,I,J,K,10132.5-INI%PREF)
-           ! CALL VARIABLE%SETPV(2,I,J,K,0.D0)
-           ! CALL VARIABLE%SETPV(3,I,J,K,0.D0)
-           ! CALL VARIABLE%SETPV(4,I,J,K,0.D0)
-           ! CALL VARIABLE%SETPV(5,I,J,K,240.D0)
-           ! CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
-           ! CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)  
-           !ELSE
-            CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(2,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(3,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(4,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(5,I,J,K,INI%TREF)
-            CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
-            CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)
-            !END IF
-            ELSE
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            x = grid%getgrd(i,j,k)
+            if(x(2).lt.5.d0) then
+           ! if(((1.d0-x(3))/(x(2)-5.d0).le.-1.d0).and.((1.d0-x(4))/(x(2)-5.d0).le.-1.d0)) then
+           ! call variable%setpv(1,i,j,k,10132.5-ini%pref)
+           ! call variable%setpv(2,i,j,k,0.d0)
+           ! call variable%setpv(3,i,j,k,0.d0)
+           ! call variable%setpv(4,i,j,k,0.d0)
+           ! call variable%setpv(5,i,j,k,240.d0)
+           ! call variable%setpv(6,i,j,k,ini%y1ref)
+           ! call variable%setpv(7,i,j,k,ini%y2ref)  
+           !else
+            call variable%setpv(1,i,j,k,0.d0)
+            call variable%setpv(2,i,j,k,0.d0)
+            call variable%setpv(3,i,j,k,0.d0)
+            call variable%setpv(4,i,j,k,0.d0)
+            call variable%setpv(5,i,j,k,ini%tref)
+            call variable%setpv(6,i,j,k,ini%y1ref)
+            call variable%setpv(7,i,j,k,ini%y2ref)
+            !end if
+            else
              
-            IF((X(3)/(X(2)-5.D0).GE.1.D0)) THEN
-              CALL VARIABLE%SETPV(1,I,J,K,0.D0)
-              CALL VARIABLE%SETPV(2,I,J,K,0.D0)
-              CALL VARIABLE%SETPV(3,I,J,K,0.D0)
-              CALL VARIABLE%SETPV(4,I,J,K,0.D0)
-              CALL VARIABLE%SETPV(5,I,J,K,INI%TREF)
-              CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
-              CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)
-           ELSE
+            if((x(3)/(x(2)-5.d0).ge.1.d0)) then
+              call variable%setpv(1,i,j,k,0.d0)
+              call variable%setpv(2,i,j,k,0.d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
+              call variable%setpv(5,i,j,k,ini%tref)
+              call variable%setpv(6,i,j,k,ini%y1ref)
+              call variable%setpv(7,i,j,k,ini%y2ref)
+           else
             
             
-            CALL VARIABLE%SETPV(1,I,J,K,10132.5-INI%PREF)
-            CALL VARIABLE%SETPV(2,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(3,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(4,I,J,K,0.D0)
-            CALL VARIABLE%SETPV(5,I,J,K,240.D0)
-            CALL VARIABLE%SETPV(6,I,J,K,INI%Y1REF)
-            CALL VARIABLE%SETPV(7,I,J,K,INI%Y2REF)    
-            END IF
-            END IF
-            PV = VARIABLE%GETPV(I,J,K)   
+            call variable%setpv(1,i,j,k,10132.5-ini%pref)
+            call variable%setpv(2,i,j,k,0.d0)
+            call variable%setpv(3,i,j,k,0.d0)
+            call variable%setpv(4,i,j,k,0.d0)
+            call variable%setpv(5,i,j,k,240.d0)
+            call variable%setpv(6,i,j,k,ini%y1ref)
+            call variable%setpv(7,i,j,k,ini%y2ref)    
+            end if
+            end if
+            pv = variable%getpv(i,j,k)   
         
-            CALL EOS%DETEOS(PV(1)+INI%PREF,PV(5),PV(6),PV(7),DV)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
             
-            DO N=1,VARIABLE%GETNDV()
-              CALL VARIABLE%SETDV(N,I,J,K,DV(N))
-            END DO
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
             
-            IF(INI%ITURB.GE.-2) THEN
-              CALL PROP%DETPROP(DV(3),DV(4),DV(5),PV(5),PV(6),PV(7),TV(1:2))
-            END IF
+            if(ini%iturb.ge.-2) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
             
-            IF(INI%ITURB.GE.-1) THEN
-              TV(3) = INI%EMUTREF
-              CALL VARIABLE%SETPV(8,I,J,K,INI%KREF)
-              CALL VARIABLE%SETPV(9,I,J,K,INI%OREF)          
-            END IF
+            if(ini%iturb.ge.-1) then
+              tv(3) = ini%emutref
+              call variable%setpv(8,i,j,k,ini%kref)
+              call variable%setpv(9,i,j,k,ini%oref)          
+            end if
             
-            DO N=1,VARIABLE%GETNTV()
-              CALL VARIABLE%SETTV(N,I,J,K,TV(N))
-            END DO
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n))
+            end do
             
-            IF(INI%NSTEADY.EQ.1) THEN
-              QQ(1) = DV(1)
-              QQ(2) = DV(1)*PV(2)
-              QQ(3) = DV(1)*PV(3)
-              QQ(4) = DV(1)*PV(4)
-              QQ(5) = DV(1)*(DV(2)+0.5D0*(PV(2)**2+PV(3)**2+PV(4)**2))-PV(1)-INI%PREF
-              DO N=6,VARIABLE%GETNPV()
-                QQ(N) = DV(1)*PV(N)
-              END DO
+            if(ini%nsteady.eq.1) then
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
               
-              CALL VARIABLE%SETQQ(1,I,J,K,QQ)
-              CALL VARIABLE%SETQQ(2,I,J,K,QQ)
-            END IF
-          END DO
-        END DO
-      END DO
-      NPS = 1
-      NTS = 1
-    END SUBROUTINE INITIAL
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-#ENDIF
-END MODULE INITIAL_MODULE
+              call variable%setqq(1,i,j,k,qq)
+              call variable%setqq(2,i,j,k,qq)
+            end if
+          end do
+        end do
+      end do
+      nps = 1
+      nts = 1
+    end subroutine initial
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+#endif
+end module initial_module
 

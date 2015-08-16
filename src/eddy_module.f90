@@ -1,127 +1,127 @@
-MODULE EDDY_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_EDDY,T_EDDY_KE,T_EDDY_KWSST
+module eddy_module
+  implicit none
+  private
+  public :: t_eddy,t_eddy_ke,t_eddy_kwsst
   
-  TYPE, ABSTRACT :: T_EDDY
-    PRIVATE
-    LOGICAL :: L_EDDY
-    REAL(8), POINTER, PUBLIC :: PV(:,:)
-    REAL(8), POINTER, PUBLIC :: CX1(:),CX2(:),EX1(:),EX2(:),TX1(:),TX2(:)
-    REAL(8), POINTER, PUBLIC :: DV(:),TV(:),GRD(:)
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_CALEDDY), DEFERRED :: CALEDDY
-  END TYPE T_EDDY
+  type, abstract :: t_eddy
+    private
+    logical :: l_eddy
+    real(8), pointer, public :: pv(:,:)
+    real(8), pointer, public :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
+    real(8), pointer, public :: dv(:),tv(:),grd(:)
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure(p_caleddy), deferred :: caleddy
+  end type t_eddy
   
-  ABSTRACT INTERFACE
-    FUNCTION P_CALEDDY(EDDY) RESULT(EMUT)
-      IMPORT T_EDDY
-      CLASS(T_EDDY), INTENT(IN) :: EDDY
-      REAL(8) :: EMUT
-    END FUNCTION P_CALEDDY
-  END INTERFACE
+  abstract interface
+    function p_caleddy(eddy) result(emut)
+      import t_eddy
+      class(t_eddy), intent(in) :: eddy
+      real(8) :: emut
+    end function p_caleddy
+  end interface
   
-  TYPE, EXTENDS(T_EDDY) :: T_EDDY_KE
-    CONTAINS
-      PROCEDURE :: CALEDDY => KEPSILON
-  END TYPE T_EDDY_KE
+  type, extends(t_eddy) :: t_eddy_ke
+    contains
+      procedure :: caleddy => kepsilon
+  end type t_eddy_ke
 
-  TYPE, EXTENDS(T_EDDY) :: T_EDDY_KWSST
-    CONTAINS
-      PROCEDURE :: CALEDDY => KWSST
-  END TYPE T_EDDY_KWSST
+  type, extends(t_eddy) :: t_eddy_kwsst
+    contains
+      procedure :: caleddy => kwsst
+  end type t_eddy_kwsst
 
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(EDDY)
-      IMPLICIT NONE
-      CLASS(T_EDDY), INTENT(OUT) :: EDDY
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(eddy)
+      implicit none
+      class(t_eddy), intent(out) :: eddy
       
-      EDDY%L_EDDY = .TRUE.
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(EDDY)
-      IMPLICIT NONE
-      CLASS(T_EDDY), INTENT(INOUT) :: EDDY
+      eddy%l_eddy = .true.
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(eddy)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
       
-      IF(ASSOCIATED(EDDY%CX1))     NULLIFY(EDDY%CX1)
-      IF(ASSOCIATED(EDDY%CX2))     NULLIFY(EDDY%CX2)
-      IF(ASSOCIATED(EDDY%EX1))     NULLIFY(EDDY%EX1)
-      IF(ASSOCIATED(EDDY%EX2))     NULLIFY(EDDY%EX2)
-      IF(ASSOCIATED(EDDY%TX1))     NULLIFY(EDDY%TX1)
-      IF(ASSOCIATED(EDDY%TX2))     NULLIFY(EDDY%TX2)
-      IF(ASSOCIATED(EDDY%GRD))     NULLIFY(EDDY%GRD)
-      IF(ASSOCIATED(EDDY%PV))      NULLIFY(EDDY%PV) 
-      IF(ASSOCIATED(EDDY%DV))      NULLIFY(EDDY%DV) 
-      IF(ASSOCIATED(EDDY%TV))      NULLIFY(EDDY%TV)
-      EDDY%L_EDDY = .FALSE.
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KEPSILON(EDDY) RESULT(EMUT)
-      CLASS(T_EDDY_KE), INTENT(IN) :: EDDY
-      REAL(8) :: EMUT
-      REAL(8) :: RE_T,RE_E,F_MU
+      if(associated(eddy%cx1))     nullify(eddy%cx1)
+      if(associated(eddy%cx2))     nullify(eddy%cx2)
+      if(associated(eddy%ex1))     nullify(eddy%ex1)
+      if(associated(eddy%ex2))     nullify(eddy%ex2)
+      if(associated(eddy%tx1))     nullify(eddy%tx1)
+      if(associated(eddy%tx2))     nullify(eddy%tx2)
+      if(associated(eddy%grd))     nullify(eddy%grd)
+      if(associated(eddy%pv))      nullify(eddy%pv) 
+      if(associated(eddy%dv))      nullify(eddy%dv) 
+      if(associated(eddy%tv))      nullify(eddy%tv)
+      eddy%l_eddy = .false.
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kepsilon(eddy) result(emut)
+      class(t_eddy_ke), intent(in) :: eddy
+      real(8) :: emut
+      real(8) :: re_t,re_e,f_mu
       
-      RE_T = EDDY%DV(1)*EDDY%PV(2,8)**2/EDDY%PV(2,9)/EDDY%TV(1)
-      RE_E = EDDY%DV(1)*(EDDY%TV(1)/EDDY%DV(1)*EDDY%PV(2,9))**0.25D0*EDDY%GRD(5)/EDDY%TV(1)
-      F_MU = (1.D0+3.D0/RE_T**(3.D0/4.D0))*(1.D0+80.D0*DEXP(-RE_E))*(1.D0-DEXP(-RE_E/43.D0-RE_E**2/330.D0))**2
-      EMUT = 0.09D0*EDDY%DV(1)*EDDY%PV(2,8)**2/EDDY%PV(2,9)*F_MU    
-    END FUNCTION KEPSILON
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KWSST(EDDY) RESULT(EMUT)
-      CLASS(T_EDDY_KWSST), INTENT(IN) :: EDDY
-      REAL(8) :: EMUT
-      REAL(8) :: U1,U2,U3,U4,U5,U6
-      REAL(8) :: V1,V2,V3,V4,V5,V6
-      REAL(8) :: W1,W2,W3,W4,W5,W6
-      REAL(8) :: DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,VOL
-      REAL(8) :: TERM1,TERM2,ARG2,BIGF2
-      REAL(8) :: SIJSIJ,SSS,TERM4,TERM5,TERM6
+      re_t = eddy%dv(1)*eddy%pv(2,8)**2/eddy%pv(2,9)/eddy%tv(1)
+      re_e = eddy%dv(1)*(eddy%tv(1)/eddy%dv(1)*eddy%pv(2,9))**0.25d0*eddy%grd(5)/eddy%tv(1)
+      f_mu = (1.d0+3.d0/re_t**(3.d0/4.d0))*(1.d0+80.d0*dexp(-re_e))*(1.d0-dexp(-re_e/43.d0-re_e**2/330.d0))**2
+      emut = 0.09d0*eddy%dv(1)*eddy%pv(2,8)**2/eddy%pv(2,9)*f_mu    
+    end function kepsilon
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kwsst(eddy) result(emut)
+      class(t_eddy_kwsst), intent(in) :: eddy
+      real(8) :: emut
+      real(8) :: u1,u2,u3,u4,u5,u6
+      real(8) :: v1,v2,v3,v4,v5,v6
+      real(8) :: w1,w2,w3,w4,w5,w6
+      real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
+      real(8) :: term1,term2,arg2,bigf2
+      real(8) :: sijsij,sss,term4,term5,term6
 
-      U1 = 0.5D0*(EDDY%PV(1,2)+EDDY%PV(2,2))
-      U2 = 0.5D0*(EDDY%PV(3,2)+EDDY%PV(2,2))
-      U3 = 0.5D0*(EDDY%PV(4,2)+EDDY%PV(2,2))
-      U4 = 0.5D0*(EDDY%PV(5,2)+EDDY%PV(2,2))
-      U5 = 0.5D0*(EDDY%PV(6,2)+EDDY%PV(2,2))
-      U6 = 0.5D0*(EDDY%PV(7,2)+EDDY%PV(2,2))
+      u1 = 0.5d0*(eddy%pv(1,2)+eddy%pv(2,2))
+      u2 = 0.5d0*(eddy%pv(3,2)+eddy%pv(2,2))
+      u3 = 0.5d0*(eddy%pv(4,2)+eddy%pv(2,2))
+      u4 = 0.5d0*(eddy%pv(5,2)+eddy%pv(2,2))
+      u5 = 0.5d0*(eddy%pv(6,2)+eddy%pv(2,2))
+      u6 = 0.5d0*(eddy%pv(7,2)+eddy%pv(2,2))
 
-      V1 = 0.5D0*(EDDY%PV(1,3)+EDDY%PV(2,3))
-      V2 = 0.5D0*(EDDY%PV(3,3)+EDDY%PV(2,3))
-      V3 = 0.5D0*(EDDY%PV(4,3)+EDDY%PV(2,3))
-      V4 = 0.5D0*(EDDY%PV(5,3)+EDDY%PV(2,3))
-      V5 = 0.5D0*(EDDY%PV(6,3)+EDDY%PV(2,3))
-      V6 = 0.5D0*(EDDY%PV(7,3)+EDDY%PV(2,3))
+      v1 = 0.5d0*(eddy%pv(1,3)+eddy%pv(2,3))
+      v2 = 0.5d0*(eddy%pv(3,3)+eddy%pv(2,3))
+      v3 = 0.5d0*(eddy%pv(4,3)+eddy%pv(2,3))
+      v4 = 0.5d0*(eddy%pv(5,3)+eddy%pv(2,3))
+      v5 = 0.5d0*(eddy%pv(6,3)+eddy%pv(2,3))
+      v6 = 0.5d0*(eddy%pv(7,3)+eddy%pv(2,3))
 
-      W1 = 0.5D0*(EDDY%PV(1,4)+EDDY%PV(2,4))
-      W2 = 0.5D0*(EDDY%PV(3,4)+EDDY%PV(2,4))
-      W3 = 0.5D0*(EDDY%PV(4,4)+EDDY%PV(2,4))
-      W4 = 0.5D0*(EDDY%PV(5,4)+EDDY%PV(2,4))
-      W5 = 0.5D0*(EDDY%PV(6,4)+EDDY%PV(2,4))
-      W6 = 0.5D0*(EDDY%PV(7,4)+EDDY%PV(2,4))
+      w1 = 0.5d0*(eddy%pv(1,4)+eddy%pv(2,4))
+      w2 = 0.5d0*(eddy%pv(3,4)+eddy%pv(2,4))
+      w3 = 0.5d0*(eddy%pv(4,4)+eddy%pv(2,4))
+      w4 = 0.5d0*(eddy%pv(5,4)+eddy%pv(2,4))
+      w5 = 0.5d0*(eddy%pv(6,4)+eddy%pv(2,4))
+      w6 = 0.5d0*(eddy%pv(7,4)+eddy%pv(2,4))
       
-      VOL = 1.D0/EDDY%GRD(1)
-      DUDX = (U2*EDDY%CX2(1)+U4*EDDY%EX2(1)+U6*EDDY%TX2(1)-U1*EDDY%CX1(1)-U3*EDDY%EX1(1)-U5*EDDY%TX1(1))*VOL
-      DUDY = (U2*EDDY%CX2(2)+U4*EDDY%EX2(2)+U6*EDDY%TX2(2)-U1*EDDY%CX1(2)-U3*EDDY%EX1(2)-U5*EDDY%TX1(2))*VOL
-      DUDY = (U2*EDDY%CX2(3)+U4*EDDY%EX2(3)+U6*EDDY%TX2(3)-U1*EDDY%CX1(3)-U3*EDDY%EX1(3)-U5*EDDY%TX1(3))*VOL
-      DVDX = (V2*EDDY%CX2(1)+V4*EDDY%EX2(1)+V6*EDDY%TX2(1)-V1*EDDY%CX1(1)-V3*EDDY%EX1(1)-V5*EDDY%TX1(1))*VOL
-      DVDY = (V2*EDDY%CX2(2)+V4*EDDY%EX2(2)+V6*EDDY%TX2(2)-V1*EDDY%CX1(2)-V3*EDDY%EX1(2)-V5*EDDY%TX1(2))*VOL
-      DVDY = (V2*EDDY%CX2(3)+V4*EDDY%EX2(3)+V6*EDDY%TX2(3)-V1*EDDY%CX1(3)-V3*EDDY%EX1(3)-V5*EDDY%TX1(3))*VOL
-      DWDX = (W2*EDDY%CX2(1)+W4*EDDY%EX2(1)+W6*EDDY%TX2(1)-W1*EDDY%CX1(1)-W3*EDDY%EX1(1)-W5*EDDY%TX1(1))*VOL
-      DWDY = (W2*EDDY%CX2(2)+W4*EDDY%EX2(2)+W6*EDDY%TX2(2)-W1*EDDY%CX1(2)-W3*EDDY%EX1(2)-W5*EDDY%TX1(2))*VOL
-      DWDY = (W2*EDDY%CX2(3)+W4*EDDY%EX2(3)+W6*EDDY%TX2(3)-W1*EDDY%CX1(3)-W3*EDDY%EX1(3)-W5*EDDY%TX1(3))*VOL
+      vol = 1.d0/eddy%grd(1)
+      dudx = (u2*eddy%cx2(1)+u4*eddy%ex2(1)+u6*eddy%tx2(1)-u1*eddy%cx1(1)-u3*eddy%ex1(1)-u5*eddy%tx1(1))*vol
+      dudy = (u2*eddy%cx2(2)+u4*eddy%ex2(2)+u6*eddy%tx2(2)-u1*eddy%cx1(2)-u3*eddy%ex1(2)-u5*eddy%tx1(2))*vol
+      dudy = (u2*eddy%cx2(3)+u4*eddy%ex2(3)+u6*eddy%tx2(3)-u1*eddy%cx1(3)-u3*eddy%ex1(3)-u5*eddy%tx1(3))*vol
+      dvdx = (v2*eddy%cx2(1)+v4*eddy%ex2(1)+v6*eddy%tx2(1)-v1*eddy%cx1(1)-v3*eddy%ex1(1)-v5*eddy%tx1(1))*vol
+      dvdy = (v2*eddy%cx2(2)+v4*eddy%ex2(2)+v6*eddy%tx2(2)-v1*eddy%cx1(2)-v3*eddy%ex1(2)-v5*eddy%tx1(2))*vol
+      dvdy = (v2*eddy%cx2(3)+v4*eddy%ex2(3)+v6*eddy%tx2(3)-v1*eddy%cx1(3)-v3*eddy%ex1(3)-v5*eddy%tx1(3))*vol
+      dwdx = (w2*eddy%cx2(1)+w4*eddy%ex2(1)+w6*eddy%tx2(1)-w1*eddy%cx1(1)-w3*eddy%ex1(1)-w5*eddy%tx1(1))*vol
+      dwdy = (w2*eddy%cx2(2)+w4*eddy%ex2(2)+w6*eddy%tx2(2)-w1*eddy%cx1(2)-w3*eddy%ex1(2)-w5*eddy%tx1(2))*vol
+      dwdy = (w2*eddy%cx2(3)+w4*eddy%ex2(3)+w6*eddy%tx2(3)-w1*eddy%cx1(3)-w3*eddy%ex1(3)-w5*eddy%tx1(3))*vol
       
-      TERM1 = DSQRT(EDDY%PV(2,8))/(0.09D0*EDDY%PV(2,9)*EDDY%GRD(5))
-      TERM2 = 500.D0*EDDY%TV(1)/EDDY%DV(1)/(EDDY%PV(2,9)*EDDY%GRD(5)**2)
-      ARG2 = DMAX1(2.D0*TERM1,TERM2)
-      BIGF2 = DTANH(ARG2**2)   
-      SIJSIJ = DUDX**2+DVDY**2+DWDZ**2+0.5D0*((DUDY+DVDX)**2+(DUDZ+DWDX)**2+(DVDZ+DWDY)**2)
-      SSS = DSQRT(2.D0*SIJSIJ)
-      TERM4 = 0.31D0*EDDY%PV(2,9)
-      TERM5 = SSS*BIGF2
-      TERM6 = DMAX1(TERM4,TERM5)
-      EMUT = 0.31D0*EDDY%DV(1)*EDDY%PV(2,8)/TERM6
-    END FUNCTION KWSST
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE EDDY_MODULE
+      term1 = dsqrt(eddy%pv(2,8))/(0.09d0*eddy%pv(2,9)*eddy%grd(5))
+      term2 = 500.d0*eddy%tv(1)/eddy%dv(1)/(eddy%pv(2,9)*eddy%grd(5)**2)
+      arg2 = dmax1(2.d0*term1,term2)
+      bigf2 = dtanh(arg2**2)   
+      sijsij = dudx**2+dvdy**2+dwdz**2+0.5d0*((dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2)
+      sss = dsqrt(2.d0*sijsij)
+      term4 = 0.31d0*eddy%pv(2,9)
+      term5 = sss*bigf2
+      term6 = dmax1(term4,term5)
+      emut = 0.31d0*eddy%dv(1)*eddy%pv(2,8)/term6
+    end function kwsst
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module eddy_module

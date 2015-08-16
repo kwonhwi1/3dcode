@@ -1,194 +1,194 @@
-MODULE VARIABLE_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_VARIABLE
+module variable_module
+  use config_module
+  use grid_module
+  implicit none
+  private
+  public :: t_variable
   
-  TYPE T_VARIABLE
-    PRIVATE
-    INTEGER :: NPV,NDV,NTV,NQQ
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV   ! P,U,V,W,T,Y1,Y2,K,O
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: DV   ! RHO,H,RHOL,RHOV,RHOG,SND2,DRDP,DRDT,DRDY1,DRDY2,DHDP,DHDT,DHDY1,DHDY2,DRDPV,DRDTV,DRDPL,DRDTL
-    REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: TV   ! VIS,COND,EMUT
-    REAL(8), DIMENSION(:,:,:,:,:), ALLOCATABLE :: QQ ! UNSTEADY N-1,N-2 CONSERVATIVE VARIABLE
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: GETNPV
-      PROCEDURE :: GETNDV
-      PROCEDURE :: GETNTV
-      PROCEDURE :: GETNQQ
-      PROCEDURE :: GETPV
-      PROCEDURE :: GETDV
-      PROCEDURE :: GETTV
-      PROCEDURE :: GETQQ
-      PROCEDURE :: SETPV
-      PROCEDURE :: SETDV
-      PROCEDURE :: SETTV
-      PROCEDURE :: SETQQ
-  END TYPE T_VARIABLE
+  type t_variable
+    private
+    integer :: npv,ndv,ntv,nqq
+    real(8), dimension(:,:,:,:), allocatable :: pv   ! p,u,v,w,t,y1,y2,k,o
+    real(8), dimension(:,:,:,:), allocatable :: dv   ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+    real(8), dimension(:,:,:,:), allocatable :: tv   ! vis,cond,emut
+    real(8), dimension(:,:,:,:,:), allocatable :: qq ! unsteady n-1,n-2 conservative variable
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: getnpv
+      procedure :: getndv
+      procedure :: getntv
+      procedure :: getnqq
+      procedure :: getpv
+      procedure :: getdv
+      procedure :: gettv
+      procedure :: getqq
+      procedure :: setpv
+      procedure :: setdv
+      procedure :: settv
+      procedure :: setqq
+  end type t_variable
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(VARIABLE,CONFIG,GRID)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(OUT) :: VARIABLE
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(variable,config,grid)
+      implicit none
+      class(t_variable), intent(out) :: variable
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
           
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-3)
-        VARIABLE%NPV = 7
-        VARIABLE%NTV = 0  
-      CASE(-2)
-        VARIABLE%NPV = 7
-        VARIABLE%NTV = 2      
-      CASE(-1,0)
-        VARIABLE%NPV = 9
-        VARIABLE%NTV = 3      
-      END SELECT
-      VARIABLE%NDV = 18
-      SELECT CASE(CONFIG%GETNSTEADY())
-      CASE(0)
-        VARIABLE%NQQ = 0
-      CASE(1)
-        VARIABLE%NQQ = 2
-      END SELECT      
+      select case(config%getiturb())
+      case(-3)
+        variable%npv = 7
+        variable%ntv = 0  
+      case(-2)
+        variable%npv = 7
+        variable%ntv = 2      
+      case(-1,0)
+        variable%npv = 9
+        variable%ntv = 3      
+      end select
+      variable%ndv = 18
+      select case(config%getnsteady())
+      case(0)
+        variable%nqq = 0
+      case(1)
+        variable%nqq = 2
+      end select      
       
-      ALLOCATE(VARIABLE%PV(VARIABLE%NPV,-1:GRID%GETIMAX()+3,-1:GRID%GETJMAX()+3,-1:GRID%GETKMAX()+3))
-      ALLOCATE(VARIABLE%DV(VARIABLE%NDV,-1:GRID%GETIMAX()+3,-1:GRID%GETJMAX()+3,-1:GRID%GETKMAX()+3))
-      ALLOCATE(VARIABLE%TV(VARIABLE%NTV,-1:GRID%GETIMAX()+3,-1:GRID%GETJMAX()+3,-1:GRID%GETKMAX()+3))
-      ALLOCATE(VARIABLE%QQ(VARIABLE%NQQ,VARIABLE%NPV,2:GRID%GETIMAX(),2:GRID%GETJMAX(),2:GRID%GETKMAX()))
+      allocate(variable%pv(variable%npv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
+      allocate(variable%dv(variable%ndv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
+      allocate(variable%tv(variable%ntv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
+      allocate(variable%qq(variable%nqq,variable%npv,2:grid%getimax(),2:grid%getjmax(),2:grid%getkmax()))
 
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(variable)
+      implicit none
+      class(t_variable), intent(inout) :: variable
           
-      IF(ALLOCATED(VARIABLE%PV)) DEALLOCATE(VARIABLE%PV)
-      IF(ALLOCATED(VARIABLE%DV)) DEALLOCATE(VARIABLE%DV)
-      IF(ALLOCATED(VARIABLE%TV)) DEALLOCATE(VARIABLE%TV)
-      IF(ALLOCATED(VARIABLE%QQ)) DEALLOCATE(VARIABLE%QQ)
+      if(allocated(variable%pv)) deallocate(variable%pv)
+      if(allocated(variable%dv)) deallocate(variable%dv)
+      if(allocated(variable%tv)) deallocate(variable%tv)
+      if(allocated(variable%qq)) deallocate(variable%qq)
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNPV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNPV
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnpv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getnpv
       
-      GETNPV = VARIABLE%NPV
+      getnpv = variable%npv
       
-    END FUNCTION GETNPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNDV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNDV
+    end function getnpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getndv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getndv
       
-      GETNDV = VARIABLE%NDV
+      getndv = variable%ndv
       
-    END FUNCTION GETNDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNTV(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNTV
+    end function getndv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getntv(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getntv
       
-      GETNTV = VARIABLE%NTV
+      getntv = variable%ntv
       
-    END FUNCTION GETNTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETNQQ(VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: GETNQQ
+    end function getntv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getnqq(variable)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer :: getnqq
       
-      GETNQQ = VARIABLE%NQQ
+      getnqq = variable%nqq
       
-    END FUNCTION GETNQQ
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETPV(VARIABLE,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETPV(VARIABLE%NPV)
+    end function getnqq
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getpv(variable,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: i,j,k
+      real(8) :: getpv(variable%npv)
       
-      GETPV = VARIABLE%PV(:,I,J,K)
+      getpv = variable%pv(:,i,j,k)
       
-    END FUNCTION GETPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETDV(VARIABLE,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETDV(VARIABLE%NDV)
+    end function getpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getdv(variable,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: i,j,k
+      real(8) :: getdv(variable%ndv)
       
-      GETDV = VARIABLE%DV(:,I,J,K)
+      getdv = variable%dv(:,i,j,k)
       
-    END FUNCTION GETDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETTV(VARIABLE,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETTV(VARIABLE%NTV)
+    end function getdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function gettv(variable,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: i,j,k
+      real(8) :: gettv(variable%ntv)
       
-      GETTV = VARIABLE%TV(:,I,J,K)
+      gettv = variable%tv(:,i,j,k)
       
-    END FUNCTION GETTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETQQ(VARIABLE,N,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER, INTENT(IN) :: I,J,K,N
-      REAL(8) :: GETQQ(VARIABLE%NPV)
+    end function gettv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getqq(variable,n,i,j,k)
+      implicit none
+      class(t_variable), intent(in) :: variable
+      integer, intent(in) :: i,j,k,n
+      real(8) :: getqq(variable%npv)
       
-      GETQQ = VARIABLE%QQ(N,:,I,J,K)
+      getqq = variable%qq(n,:,i,j,k)
       
-    END FUNCTION GETQQ
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETPV(VARIABLE,N,I,J,K,VAR)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER, INTENT(IN) :: N,I,J,K
-      REAL(8), INTENT(IN) :: VAR
+    end function getqq
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(variable,n,i,j,k,var)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer, intent(in) :: n,i,j,k
+      real(8), intent(in) :: var
       
-      VARIABLE%PV(N,I,J,K) = VAR
+      variable%pv(n,i,j,k) = var
       
-    END SUBROUTINE SETPV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETDV(VARIABLE,N,I,J,K,VAR)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER, INTENT(IN) :: N,I,J,K
-      REAL(8), INTENT(IN) :: VAR
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(variable,n,i,j,k,var)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer, intent(in) :: n,i,j,k
+      real(8), intent(in) :: var
       
-      VARIABLE%DV(N,I,J,K) = VAR
+      variable%dv(n,i,j,k) = var
       
-    END SUBROUTINE SETDV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETTV(VARIABLE,N,I,J,K,VAR)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER, INTENT(IN) :: N,I,J,K
-      REAL(8), INTENT(IN) :: VAR
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(variable,n,i,j,k,var)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer, intent(in) :: n,i,j,k
+      real(8), intent(in) :: var
       
-      VARIABLE%TV(N,I,J,K) = VAR
+      variable%tv(n,i,j,k) = var
       
-    END SUBROUTINE SETTV
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE SETQQ(VARIABLE,N,I,J,K,VAR)
-      IMPLICIT NONE
-      CLASS(T_VARIABLE), INTENT(INOUT) :: VARIABLE
-      INTEGER, INTENT(IN) :: N,I,J,K
-      REAL(8), INTENT(IN) :: VAR(VARIABLE%NPV)
+    end subroutine settv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setqq(variable,n,i,j,k,var)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer, intent(in) :: n,i,j,k
+      real(8), intent(in) :: var(variable%npv)
       
-      VARIABLE%QQ(N,:,I,J,K) = VAR
+      variable%qq(n,:,i,j,k) = var
       
-    END SUBROUTINE SETQQ
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE VARIABLE_MODULE
+    end subroutine setqq
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module variable_module

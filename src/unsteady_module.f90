@@ -1,65 +1,65 @@
-MODULE UNSTEADY_MODULE
-  USE CONFIG_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_UNSTEADY
+module unsteady_module
+  use config_module
+  use variable_module
+  implicit none
+  private
+  public :: t_unsteady
  
-  TYPE T_UNSTEADY
-    PRIVATE
-    INTEGER :: NPV
-    REAL(8) :: PREF,DT_PHY
-    REAL(8), POINTER, PUBLIC :: PV(:),DV(:),GRD(:),QQ1(:),QQ2(:) 
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: UNSTEADYSOURCE
-  END TYPE T_UNSTEADY
+  type t_unsteady
+    private
+    integer :: npv
+    real(8) :: pref,dt_phy
+    real(8), pointer, public :: pv(:),dv(:),grd(:),qq1(:),qq2(:) 
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: unsteadysource
+  end type t_unsteady
 
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(UNSTEADY,CONFIG,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_UNSTEADY), INTENT(OUT) :: UNSTEADY
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(unsteady,config,variable)
+      implicit none
+      class(t_unsteady), intent(out) :: unsteady
+      type(t_config), intent(in) :: config
+      type(t_variable), intent(in) :: variable
  
-      UNSTEADY%PREF = CONFIG%GETPREF()
-      UNSTEADY%DT_PHY = CONFIG%GETDT_PHY()
+      unsteady%pref = config%getpref()
+      unsteady%dt_phy = config%getdt_phy()
 
-      UNSTEADY%NPV = VARIABLE%GETNPV()
+      unsteady%npv = variable%getnpv()
 
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(UNSTEADY)
-      IMPLICIT NONE
-      CLASS(T_UNSTEADY), INTENT(INOUT) :: UNSTEADY
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(unsteady)
+      implicit none
+      class(t_unsteady), intent(inout) :: unsteady
       
-      IF(ASSOCIATED(UNSTEADY%GRD)) NULLIFY(UNSTEADY%GRD)      
-      IF(ASSOCIATED(UNSTEADY%PV))  NULLIFY(UNSTEADY%PV) 
-      IF(ASSOCIATED(UNSTEADY%DV))  NULLIFY(UNSTEADY%DV) 
-      IF(ASSOCIATED(UNSTEADY%QQ1)) NULLIFY(UNSTEADY%QQ1)
-      IF(ASSOCIATED(UNSTEADY%QQ2)) NULLIFY(UNSTEADY%QQ2)
+      if(associated(unsteady%grd)) nullify(unsteady%grd)      
+      if(associated(unsteady%pv))  nullify(unsteady%pv) 
+      if(associated(unsteady%dv))  nullify(unsteady%dv) 
+      if(associated(unsteady%qq1)) nullify(unsteady%qq1)
+      if(associated(unsteady%qq2)) nullify(unsteady%qq2)
 
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION UNSTEADYSOURCE(UNSTEADY) RESULT(FX)
-      IMPLICIT NONE
-      CLASS(T_UNSTEADY), INTENT(IN) :: UNSTEADY
-      REAL(8) :: FX(UNSTEADY%NPV)
-      INTEGER :: N
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function unsteadysource(unsteady) result(fx)
+      implicit none
+      class(t_unsteady), intent(in) :: unsteady
+      real(8) :: fx(unsteady%npv)
+      integer :: n
       
-      FX(1) = UNSTEADY%DV(1)
-      FX(2) = UNSTEADY%DV(1)*UNSTEADY%PV(2)
-      FX(3) = UNSTEADY%DV(1)*UNSTEADY%PV(3)
-      FX(4) = UNSTEADY%DV(1)*UNSTEADY%PV(4)
-      FX(5) = UNSTEADY%DV(1)*(UNSTEADY%DV(2)+0.5D0*(UNSTEADY%PV(2)**2+UNSTEADY%PV(3)**2+UNSTEADY%PV(4)**2))-(UNSTEADY%PV(1)+UNSTEADY%PREF)
-      DO N = 6,UNSTEADY%NPV
-        FX(N) = UNSTEADY%DV(1)*UNSTEADY%PV(N)
-      END DO
+      fx(1) = unsteady%dv(1)
+      fx(2) = unsteady%dv(1)*unsteady%pv(2)
+      fx(3) = unsteady%dv(1)*unsteady%pv(3)
+      fx(4) = unsteady%dv(1)*unsteady%pv(4)
+      fx(5) = unsteady%dv(1)*(unsteady%dv(2)+0.5d0*(unsteady%pv(2)**2+unsteady%pv(3)**2+unsteady%pv(4)**2))-(unsteady%pv(1)+unsteady%pref)
+      do n = 6,unsteady%npv
+        fx(n) = unsteady%dv(1)*unsteady%pv(n)
+      end do
       
-      FX = (1.5D0*FX - 2.D0*UNSTEADY%QQ1 + 0.5D0*UNSTEADY%QQ2)*UNSTEADY%GRD(1)/UNSTEADY%DT_PHY       
+      fx = (1.5d0*fx - 2.d0*unsteady%qq1 + 0.5d0*unsteady%qq2)*unsteady%grd(1)/unsteady%dt_phy       
       
-    END FUNCTION UNSTEADYSOURCE
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE UNSTEADY_MODULE
+    end function unsteadysource
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module unsteady_module

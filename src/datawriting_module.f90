@@ -1,174 +1,174 @@
-MODULE DATAWRITING_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE POSTVARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_DATAWRITING
+module datawriting_module
+  use config_module
+  use grid_module
+  use postvariable_module
+  implicit none
+  private
+  public :: t_datawriting
   
-  TYPE T_DATAWRITING
+  type t_datawriting
   
-    CONTAINS
-      PROCEDURE :: CGNSWRITING
-      PROCEDURE :: CL_WRITING
-  END TYPE T_DATAWRITING
+    contains
+      procedure :: cgnswriting
+      procedure :: cl_writing
+  end type t_datawriting
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CGNSWRITING(DATAWRITING,CONFIG,VARIABLE)
-      IMPLICIT NONE
-      INCLUDE 'cgnslib_f.h'
-      CLASS(T_DATAWRITING), INTENT(INOUT) :: DATAWRITING
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: IFILE,IER,INDEX_FLOW,INDEX_FIELD
-      INTEGER :: N,M,L,I,J,K
-      REAL(8), DIMENSION(:), ALLOCATABLE :: TIME
-      REAL(8), DIMENSION(:,:,:,:), ALLOCATABLE :: PV,DV,TV
-      REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: A
-      CHARACTER(7), DIMENSION(:), ALLOCATABLE :: SOLNAME
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cgnswriting(datawriting,config,variable)
+      implicit none
+      include 'cgnslib_f.h'
+      class(t_datawriting), intent(inout) :: datawriting
+      type(t_config), intent(in) :: config
+      type(t_variable), intent(in) :: variable
+      integer :: ifile,ier,index_flow,index_field
+      integer :: n,m,l,i,j,k
+      real(8), dimension(:), allocatable :: time
+      real(8), dimension(:,:,:,:), allocatable :: pv,dv,tv
+      real(8), dimension(:,:,:), allocatable :: a
+      character(7), dimension(:), allocatable :: solname
  
-      ALLOCATE(SOLNAME(VARIABLE%GETNSOLUTION()),TIME(VARIABLE%GETNSOLUTION()))
+      allocate(solname(variable%getnsolution()),time(variable%getnsolution()))
       
-      IF(CONFIG%GETNSTEADY().EQ.1) THEN
-        DO N=1,VARIABLE%GETNSOLUTION()
-          WRITE(SOLNAME(N),'(I4.4)') VARIABLE%GETNPS(N)
-          TIME(N) = DBLE(VARIABLE%GETNPS(N))
-        END DO      
-      ELSE
-        DO N=1,VARIABLE%GETNSOLUTION()
-          WRITE(SOLNAME(N),'(I7.7)') VARIABLE%GETNTS(N)
-          TIME(N) = DBLE(VARIABLE%GETNTS(N))
-        END DO      
-      END IF
+      if(config%getnsteady().eq.1) then
+        do n=1,variable%getnsolution()
+          write(solname(n),'(i4.4)') variable%getnps(n)
+          time(n) = dble(variable%getnps(n))
+        end do      
+      else
+        do n=1,variable%getnsolution()
+          write(solname(n),'(i7.7)') variable%getnts(n)
+          time(n) = dble(variable%getnts(n))
+        end do      
+      end if
 
       
-      CALL CG_OPEN_F('./'//TRIM(CONFIG%GETNAME())//'.cgns',CG_MODE_READ,IFILE,IER)
-      IF(IER.NE.CG_OK) CALL CG_ERROR_EXIT_F
-      CALL CG_SAVE_AS_F(IFILE,'./'//TRIM(CONFIG%GETNAME())//'_RESULT.cgns',CG_FILE_HDF5,0,IER)
-      CALL CG_CLOSE_F(IFILE,IER)
+      call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
+      if(ier.ne.cg_ok) call cg_error_exit_f
+      call cg_save_as_f(ifile,'./'//trim(config%getname())//'_result.cgns',cg_file_hdf5,0,ier)
+      call cg_close_f(ifile,ier)
       
-      CALL CG_OPEN_F('./'//TRIM(CONFIG%GETNAME())//'_RESULT.cgns',CG_MODE_MODIFY,IFILE,IER)
-      IF(IER.NE.CG_OK) CALL CG_ERROR_EXIT_F
+      call cg_open_f('./'//trim(config%getname())//'_result.cgns',cg_mode_modify,ifile,ier)
+      if(ier.ne.cg_ok) call cg_error_exit_f
       
-      DO N=1,VARIABLE%GETNSOLUTION()
-        WRITE(*,*) 'SOLUTION=',N, 'NPS=',VARIABLE%GETNPS(N), 'NTS=',VARIABLE%GETNTS(N)
-        DO M=0,VARIABLE%GETSIZE(N)-1
-          WRITE(*,*) 'WRITING VARIABLES TO DOMAIN',M+1
-          ALLOCATE(PV(VARIABLE%GETIMAX(N,M)-1,VARIABLE%GETJMAX(N,M)-1,VARIABLE%GETKMAX(N,M)-1,VARIABLE%GETNPV()))
-          ALLOCATE(DV(VARIABLE%GETIMAX(N,M)-1,VARIABLE%GETJMAX(N,M)-1,VARIABLE%GETKMAX(N,M)-1,VARIABLE%GETNDV()))
-          ALLOCATE(TV(VARIABLE%GETIMAX(N,M)-1,VARIABLE%GETJMAX(N,M)-1,VARIABLE%GETKMAX(N,M)-1,VARIABLE%GETNTV()))
-          ALLOCATE(A(VARIABLE%GETIMAX(N,M)-1,VARIABLE%GETJMAX(N,M)-1,VARIABLE%GETKMAX(N,M)-1))
+      do n=1,variable%getnsolution()
+        write(*,*) 'solution=',n, 'nps=',variable%getnps(n), 'nts=',variable%getnts(n)
+        do m=0,variable%getsize(n)-1
+          write(*,*) 'writing variables to domain',m+1
+          allocate(pv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getnpv()))
+          allocate(dv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getndv()))
+          allocate(tv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getntv()))
+          allocate(a(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1))
           
-          DO K=2,VARIABLE%GETKMAX(N,M)
-            DO J=2,VARIABLE%GETJMAX(N,M)
-              DO I=2,VARIABLE%GETIMAX(N,M)
-                DO L=1,VARIABLE%GETNPV()
-                  PV(I-1,J-1,K-1,L) = VARIABLE%GETPV(N,M,L,I,J,K)
-                END DO
-                DO L=1,VARIABLE%GETNDV()
-                  DV(I-1,J-1,K-1,L) = VARIABLE%GETDV(N,M,L,I,J,K)
-                END DO
-                DO L=1,VARIABLE%GETNTV()
-                  TV(I-1,J-1,K-1,L) = VARIABLE%GETTV(N,M,L,I,J,K)
-                END DO
-              END DO
-            END DO
-          END DO
+          do k=2,variable%getkmax(n,m)
+            do j=2,variable%getjmax(n,m)
+              do i=2,variable%getimax(n,m)
+                do l=1,variable%getnpv()
+                  pv(i-1,j-1,k-1,l) = variable%getpv(n,m,l,i,j,k)
+                end do
+                do l=1,variable%getndv()
+                  dv(i-1,j-1,k-1,l) = variable%getdv(n,m,l,i,j,k)
+                end do
+                do l=1,variable%getntv()
+                  tv(i-1,j-1,k-1,l) = variable%gettv(n,m,l,i,j,k)
+                end do
+              end do
+            end do
+          end do
           
-          A = DSQRT(DV(:,:,:,6))
-          CALL CG_SOL_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,SOLNAME(N),CellCenter,INDEX_FLOW,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'PRESSURE',PV(:,:,:,1),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'UVELOCITY',PV(:,:,:,2),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'VVELOCITY',PV(:,:,:,3),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'WVELOCITY',PV(:,:,:,4),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'TEMPERATURE',PV(:,:,:,5),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'Y1',PV(:,:,:,6),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'Y2',PV(:,:,:,7),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'DENSITY',DV(:,:,:,1),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'ENTHALPY',DV(:,:,:,2),INDEX_FIELD,IER)
-          CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'SOS',A,INDEX_FIELD,IER)
-          IF(CONFIG%GETITURB().GE.-1) THEN
-            CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'K',PV(:,:,:,8),INDEX_FIELD,IER)
-            CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'OMEGA',PV(:,:,:,9),INDEX_FIELD,IER)
-            CALL CG_FIELD_WRITE_F(IFILE,1,VARIABLE%GETRANK(N,M)+1,INDEX_FLOW,RealDouble,'EMUT',TV(:,:,:,3),INDEX_FIELD,IER)
-          END IF
-          DEALLOCATE(PV,DV,TV,A)
-        END DO
-        WRITE(*,*) '-----------------------------------------------------------'
-      END DO
+          a = dsqrt(dv(:,:,:,6))
+          call cg_sol_write_f(ifile,1,variable%getrank(n,m)+1,solname(n),cellcenter,index_flow,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'pressure',pv(:,:,:,1),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'uvelocity',pv(:,:,:,2),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'vvelocity',pv(:,:,:,3),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'wvelocity',pv(:,:,:,4),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'temperature',pv(:,:,:,5),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'y1',pv(:,:,:,6),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'y2',pv(:,:,:,7),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'density',dv(:,:,:,1),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'enthalpy',dv(:,:,:,2),index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'sos',a,index_field,ier)
+          if(config%getiturb().ge.-1) then
+            call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'k',pv(:,:,:,8),index_field,ier)
+            call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'omega',pv(:,:,:,9),index_field,ier)
+            call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'emut',tv(:,:,:,3),index_field,ier)
+          end if
+          deallocate(pv,dv,tv,a)
+        end do
+        write(*,*) '-----------------------------------------------------------'
+      end do
       
-      CALL CG_BITER_WRITE_F(IFILE,1,'TimeIterValues',VARIABLE%GETNSOLUTION(),IER)
-      CALL CG_GOTO_F(IFILE,1,IER,'BaseIterativeData_t',1,'end')
-      CALL CG_ARRAY_WRITE_F('TimeValues',RealDouble,1,VARIABLE%GETNSOLUTION(),TIME,IER)
+      call cg_biter_write_f(ifile,1,'TimeIterValues',variable%getnsolution(),ier)
+      call cg_goto_f(ifile,1,ier,'BaseIterativeData_t',1,'end')
+      call cg_array_write_f('TimeValues',realdouble,1,variable%getnsolution(),time,ier)
       
-      CALL CG_CLOSE_F(IFILE,IER)
-      DEALLOCATE(SOLNAME,TIME)
-    END SUBROUTINE CGNSWRITING
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CL_WRITING(DATAWRITING,CONFIG,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_DATAWRITING), INTENT(INOUT) :: DATAWRITING
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: IO,N,M,I,J
-      REAL(8) :: CX(2),CL1,CL2,CL
+      call cg_close_f(ifile,ier)
+      deallocate(solname,time)
+    end subroutine cgnswriting
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cl_writing(datawriting,config,grid,variable)
+      implicit none
+      class(t_datawriting), intent(inout) :: datawriting
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      integer :: io,n,m,i,j
+      real(8) :: cx(2),cl1,cl2,cl
       
-      !OPEN(NEWUNIT=IO,FILE='./CL_'//TRIM(CONFIG%GETNAME())//'.DAT',STATUS='UNKNOWN',ACTION='WRITE',FORM='FORMATTED')
-      !WRITE(IO,*) 'VARIABLES = "TIME", "CL"'
-      !WRITE(IO,*) 'ZONE T = " ",I=',VARIABLE%GETNSOLUTION()
-      !DO N=1,VARIABLE%GETNSOLUTION()
-      !  DO M=1,GRID%GETNBC()
-      !    IF((TRIM(GRID%GETBCNAME(M)).EQ.'BCWallInviscid').OR.(TRIM(GRID%GETBCNAME(M)).EQ.'BCWallViscous')) THEN
-      !      CL1 = 0.D0
-      !      CL2 = 0.D0
-      !      IF(GRID%GETBCISTART(M,2).EQ.GRID%GETBCIEND(M,2)) THEN
-      !        IF(GRID%GETBCISTART(M,2).EQ.1) THEN !JMIN
-      !          DO J=GRID%GETBCISTART(M,2),GRID%GETBCIEND(M,2)
-      !            DO I=GRID%GETBCISTART(M,1),GRID%GETBCIEND(M,1)
-      !              CX = GRID%GETEX(I,J)
-      !              CL1 = CL1 + VARIABLE%GETPV(N,0,1,I,J+1)*CX(1)
-      !              CL2 = CL2 + VARIABLE%GETPV(N,0,1,I,J+1)*CX(2)
-      !            END DO
-      !          END DO
-      !        ELSE                                !JMAX
-      !          DO J=GRID%GETBCISTART(M,2),GRID%GETBCIEND(M,2)
-      !            DO I=GRID%GETBCISTART(M,1),GRID%GETBCIEND(M,1)
-      !              CX = - GRID%GETEX(I,J-1)
-      !              CL1 = CL1 + VARIABLE%GETPV(N,0,1,I,J-1)*CX(1)
-      !              CL2 = CL2 + VARIABLE%GETPV(N,0,1,I,J-1)*CX(2)
-      !            END DO
-      !          END DO
-      !        END IF
-      !      ELSE IF(GRID%GETBCISTART(M,1).EQ.GRID%GETBCIEND(M,1)) THEN
-      !        IF(GRID%GETBCISTART(M,1).EQ.1) THEN !IMIN
-      !          DO J=GRID%GETBCISTART(M,2),GRID%GETBCIEND(M,2)
-      !            DO I=GRID%GETBCISTART(M,1),GRID%GETBCIEND(M,1)
-      !              CX = GRID%GETCX(I,J)
-      !              CL1 = CL1 + VARIABLE%GETPV(N,0,1,I+1,J)*CX(1)
-      !              CL2 = CL2 + VARIABLE%GETPV(N,0,1,I+1,J)*CX(2)
-      !            END DO
-      !          END DO
-      !        ELSE                                !IMAX
-      !          DO J=GRID%GETBCISTART(M,2),GRID%GETBCIEND(M,2)
-      !            DO I=GRID%GETBCISTART(M,1),GRID%GETBCIEND(M,1)
-      !              CX = - GRID%GETCX(I-1,J)
-      !              CL1 = CL1 + VARIABLE%GETPV(N,0,1,I-1,J)*CX(1)
-      !              CL2 = CL2 + VARIABLE%GETPV(N,0,1,I-1,J)*CX(2)
-      !            END DO
-      !          END DO
-      !        END IF
-      !      END IF
-      !    END IF
-      !  END DO
-      !  CL1 = CL1/(0.5D0*CONFIG%GETRHOREF()*CONFIG%GETUREF()**2)/CONFIG%GETL_CHORD()
-      !  CL2 = CL2/(0.5D0*CONFIG%GETRHOREF()*CONFIG%GETUREF()**2)/CONFIG%GETL_CHORD()
-      !  CL = DSIN(CONFIG%GETAOA())*CL1+DCOS(CONFIG%GETAOA())*CL2
-      !  WRITE(IO,*) N,CL
-      !END DO
-      !CLOSE(IO)
+      !open(newunit=io,file='./cl_'//trim(config%getname())//'.dat',status='unknown',action='write',form='formatted')
+      !write(io,*) 'variables = "time", "cl"'
+      !write(io,*) 'zone t = " ",i=',variable%getnsolution()
+      !do n=1,variable%getnsolution()
+      !  do m=1,grid%getnbc()
+      !    if((trim(grid%getbcname(m)).eq.'bcwallinviscid').or.(trim(grid%getbcname(m)).eq.'bcwallviscous')) then
+      !      cl1 = 0.d0
+      !      cl2 = 0.d0
+      !      if(grid%getbcistart(m,2).eq.grid%getbciend(m,2)) then
+      !        if(grid%getbcistart(m,2).eq.1) then !jmin
+      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
+      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
+      !              cx = grid%getex(i,j)
+      !              cl1 = cl1 + variable%getpv(n,0,1,i,j+1)*cx(1)
+      !              cl2 = cl2 + variable%getpv(n,0,1,i,j+1)*cx(2)
+      !            end do
+      !          end do
+      !        else                                !jmax
+      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
+      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
+      !              cx = - grid%getex(i,j-1)
+      !              cl1 = cl1 + variable%getpv(n,0,1,i,j-1)*cx(1)
+      !              cl2 = cl2 + variable%getpv(n,0,1,i,j-1)*cx(2)
+      !            end do
+      !          end do
+      !        end if
+      !      else if(grid%getbcistart(m,1).eq.grid%getbciend(m,1)) then
+      !        if(grid%getbcistart(m,1).eq.1) then !imin
+      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
+      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
+      !              cx = grid%getcx(i,j)
+      !              cl1 = cl1 + variable%getpv(n,0,1,i+1,j)*cx(1)
+      !              cl2 = cl2 + variable%getpv(n,0,1,i+1,j)*cx(2)
+      !            end do
+      !          end do
+      !        else                                !imax
+      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
+      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
+      !              cx = - grid%getcx(i-1,j)
+      !              cl1 = cl1 + variable%getpv(n,0,1,i-1,j)*cx(1)
+      !              cl2 = cl2 + variable%getpv(n,0,1,i-1,j)*cx(2)
+      !            end do
+      !          end do
+      !        end if
+      !      end if
+      !    end if
+      !  end do
+      !  cl1 = cl1/(0.5d0*config%getrhoref()*config%geturef()**2)/config%getl_chord()
+      !  cl2 = cl2/(0.5d0*config%getrhoref()*config%geturef()**2)/config%getl_chord()
+      !  cl = dsin(config%getaoa())*cl1+dcos(config%getaoa())*cl2
+      !  write(io,*) n,cl
+      !end do
+      !close(io)
       
-    END SUBROUTINE CL_WRITING
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE DATAWRITING_MODULE
+    end subroutine cl_writing
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module datawriting_module

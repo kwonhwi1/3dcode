@@ -1,373 +1,372 @@
-MODULE VSFLUX_MODULE
-  USE CONFIG_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_VSFLUX,T_VSFLUX_LAMINAR,T_VSFLUX_TURBULENT
+module vsflux_module
+  use config_module
+  use variable_module
+  implicit none
+  private
+  public :: t_vsflux,t_vsflux_laminar,t_vsflux_turbulent
 
-  TYPE, ABSTRACT :: T_VSFLUX
-    PRIVATE
-    INTEGER :: NPV
-    REAL(8) :: TDK1,TDK2,TDO1,TDO2
-    REAL(8) :: PR_T
-    REAL(8), POINTER, PUBLIC :: PV(:,:)
-    REAL(8), POINTER, PUBLIC :: NX(:)
-    REAL(8), POINTER, PUBLIC :: EX1(:),EX2(:),EX3(:),EX4(:)
-    REAL(8), POINTER, PUBLIC :: TX1(:),TX2(:),TX3(:),TX4(:)
-    REAL(8), POINTER, PUBLIC :: GRDL(:),GRDR(:)
-    REAL(8), POINTER, PUBLIC :: DVL(:),DVR(:)
-    REAL(8), POINTER, PUBLIC :: TVL(:),TVR(:)
-    PROCEDURE(P_CALBIGF), POINTER :: CALBIGF
-    CONTAINS
-      PROCEDURE :: CONSTRUCT  
-      PROCEDURE :: DESTRUCT
-      PROCEDURE(P_CALFLUX), DEFERRED :: CALFLUX
-  END TYPE T_VSFLUX
+  type, abstract :: t_vsflux
+    private
+    integer :: npv
+    real(8) :: tdk1,tdk2,tdo1,tdo2
+    real(8) :: pr_t
+    real(8), pointer, public :: pv(:,:)
+    real(8), pointer, public :: nx(:)
+    real(8), pointer, public :: ex1(:),ex2(:),ex3(:),ex4(:)
+    real(8), pointer, public :: tx1(:),tx2(:),tx3(:),tx4(:)
+    real(8), pointer, public :: grdl(:),grdr(:)
+    real(8), pointer, public :: dvl(:),dvr(:)
+    real(8), pointer, public :: tvl(:),tvr(:)
+    procedure(p_calbigf), pointer :: calbigf
+    contains
+      procedure :: construct  
+      procedure :: destruct
+      procedure(p_calflux), deferred :: calflux
+  end type t_vsflux
  
-  ABSTRACT INTERFACE
-    SUBROUTINE P_CALFLUX(VSFLUX,FX)
-      IMPORT T_VSFLUX
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(OUT) :: FX(VSFLUX%NPV)
-    END SUBROUTINE P_CALFLUX
-  END INTERFACE
+  abstract interface
+    subroutine p_calflux(vsflux,fx)
+      import t_vsflux
+      implicit none
+      class(t_vsflux), intent(in) :: vsflux
+      real(8), intent(out) :: fx(vsflux%npv)
+    end subroutine p_calflux
+  end interface
   
-  TYPE, EXTENDS(T_VSFLUX) :: T_VSFLUX_LAMINAR
-    CONTAINS
-    PROCEDURE :: CALFLUX => VSFLUX_LAMINAR
-  END TYPE T_VSFLUX_LAMINAR
+  type, extends(t_vsflux) :: t_vsflux_laminar
+    contains
+    procedure :: calflux => vsflux_laminar
+  end type t_vsflux_laminar
   
-  TYPE, EXTENDS(T_VSFLUX) :: T_VSFLUX_TURBULENT
-    CONTAINS
-    PROCEDURE :: CALFLUX => VSFLUX_TURBULENT
-  END TYPE T_VSFLUX_TURBULENT
+  type, extends(t_vsflux) :: t_vsflux_turbulent
+    contains
+    procedure :: calflux => vsflux_turbulent
+  end type t_vsflux_turbulent
   
-  INTERFACE
-    FUNCTION P_CALBIGF(VSFLUX,PKW) RESULT(BIGF)
-      IMPORT T_VSFLUX
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(IN) :: PKW
-      REAL(8) :: BIGF
-    END FUNCTION P_CALBIGF
-  END INTERFACE
+  interface
+    function p_calbigf(vsflux,pkw) result(bigf)
+      import t_vsflux
+      implicit none
+      class(t_vsflux), intent(in) :: vsflux
+      real(8), intent(in) :: pkw
+      real(8) :: bigf
+    end function p_calbigf
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    SUBROUTINE CONSTRUCT(VSFLUX,CONFIG,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(OUT) :: VSFLUX
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    subroutine construct(vsflux,config,variable)
+      implicit none
+      class(t_vsflux), intent(out) :: vsflux
+      type(t_config), intent(in) :: config
+      type(t_variable), intent(in) :: variable
       
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-1)
-        VSFLUX%TDK1 = 0.D0
-        VSFLUX%TDK2 = 1.D0
-        VSFLUX%TDO1 = 0.D0
-        VSFLUX%TDO2 = 1.D0/1.3D0
-        VSFLUX%CALBIGF => KEPSILON
-        VSFLUX%PR_T=0.9D0
-      CASE(0)
-        VSFLUX%TDK1 = 0.85D0
-        VSFLUX%TDK2 = 1.D0
-        VSFLUX%TDO1 = 0.5D0
-        VSFLUX%TDO2 = 0.856D0
-        VSFLUX%CALBIGF => KWSST
-        VSFLUX%PR_T=0.9D0
-      CASE(-2)
-        VSFLUX%TDK1 = 0.D0
-        VSFLUX%TDK2 = 0.D0
-        VSFLUX%TDO1 = 0.D0
-        VSFLUX%TDO2 = 0.D0
-        VSFLUX%CALBIGF => NULL()
-        VSFLUX%PR_T=0.D0
-      END SELECT
+      select case(config%getiturb())
+      case(-1)
+        vsflux%tdk1 = 0.d0
+        vsflux%tdk2 = 1.d0
+        vsflux%tdo1 = 0.d0
+        vsflux%tdo2 = 1.d0/1.3d0
+        vsflux%calbigf => kepsilon
+        vsflux%pr_t=0.9d0
+      case(0)
+        vsflux%tdk1 = 0.85d0
+        vsflux%tdk2 = 1.d0
+        vsflux%tdo1 = 0.5d0
+        vsflux%tdo2 = 0.856d0
+        vsflux%calbigf => kwsst
+        vsflux%pr_t=0.9d0
+      case(-2)
+        vsflux%tdk1 = 0.d0
+        vsflux%tdk2 = 0.d0
+        vsflux%tdo1 = 0.d0
+        vsflux%tdo2 = 0.d0
+        vsflux%calbigf => null()
+        vsflux%pr_t=0.d0
+      end select
       
-      VSFLUX%NPV = VARIABLE%GETNPV()
+      vsflux%npv = variable%getnpv()
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC    
-    SUBROUTINE DESTRUCT(VSFLUX)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(INOUT) :: VSFLUX
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    subroutine destruct(vsflux)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
 
-      IF(ASSOCIATED(VSFLUX%NX))      NULLIFY(VSFLUX%NX)
-      IF(ASSOCIATED(VSFLUX%EX1))     NULLIFY(VSFLUX%EX1)    
-      IF(ASSOCIATED(VSFLUX%EX2))     NULLIFY(VSFLUX%EX2)    
-      IF(ASSOCIATED(VSFLUX%EX3))     NULLIFY(VSFLUX%EX3)    
-      IF(ASSOCIATED(VSFLUX%EX4))     NULLIFY(VSFLUX%EX4)
-      IF(ASSOCIATED(VSFLUX%TX1))     NULLIFY(VSFLUX%TX1)    
-      IF(ASSOCIATED(VSFLUX%TX2))     NULLIFY(VSFLUX%TX2)    
-      IF(ASSOCIATED(VSFLUX%TX3))     NULLIFY(VSFLUX%TX3)    
-      IF(ASSOCIATED(VSFLUX%TX4))     NULLIFY(VSFLUX%TX4)
-      IF(ASSOCIATED(VSFLUX%GRDL))    NULLIFY(VSFLUX%GRDL)   
-      IF(ASSOCIATED(VSFLUX%GRDR))    NULLIFY(VSFLUX%GRDR) 
-      IF(ASSOCIATED(VSFLUX%PV))      NULLIFY(VSFLUX%PV)     
-      IF(ASSOCIATED(VSFLUX%DVL))     NULLIFY(VSFLUX%DVL)    
-      IF(ASSOCIATED(VSFLUX%DVR))     NULLIFY(VSFLUX%DVR)     
-      IF(ASSOCIATED(VSFLUX%TVL))     NULLIFY(VSFLUX%TVL)    
-      IF(ASSOCIATED(VSFLUX%TVR))     NULLIFY(VSFLUX%TVR)    
-      IF(ASSOCIATED(VSFLUX%CALBIGF)) NULLIFY(VSFLUX%CALBIGF)
+      if(associated(vsflux%nx))      nullify(vsflux%nx)
+      if(associated(vsflux%ex1))     nullify(vsflux%ex1)    
+      if(associated(vsflux%ex2))     nullify(vsflux%ex2)    
+      if(associated(vsflux%ex3))     nullify(vsflux%ex3)    
+      if(associated(vsflux%ex4))     nullify(vsflux%ex4)
+      if(associated(vsflux%tx1))     nullify(vsflux%tx1)    
+      if(associated(vsflux%tx2))     nullify(vsflux%tx2)    
+      if(associated(vsflux%tx3))     nullify(vsflux%tx3)    
+      if(associated(vsflux%tx4))     nullify(vsflux%tx4)
+      if(associated(vsflux%grdl))    nullify(vsflux%grdl)   
+      if(associated(vsflux%grdr))    nullify(vsflux%grdr) 
+      if(associated(vsflux%pv))      nullify(vsflux%pv)     
+      if(associated(vsflux%dvl))     nullify(vsflux%dvl)    
+      if(associated(vsflux%dvr))     nullify(vsflux%dvr)     
+      if(associated(vsflux%tvl))     nullify(vsflux%tvl)    
+      if(associated(vsflux%tvr))     nullify(vsflux%tvr)    
+      if(associated(vsflux%calbigf)) nullify(vsflux%calbigf)
       
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE VSFLUX_LAMINAR(VSFLUX,FX)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX_LAMINAR), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(OUT) :: FX(VSFLUX%NPV)
-      REAL(8) :: TX,TY,TZ,EX,EY,EZ
-      REAL(8) :: VOL,VIS,CON,UC,VC,WC
-      REAL(8) :: DUDN,DVDN,DWDN,DTDN
-      REAL(8) :: DUDE,DVDE,DWDE,DTDE
-      REAL(8) :: DUDT,DVDT,DWDT,DTDT
-      REAL(8) :: DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,DTDX,DTDY,DTDZ
-      REAL(8) :: TAUXX,TAUYY,TAUZZ,TAUXY,TAUXZ,TAUYZ
-      REAL(8), PARAMETER :: C23=2.D0/3.D0
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine vsflux_laminar(vsflux,fx)
+      implicit none
+      class(t_vsflux_laminar), intent(in) :: vsflux
+      real(8), intent(out) :: fx(vsflux%npv)
+      real(8) :: tx,ty,tz,ex,ey,ez
+      real(8) :: vol,vis,con,uc,vc,wc
+      real(8) :: dudn,dvdn,dwdn,dtdn
+      real(8) :: dude,dvde,dwde,dtde
+      real(8) :: dudt,dvdt,dwdt,dtdt
+      real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,dtdx,dtdy,dtdz
+      real(8) :: tauxx,tauyy,tauzz,tauxy,tauxz,tauyz
+      real(8), parameter :: c23=2.d0/3.d0
 
-      EX = 0.25D0*(VSFLUX%EX1(1)+VSFLUX%EX2(1)+VSFLUX%EX3(1)+VSFLUX%EX4(1)) 
-      EY = 0.25D0*(VSFLUX%EX1(2)+VSFLUX%EX2(2)+VSFLUX%EX3(2)+VSFLUX%EX4(2))
-      EZ = 0.25D0*(VSFLUX%EX1(3)+VSFLUX%EX2(3)+VSFLUX%EX3(3)+VSFLUX%EX4(3))
+      ex = 0.25d0*(vsflux%ex1(1)+vsflux%ex2(1)+vsflux%ex3(1)+vsflux%ex4(1)) 
+      ey = 0.25d0*(vsflux%ex1(2)+vsflux%ex2(2)+vsflux%ex3(2)+vsflux%ex4(2))
+      ez = 0.25d0*(vsflux%ex1(3)+vsflux%ex2(3)+vsflux%ex3(3)+vsflux%ex4(3))
       
-      TX = 0.25D0*(VSFLUX%TX1(1)+VSFLUX%TX2(1)+VSFLUX%TX3(1)+VSFLUX%TX4(1)) 
-      TY = 0.25D0*(VSFLUX%TX1(2)+VSFLUX%TX2(2)+VSFLUX%TX3(2)+VSFLUX%TX4(2))
-      TZ = 0.25D0*(VSFLUX%TX1(3)+VSFLUX%TX2(3)+VSFLUX%TX3(3)+VSFLUX%TX4(3))
+      tx = 0.25d0*(vsflux%tx1(1)+vsflux%tx2(1)+vsflux%tx3(1)+vsflux%tx4(1)) 
+      ty = 0.25d0*(vsflux%tx1(2)+vsflux%tx2(2)+vsflux%tx3(2)+vsflux%tx4(2))
+      tz = 0.25d0*(vsflux%tx1(3)+vsflux%tx2(3)+vsflux%tx3(3)+vsflux%tx4(3))
       
-      VOL  = 2.D0/(VSFLUX%GRDL(1) + VSFLUX%GRDR(1))
-      VIS  = 0.5D0*(VSFLUX%TVL(1) + VSFLUX%TVR(1))
-      CON  = 0.5D0*(VSFLUX%TVL(2) + VSFLUX%TVR(2))
-      UC   = 0.5D0*(VSFLUX%PV(9,2) + VSFLUX%PV(10,2))
-      VC   = 0.5D0*(VSFLUX%PV(9,3) + VSFLUX%PV(10,3))
-      WC   = 0.5D0*(VSFLUX%PV(9,4) + VSFLUX%PV(10,4))
+      vol  = 2.d0/(vsflux%grdl(1) + vsflux%grdr(1))
+      vis  = 0.5d0*(vsflux%tvl(1) + vsflux%tvr(1))
+      con  = 0.5d0*(vsflux%tvl(2) + vsflux%tvr(2))
+      uc   = 0.5d0*(vsflux%pv(9,2) + vsflux%pv(10,2))
+      vc   = 0.5d0*(vsflux%pv(9,3) + vsflux%pv(10,3))
+      wc   = 0.5d0*(vsflux%pv(9,4) + vsflux%pv(10,4))
       
-      DUDN = VSFLUX%PV(10,2) - VSFLUX%PV(9,2)
-      DVDN = VSFLUX%PV(10,3) - VSFLUX%PV(9,3)
-      DWDN = VSFLUX%PV(10,4) - VSFLUX%PV(9,4)
-      DTDN = VSFLUX%PV(10,5) - VSFLUX%PV(9,5)
+      dudn = vsflux%pv(10,2) - vsflux%pv(9,2)
+      dvdn = vsflux%pv(10,3) - vsflux%pv(9,3)
+      dwdn = vsflux%pv(10,4) - vsflux%pv(9,4)
+      dtdn = vsflux%pv(10,5) - vsflux%pv(9,5)
       
-      DUDE = 0.0625D0*(- VSFLUX%PV(1,2)  - VSFLUX%PV(2,2)  + VSFLUX%PV(5,2)  + VSFLUX%PV(6,2)   &
-               + 2.D0*(- VSFLUX%PV(7,2)  - VSFLUX%PV(8,2)  + VSFLUX%PV(11,2) + VSFLUX%PV(12,2)) &
-                       - VSFLUX%PV(13,2) - VSFLUX%PV(14,2) + VSFLUX%PV(17,2) + VSFLUX%PV(18,2))
-      DVDE = 0.0625D0*(- VSFLUX%PV(1,3)  - VSFLUX%PV(2,3)  + VSFLUX%PV(5,3)  + VSFLUX%PV(6,3)   &
-               + 2.D0*(- VSFLUX%PV(7,3)  - VSFLUX%PV(8,3)  + VSFLUX%PV(11,3) + VSFLUX%PV(12,3)) &
-                       - VSFLUX%PV(13,3) - VSFLUX%PV(14,3) + VSFLUX%PV(17,3) + VSFLUX%PV(18,3))
-      DWDE = 0.0625D0*(- VSFLUX%PV(1,4)  - VSFLUX%PV(2,4)  + VSFLUX%PV(5,4)  + VSFLUX%PV(6,4)   &
-               + 2.D0*(- VSFLUX%PV(7,4)  - VSFLUX%PV(8,4)  + VSFLUX%PV(11,4) + VSFLUX%PV(12,4)) &
-                       - VSFLUX%PV(13,4) - VSFLUX%PV(14,4) + VSFLUX%PV(17,4) + VSFLUX%PV(18,4))
-      DTDE = 0.0625D0*(- VSFLUX%PV(1,5)  - VSFLUX%PV(2,5)  + VSFLUX%PV(5,5)  + VSFLUX%PV(6,5)   &
-               + 2.D0*(- VSFLUX%PV(7,5)  - VSFLUX%PV(8,5)  + VSFLUX%PV(11,5) + VSFLUX%PV(12,5)) &
-                       - VSFLUX%PV(13,5) - VSFLUX%PV(14,5) + VSFLUX%PV(17,5) + VSFLUX%PV(18,5))
+      dude = 0.0625d0*(- vsflux%pv(1,2)  - vsflux%pv(2,2)  + vsflux%pv(5,2)  + vsflux%pv(6,2)   &
+               + 2.d0*(- vsflux%pv(7,2)  - vsflux%pv(8,2)  + vsflux%pv(11,2) + vsflux%pv(12,2)) &
+                       - vsflux%pv(13,2) - vsflux%pv(14,2) + vsflux%pv(17,2) + vsflux%pv(18,2))
+      dvde = 0.0625d0*(- vsflux%pv(1,3)  - vsflux%pv(2,3)  + vsflux%pv(5,3)  + vsflux%pv(6,3)   &
+               + 2.d0*(- vsflux%pv(7,3)  - vsflux%pv(8,3)  + vsflux%pv(11,3) + vsflux%pv(12,3)) &
+                       - vsflux%pv(13,3) - vsflux%pv(14,3) + vsflux%pv(17,3) + vsflux%pv(18,3))
+      dwde = 0.0625d0*(- vsflux%pv(1,4)  - vsflux%pv(2,4)  + vsflux%pv(5,4)  + vsflux%pv(6,4)   &
+               + 2.d0*(- vsflux%pv(7,4)  - vsflux%pv(8,4)  + vsflux%pv(11,4) + vsflux%pv(12,4)) &
+                       - vsflux%pv(13,4) - vsflux%pv(14,4) + vsflux%pv(17,4) + vsflux%pv(18,4))
+      dtde = 0.0625d0*(- vsflux%pv(1,5)  - vsflux%pv(2,5)  + vsflux%pv(5,5)  + vsflux%pv(6,5)   &
+               + 2.d0*(- vsflux%pv(7,5)  - vsflux%pv(8,5)  + vsflux%pv(11,5) + vsflux%pv(12,5)) &
+                       - vsflux%pv(13,5) - vsflux%pv(14,5) + vsflux%pv(17,5) + vsflux%pv(18,5))
                
-      DUDT = 0.0625D0*(- VSFLUX%PV(1,2)  - VSFLUX%PV(2,2)  + VSFLUX%PV(13,2) + VSFLUX%PV(14,2)   &
-               + 2.D0*(- VSFLUX%PV(3,2)  - VSFLUX%PV(4,2)  + VSFLUX%PV(15,2) + VSFLUX%PV(16,2))  &
-                       - VSFLUX%PV(5,2)  - VSFLUX%PV(6,2)  + VSFLUX%PV(17,2) + VSFLUX%PV(18,2))
-      DVDT = 0.0625D0*(- VSFLUX%PV(1,3)  - VSFLUX%PV(2,3)  + VSFLUX%PV(13,3) + VSFLUX%PV(14,3)   &
-               + 2.D0*(- VSFLUX%PV(3,3)  - VSFLUX%PV(4,3)  + VSFLUX%PV(15,3) + VSFLUX%PV(16,3))  &
-                       - VSFLUX%PV(5,3)  - VSFLUX%PV(6,3)  + VSFLUX%PV(17,3) + VSFLUX%PV(18,3))
-      DWDT = 0.0625D0*(- VSFLUX%PV(1,4)  - VSFLUX%PV(2,4)  + VSFLUX%PV(13,4) + VSFLUX%PV(14,4)   &
-               + 2.D0*(- VSFLUX%PV(3,4)  - VSFLUX%PV(4,4)  + VSFLUX%PV(15,4) + VSFLUX%PV(16,4))  &
-                       - VSFLUX%PV(5,4)  - VSFLUX%PV(6,4)  + VSFLUX%PV(17,4) + VSFLUX%PV(18,4))
-      DTDT = 0.0625D0*(- VSFLUX%PV(1,5)  - VSFLUX%PV(2,5)  + VSFLUX%PV(13,5) + VSFLUX%PV(14,5)   &
-               + 2.D0*(- VSFLUX%PV(3,5)  - VSFLUX%PV(4,5)  + VSFLUX%PV(15,5) + VSFLUX%PV(16,5))  &
-                       - VSFLUX%PV(5,5)  - VSFLUX%PV(6,5)  + VSFLUX%PV(17,5) + VSFLUX%PV(18,5))
+      dudt = 0.0625d0*(- vsflux%pv(1,2)  - vsflux%pv(2,2)  + vsflux%pv(13,2) + vsflux%pv(14,2)   &
+               + 2.d0*(- vsflux%pv(3,2)  - vsflux%pv(4,2)  + vsflux%pv(15,2) + vsflux%pv(16,2))  &
+                       - vsflux%pv(5,2)  - vsflux%pv(6,2)  + vsflux%pv(17,2) + vsflux%pv(18,2))
+      dvdt = 0.0625d0*(- vsflux%pv(1,3)  - vsflux%pv(2,3)  + vsflux%pv(13,3) + vsflux%pv(14,3)   &
+               + 2.d0*(- vsflux%pv(3,3)  - vsflux%pv(4,3)  + vsflux%pv(15,3) + vsflux%pv(16,3))  &
+                       - vsflux%pv(5,3)  - vsflux%pv(6,3)  + vsflux%pv(17,3) + vsflux%pv(18,3))
+      dwdt = 0.0625d0*(- vsflux%pv(1,4)  - vsflux%pv(2,4)  + vsflux%pv(13,4) + vsflux%pv(14,4)   &
+               + 2.d0*(- vsflux%pv(3,4)  - vsflux%pv(4,4)  + vsflux%pv(15,4) + vsflux%pv(16,4))  &
+                       - vsflux%pv(5,4)  - vsflux%pv(6,4)  + vsflux%pv(17,4) + vsflux%pv(18,4))
+      dtdt = 0.0625d0*(- vsflux%pv(1,5)  - vsflux%pv(2,5)  + vsflux%pv(13,5) + vsflux%pv(14,5)   &
+               + 2.d0*(- vsflux%pv(3,5)  - vsflux%pv(4,5)  + vsflux%pv(15,5) + vsflux%pv(16,5))  &
+                       - vsflux%pv(5,5)  - vsflux%pv(6,5)  + vsflux%pv(17,5) + vsflux%pv(18,5))
       
-      DUDX = (DUDN*VSFLUX%NX(1)+DUDE*EX+DUDT*TX)*VOL
-      DVDX = (DVDN*VSFLUX%NX(1)+DVDE*EX+DVDT*TX)*VOL
-      DWDX = (DWDN*VSFLUX%NX(1)+DWDE*EX+DWDT*TX)*VOL
-      DTDX = (DTDN*VSFLUX%NX(1)+DTDE*EX+DTDT*TX)*VOL
+      dudx = (dudn*vsflux%nx(1)+dude*ex+dudt*tx)*vol
+      dvdx = (dvdn*vsflux%nx(1)+dvde*ex+dvdt*tx)*vol
+      dwdx = (dwdn*vsflux%nx(1)+dwde*ex+dwdt*tx)*vol
+      dtdx = (dtdn*vsflux%nx(1)+dtde*ex+dtdt*tx)*vol
  
-      DUDY = (DUDN*VSFLUX%NX(2)+DUDE*EY+DUDT*TY)*VOL
-      DVDY = (DVDN*VSFLUX%NX(2)+DVDE*EY+DVDT*TY)*VOL
-      DWDY = (DWDN*VSFLUX%NX(2)+DWDE*EY+DWDT*TY)*VOL
-      DTDY = (DTDN*VSFLUX%NX(2)+DTDE*EY+DTDT*TY)*VOL
+      dudy = (dudn*vsflux%nx(2)+dude*ey+dudt*ty)*vol
+      dvdy = (dvdn*vsflux%nx(2)+dvde*ey+dvdt*ty)*vol
+      dwdy = (dwdn*vsflux%nx(2)+dwde*ey+dwdt*ty)*vol
+      dtdy = (dtdn*vsflux%nx(2)+dtde*ey+dtdt*ty)*vol
 
-      DUDZ = (DUDN*VSFLUX%NX(3)+DUDE*EZ+DUDT*TZ)*VOL
-      DVDZ = (DVDN*VSFLUX%NX(3)+DVDE*EZ+DVDT*TZ)*VOL
-      DWDZ = (DWDN*VSFLUX%NX(3)+DWDE*EZ+DWDT*TZ)*VOL
-      DTDZ = (DTDN*VSFLUX%NX(3)+DTDE*EZ+DTDT*TZ)*VOL
+      dudz = (dudn*vsflux%nx(3)+dude*ez+dudt*tz)*vol
+      dvdz = (dvdn*vsflux%nx(3)+dvde*ez+dvdt*tz)*vol
+      dwdz = (dwdn*vsflux%nx(3)+dwde*ez+dwdt*tz)*vol
+      dtdz = (dtdn*vsflux%nx(3)+dtde*ez+dtdt*tz)*vol
       
-      TAUXX = VIS*(2.D0*DUDX - C23*(DUDX+DVDY+DWDZ))
-      TAUYY = VIS*(2.D0*DVDY - C23*(DUDX+DVDY+DWDZ))
-      TAUZZ = VIS*(2.D0*DWDZ - C23*(DUDX+DVDY+DWDZ))
-      TAUXY = VIS*(DUDY+DVDX)
-      TAUXZ = VIS*(DUDZ+DWDX)
-      TAUYZ = VIS*(DVDZ+DWDY)
+      tauxx = vis*(2.d0*dudx - c23*(dudx+dvdy+dwdz))
+      tauyy = vis*(2.d0*dvdy - c23*(dudx+dvdy+dwdz))
+      tauzz = vis*(2.d0*dwdz - c23*(dudx+dvdy+dwdz))
+      tauxy = vis*(dudy+dvdx)
+      tauxz = vis*(dudz+dwdx)
+      tauyz = vis*(dvdz+dwdy)
       
-      FX(1) = 0.D0
-      FX(2) = (TAUXX*VSFLUX%NX(1)+TAUXY*VSFLUX%NX(2)+TAUXZ*VSFLUX%NX(3))
-      FX(3) = (TAUXY*VSFLUX%NX(1)+TAUYY*VSFLUX%NX(2)+TAUYZ*VSFLUX%NX(3))
-      FX(4) = (TAUXZ*VSFLUX%NX(1)+TAUYZ*VSFLUX%NX(2)+TAUZZ*VSFLUX%NX(3))
-      FX(5) = (VSFLUX%NX(1)*(UC*TAUXX+VC*TAUXY+WC*TAUXZ+CON*DTDX) &
-            +  VSFLUX%NX(2)*(UC*TAUXY+VC*TAUYY+WC*TAUYZ+CON*DTDY) &
-            +  VSFLUX%NX(3)*(UC*TAUXZ+VC*TAUYZ+WC*TAUZZ+CON*DTDZ) )
-      FX(6) = 0.D0
-      FX(7) = 0.D0
+      fx(1) = 0.d0
+      fx(2) = (tauxx*vsflux%nx(1)+tauxy*vsflux%nx(2)+tauxz*vsflux%nx(3))
+      fx(3) = (tauxy*vsflux%nx(1)+tauyy*vsflux%nx(2)+tauyz*vsflux%nx(3))
+      fx(4) = (tauxz*vsflux%nx(1)+tauyz*vsflux%nx(2)+tauzz*vsflux%nx(3))
+      fx(5) = (vsflux%nx(1)*(uc*tauxx+vc*tauxy+wc*tauxz+con*dtdx) &
+            +  vsflux%nx(2)*(uc*tauxy+vc*tauyy+wc*tauyz+con*dtdy) &
+            +  vsflux%nx(3)*(uc*tauxz+vc*tauyz+wc*tauzz+con*dtdz) )
+      fx(6) = 0.d0
+      fx(7) = 0.d0
 
-    END SUBROUTINE VSFLUX_LAMINAR
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC 
-    SUBROUTINE VSFLUX_TURBULENT(VSFLUX,FX)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX_TURBULENT), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(OUT) :: FX(VSFLUX%NPV)
-      REAL(8) :: TX,TY,TZ,EX,EY,EZ
-      REAL(8) :: VOL,VIS,CON,EMUT,TCON,BIGF,UC,VC,WC
-      REAL(8) :: DUDN,DVDN,DWDN,DTDN,DKDN,DODN
-      REAL(8) :: DUDE,DVDE,DWDE,DTDE,DKDE,DODE
-      REAL(8) :: DUDT,DVDT,DWDT,DTDT,DKDT,DODT
-      REAL(8) :: DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,DTDX,DTDY,DTDZ
-      REAL(8) :: DKDX,DKDY,DKDZ,DODX,DODY,DODZ
-      REAL(8) :: TAUXX,TAUYY,TAUZZ,TAUXY,TAUXZ,TAUYZ
-      REAL(8) :: TDK,TDO
-      REAL(8), PARAMETER :: C23=2.D0/3.D0
+    end subroutine vsflux_laminar
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    subroutine vsflux_turbulent(vsflux,fx)
+      implicit none
+      class(t_vsflux_turbulent), intent(in) :: vsflux
+      real(8), intent(out) :: fx(vsflux%npv)
+      real(8) :: tx,ty,tz,ex,ey,ez
+      real(8) :: vol,vis,con,emut,tcon,bigf,uc,vc,wc
+      real(8) :: dudn,dvdn,dwdn,dtdn,dkdn,dodn
+      real(8) :: dude,dvde,dwde,dtde,dkde,dode
+      real(8) :: dudt,dvdt,dwdt,dtdt,dkdt,dodt
+      real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,dtdx,dtdy,dtdz
+      real(8) :: dkdx,dkdy,dkdz,dodx,dody,dodz
+      real(8) :: tauxx,tauyy,tauzz,tauxy,tauxz,tauyz
+      real(8) :: tdk,tdo
+      real(8), parameter :: c23=2.d0/3.d0
       
-      EX = 0.25D0*(VSFLUX%EX1(1)+VSFLUX%EX2(1)+VSFLUX%EX3(1)+VSFLUX%EX4(1)) 
-      EY = 0.25D0*(VSFLUX%EX1(2)+VSFLUX%EX2(2)+VSFLUX%EX3(2)+VSFLUX%EX4(2))
-      EZ = 0.25D0*(VSFLUX%EX1(3)+VSFLUX%EX2(3)+VSFLUX%EX3(3)+VSFLUX%EX4(3))
+      ex = 0.25d0*(vsflux%ex1(1)+vsflux%ex2(1)+vsflux%ex3(1)+vsflux%ex4(1)) 
+      ey = 0.25d0*(vsflux%ex1(2)+vsflux%ex2(2)+vsflux%ex3(2)+vsflux%ex4(2))
+      ez = 0.25d0*(vsflux%ex1(3)+vsflux%ex2(3)+vsflux%ex3(3)+vsflux%ex4(3))
       
-      TX = 0.25D0*(VSFLUX%TX1(1)+VSFLUX%TX2(1)+VSFLUX%TX3(1)+VSFLUX%TX4(1)) 
-      TY = 0.25D0*(VSFLUX%TX1(2)+VSFLUX%TX2(2)+VSFLUX%TX3(2)+VSFLUX%TX4(2))
-      TZ = 0.25D0*(VSFLUX%TX1(3)+VSFLUX%TX2(3)+VSFLUX%TX3(3)+VSFLUX%TX4(3))
+      tx = 0.25d0*(vsflux%tx1(1)+vsflux%tx2(1)+vsflux%tx3(1)+vsflux%tx4(1)) 
+      ty = 0.25d0*(vsflux%tx1(2)+vsflux%tx2(2)+vsflux%tx3(2)+vsflux%tx4(2))
+      tz = 0.25d0*(vsflux%tx1(3)+vsflux%tx2(3)+vsflux%tx3(3)+vsflux%tx4(3))
       
-      VOL  = 2.D0/(VSFLUX%GRDL(1) + VSFLUX%GRDR(1))
-      VIS  = 0.5D0*(VSFLUX%TVL(1) + VSFLUX%TVR(1))
-      CON  = 0.5D0*(VSFLUX%TVL(2) + VSFLUX%TVR(2))
-      EMUT = 0.5D0*(VSFLUX%TVL(3) + VSFLUX%TVR(3))
-      TCON = 0.5D0*(VSFLUX%TVL(3)*VSFLUX%DVL(12)+ VSFLUX%TVR(3)*VSFLUX%DVR(12))/VSFLUX%PR_T
-      UC   = 0.5D0*(VSFLUX%PV(9,2) + VSFLUX%PV(10,2))
-      VC   = 0.5D0*(VSFLUX%PV(9,3) + VSFLUX%PV(10,3))
-      WC   = 0.5D0*(VSFLUX%PV(9,4) + VSFLUX%PV(10,4))
+      vol  = 2.d0/(vsflux%grdl(1) + vsflux%grdr(1))
+      vis  = 0.5d0*(vsflux%tvl(1) + vsflux%tvr(1))
+      con  = 0.5d0*(vsflux%tvl(2) + vsflux%tvr(2))
+      emut = 0.5d0*(vsflux%tvl(3) + vsflux%tvr(3))
+      tcon = 0.5d0*(vsflux%tvl(3)*vsflux%dvl(12)+ vsflux%tvr(3)*vsflux%dvr(12))/vsflux%pr_t
+      uc   = 0.5d0*(vsflux%pv(9,2) + vsflux%pv(10,2))
+      vc   = 0.5d0*(vsflux%pv(9,3) + vsflux%pv(10,3))
+      wc   = 0.5d0*(vsflux%pv(9,4) + vsflux%pv(10,4))
       
-      DUDN = VSFLUX%PV(10,2) - VSFLUX%PV(9,2)
-      DVDN = VSFLUX%PV(10,3) - VSFLUX%PV(9,3)
-      DWDN = VSFLUX%PV(10,4) - VSFLUX%PV(9,4)
-      DTDN = VSFLUX%PV(10,5) - VSFLUX%PV(9,5)
-      DKDN = VSFLUX%PV(10,8) - VSFLUX%PV(9,8)
-      DODN = VSFLUX%PV(10,9) - VSFLUX%PV(9,9) 
+      dudn = vsflux%pv(10,2) - vsflux%pv(9,2)
+      dvdn = vsflux%pv(10,3) - vsflux%pv(9,3)
+      dwdn = vsflux%pv(10,4) - vsflux%pv(9,4)
+      dtdn = vsflux%pv(10,5) - vsflux%pv(9,5)
+      dkdn = vsflux%pv(10,8) - vsflux%pv(9,8)
+      dodn = vsflux%pv(10,9) - vsflux%pv(9,9) 
       
-      DUDE = 0.0625D0*(- VSFLUX%PV(1,2)  - VSFLUX%PV(2,2)  + VSFLUX%PV(5,2)  + VSFLUX%PV(6,2)   &
-               + 2.D0*(- VSFLUX%PV(7,2)  - VSFLUX%PV(8,2)  + VSFLUX%PV(11,2) + VSFLUX%PV(12,2)) &
-                       - VSFLUX%PV(13,2) - VSFLUX%PV(14,2) + VSFLUX%PV(17,2) + VSFLUX%PV(18,2))
-      DVDE = 0.0625D0*(- VSFLUX%PV(1,3)  - VSFLUX%PV(2,3)  + VSFLUX%PV(5,3)  + VSFLUX%PV(6,3)   &
-               + 2.D0*(- VSFLUX%PV(7,3)  - VSFLUX%PV(8,3)  + VSFLUX%PV(11,3) + VSFLUX%PV(12,3)) &
-                       - VSFLUX%PV(13,3) - VSFLUX%PV(14,3) + VSFLUX%PV(17,3) + VSFLUX%PV(18,3))
-      DWDE = 0.0625D0*(- VSFLUX%PV(1,4)  - VSFLUX%PV(2,4)  + VSFLUX%PV(5,4)  + VSFLUX%PV(6,4)   &
-               + 2.D0*(- VSFLUX%PV(7,4)  - VSFLUX%PV(8,4)  + VSFLUX%PV(11,4) + VSFLUX%PV(12,4)) &
-                       - VSFLUX%PV(13,4) - VSFLUX%PV(14,4) + VSFLUX%PV(17,4) + VSFLUX%PV(18,4))
-      DTDE = 0.0625D0*(- VSFLUX%PV(1,5)  - VSFLUX%PV(2,5)  + VSFLUX%PV(5,5)  + VSFLUX%PV(6,5)   &
-               + 2.D0*(- VSFLUX%PV(7,5)  - VSFLUX%PV(8,5)  + VSFLUX%PV(11,5) + VSFLUX%PV(12,5)) &
-                       - VSFLUX%PV(13,5) - VSFLUX%PV(14,5) + VSFLUX%PV(17,5) + VSFLUX%PV(18,5))
-      DKDE = 0.0625D0*(- VSFLUX%PV(1,8)  - VSFLUX%PV(2,8)  + VSFLUX%PV(5,8)  + VSFLUX%PV(6,8)   &
-               + 2.D0*(- VSFLUX%PV(7,8)  - VSFLUX%PV(8,8)  + VSFLUX%PV(11,8) + VSFLUX%PV(12,8)) &
-                       - VSFLUX%PV(13,8) - VSFLUX%PV(14,8) + VSFLUX%PV(17,8) + VSFLUX%PV(18,8))
-      DODE = 0.0625D0*(- VSFLUX%PV(1,9)  - VSFLUX%PV(2,9)  + VSFLUX%PV(5,9)  + VSFLUX%PV(6,9)   &
-               + 2.D0*(- VSFLUX%PV(7,9)  - VSFLUX%PV(8,9)  + VSFLUX%PV(11,9) + VSFLUX%PV(12,9)) &
-                       - VSFLUX%PV(13,9) - VSFLUX%PV(14,9) + VSFLUX%PV(17,9) + VSFLUX%PV(18,9))
+      dude = 0.0625d0*(- vsflux%pv(1,2)  - vsflux%pv(2,2)  + vsflux%pv(5,2)  + vsflux%pv(6,2)   &
+               + 2.d0*(- vsflux%pv(7,2)  - vsflux%pv(8,2)  + vsflux%pv(11,2) + vsflux%pv(12,2)) &
+                       - vsflux%pv(13,2) - vsflux%pv(14,2) + vsflux%pv(17,2) + vsflux%pv(18,2))
+      dvde = 0.0625d0*(- vsflux%pv(1,3)  - vsflux%pv(2,3)  + vsflux%pv(5,3)  + vsflux%pv(6,3)   &
+               + 2.d0*(- vsflux%pv(7,3)  - vsflux%pv(8,3)  + vsflux%pv(11,3) + vsflux%pv(12,3)) &
+                       - vsflux%pv(13,3) - vsflux%pv(14,3) + vsflux%pv(17,3) + vsflux%pv(18,3))
+      dwde = 0.0625d0*(- vsflux%pv(1,4)  - vsflux%pv(2,4)  + vsflux%pv(5,4)  + vsflux%pv(6,4)   &
+               + 2.d0*(- vsflux%pv(7,4)  - vsflux%pv(8,4)  + vsflux%pv(11,4) + vsflux%pv(12,4)) &
+                       - vsflux%pv(13,4) - vsflux%pv(14,4) + vsflux%pv(17,4) + vsflux%pv(18,4))
+      dtde = 0.0625d0*(- vsflux%pv(1,5)  - vsflux%pv(2,5)  + vsflux%pv(5,5)  + vsflux%pv(6,5)   &
+               + 2.d0*(- vsflux%pv(7,5)  - vsflux%pv(8,5)  + vsflux%pv(11,5) + vsflux%pv(12,5)) &
+                       - vsflux%pv(13,5) - vsflux%pv(14,5) + vsflux%pv(17,5) + vsflux%pv(18,5))
+      dkde = 0.0625d0*(- vsflux%pv(1,8)  - vsflux%pv(2,8)  + vsflux%pv(5,8)  + vsflux%pv(6,8)   &
+               + 2.d0*(- vsflux%pv(7,8)  - vsflux%pv(8,8)  + vsflux%pv(11,8) + vsflux%pv(12,8)) &
+                       - vsflux%pv(13,8) - vsflux%pv(14,8) + vsflux%pv(17,8) + vsflux%pv(18,8))
+      dode = 0.0625d0*(- vsflux%pv(1,9)  - vsflux%pv(2,9)  + vsflux%pv(5,9)  + vsflux%pv(6,9)   &
+               + 2.d0*(- vsflux%pv(7,9)  - vsflux%pv(8,9)  + vsflux%pv(11,9) + vsflux%pv(12,9)) &
+                       - vsflux%pv(13,9) - vsflux%pv(14,9) + vsflux%pv(17,9) + vsflux%pv(18,9))
                        
-      DUDT = 0.0625D0*(- VSFLUX%PV(1,2)  - VSFLUX%PV(2,2)  + VSFLUX%PV(13,2) + VSFLUX%PV(14,2)   &
-               + 2.D0*(- VSFLUX%PV(3,2)  - VSFLUX%PV(4,2)  + VSFLUX%PV(15,2) + VSFLUX%PV(16,2))  &
-                       - VSFLUX%PV(5,2)  - VSFLUX%PV(6,2)  + VSFLUX%PV(17,2) + VSFLUX%PV(18,2))
-      DVDT = 0.0625D0*(- VSFLUX%PV(1,3)  - VSFLUX%PV(2,3)  + VSFLUX%PV(13,3) + VSFLUX%PV(14,3)   &
-               + 2.D0*(- VSFLUX%PV(3,3)  - VSFLUX%PV(4,3)  + VSFLUX%PV(15,3) + VSFLUX%PV(16,3))  &
-                       - VSFLUX%PV(5,3)  - VSFLUX%PV(6,3)  + VSFLUX%PV(17,3) + VSFLUX%PV(18,3))
-      DWDT = 0.0625D0*(- VSFLUX%PV(1,4)  - VSFLUX%PV(2,4)  + VSFLUX%PV(13,4) + VSFLUX%PV(14,4)   &
-               + 2.D0*(- VSFLUX%PV(3,4)  - VSFLUX%PV(4,4)  + VSFLUX%PV(15,4) + VSFLUX%PV(16,4))  &
-                       - VSFLUX%PV(5,4)  - VSFLUX%PV(6,4)  + VSFLUX%PV(17,4) + VSFLUX%PV(18,4))
-      DTDT = 0.0625D0*(- VSFLUX%PV(1,5)  - VSFLUX%PV(2,5)  + VSFLUX%PV(13,5) + VSFLUX%PV(14,5)   &
-               + 2.D0*(- VSFLUX%PV(3,5)  - VSFLUX%PV(4,5)  + VSFLUX%PV(15,5) + VSFLUX%PV(16,5))  &
-                       - VSFLUX%PV(5,5)  - VSFLUX%PV(6,5)  + VSFLUX%PV(17,5) + VSFLUX%PV(18,5))
-      DKDT = 0.0625D0*(- VSFLUX%PV(1,8)  - VSFLUX%PV(2,8)  + VSFLUX%PV(13,8) + VSFLUX%PV(14,8)   &
-               + 2.D0*(- VSFLUX%PV(3,8)  - VSFLUX%PV(4,8)  + VSFLUX%PV(15,8) + VSFLUX%PV(16,8))  &
-                       - VSFLUX%PV(5,8)  - VSFLUX%PV(6,8)  + VSFLUX%PV(17,8) + VSFLUX%PV(18,8))
-      DODT = 0.0625D0*(- VSFLUX%PV(1,9)  - VSFLUX%PV(2,9)  + VSFLUX%PV(13,9) + VSFLUX%PV(14,9)   &
-               + 2.D0*(- VSFLUX%PV(3,9)  - VSFLUX%PV(4,9)  + VSFLUX%PV(15,9) + VSFLUX%PV(16,9))  &
-                       - VSFLUX%PV(5,9)  - VSFLUX%PV(6,9)  + VSFLUX%PV(17,9) + VSFLUX%PV(18,9))
+      dudt = 0.0625d0*(- vsflux%pv(1,2)  - vsflux%pv(2,2)  + vsflux%pv(13,2) + vsflux%pv(14,2)   &
+               + 2.d0*(- vsflux%pv(3,2)  - vsflux%pv(4,2)  + vsflux%pv(15,2) + vsflux%pv(16,2))  &
+                       - vsflux%pv(5,2)  - vsflux%pv(6,2)  + vsflux%pv(17,2) + vsflux%pv(18,2))
+      dvdt = 0.0625d0*(- vsflux%pv(1,3)  - vsflux%pv(2,3)  + vsflux%pv(13,3) + vsflux%pv(14,3)   &
+               + 2.d0*(- vsflux%pv(3,3)  - vsflux%pv(4,3)  + vsflux%pv(15,3) + vsflux%pv(16,3))  &
+                       - vsflux%pv(5,3)  - vsflux%pv(6,3)  + vsflux%pv(17,3) + vsflux%pv(18,3))
+      dwdt = 0.0625d0*(- vsflux%pv(1,4)  - vsflux%pv(2,4)  + vsflux%pv(13,4) + vsflux%pv(14,4)   &
+               + 2.d0*(- vsflux%pv(3,4)  - vsflux%pv(4,4)  + vsflux%pv(15,4) + vsflux%pv(16,4))  &
+                       - vsflux%pv(5,4)  - vsflux%pv(6,4)  + vsflux%pv(17,4) + vsflux%pv(18,4))
+      dtdt = 0.0625d0*(- vsflux%pv(1,5)  - vsflux%pv(2,5)  + vsflux%pv(13,5) + vsflux%pv(14,5)   &
+               + 2.d0*(- vsflux%pv(3,5)  - vsflux%pv(4,5)  + vsflux%pv(15,5) + vsflux%pv(16,5))  &
+                       - vsflux%pv(5,5)  - vsflux%pv(6,5)  + vsflux%pv(17,5) + vsflux%pv(18,5))
+      dkdt = 0.0625d0*(- vsflux%pv(1,8)  - vsflux%pv(2,8)  + vsflux%pv(13,8) + vsflux%pv(14,8)   &
+               + 2.d0*(- vsflux%pv(3,8)  - vsflux%pv(4,8)  + vsflux%pv(15,8) + vsflux%pv(16,8))  &
+                       - vsflux%pv(5,8)  - vsflux%pv(6,8)  + vsflux%pv(17,8) + vsflux%pv(18,8))
+      dodt = 0.0625d0*(- vsflux%pv(1,9)  - vsflux%pv(2,9)  + vsflux%pv(13,9) + vsflux%pv(14,9)   &
+               + 2.d0*(- vsflux%pv(3,9)  - vsflux%pv(4,9)  + vsflux%pv(15,9) + vsflux%pv(16,9))  &
+                       - vsflux%pv(5,9)  - vsflux%pv(6,9)  + vsflux%pv(17,9) + vsflux%pv(18,9))
 
                        
-      DUDX = (DUDN*VSFLUX%NX(1)+DUDE*EX+DUDT*TX)*VOL
-      DVDX = (DVDN*VSFLUX%NX(1)+DVDE*EX+DVDT*TX)*VOL
-      DWDX = (DWDN*VSFLUX%NX(1)+DWDE*EX+DWDT*TX)*VOL
-      DTDX = (DTDN*VSFLUX%NX(1)+DTDE*EX+DTDT*TX)*VOL
-      DKDX = (DKDN*VSFLUX%NX(1)+DKDE*EX+DKDT*TX)*VOL
-      DODX = (DODN*VSFLUX%NX(1)+DODE*EX+DODT*TX)*VOL
+      dudx = (dudn*vsflux%nx(1)+dude*ex+dudt*tx)*vol
+      dvdx = (dvdn*vsflux%nx(1)+dvde*ex+dvdt*tx)*vol
+      dwdx = (dwdn*vsflux%nx(1)+dwde*ex+dwdt*tx)*vol
+      dtdx = (dtdn*vsflux%nx(1)+dtde*ex+dtdt*tx)*vol
+      dkdx = (dkdn*vsflux%nx(1)+dkde*ex+dkdt*tx)*vol
+      dodx = (dodn*vsflux%nx(1)+dode*ex+dodt*tx)*vol
       
-      DUDY = (DUDN*VSFLUX%NX(2)+DUDE*EY+DUDT*TY)*VOL
-      DVDY = (DVDN*VSFLUX%NX(2)+DVDE*EY+DVDT*TY)*VOL
-      DWDY = (DWDN*VSFLUX%NX(2)+DWDE*EY+DWDT*TY)*VOL
-      DTDY = (DTDN*VSFLUX%NX(2)+DTDE*EY+DTDT*TY)*VOL
-      DKDY = (DKDN*VSFLUX%NX(2)+DKDE*EY+DKDT*TY)*VOL
-      DODY = (DODN*VSFLUX%NX(2)+DODE*EY+DODT*TY)*VOL
+      dudy = (dudn*vsflux%nx(2)+dude*ey+dudt*ty)*vol
+      dvdy = (dvdn*vsflux%nx(2)+dvde*ey+dvdt*ty)*vol
+      dwdy = (dwdn*vsflux%nx(2)+dwde*ey+dwdt*ty)*vol
+      dtdy = (dtdn*vsflux%nx(2)+dtde*ey+dtdt*ty)*vol
+      dkdy = (dkdn*vsflux%nx(2)+dkde*ey+dkdt*ty)*vol
+      dody = (dodn*vsflux%nx(2)+dode*ey+dodt*ty)*vol
       
-      DUDZ = (DUDN*VSFLUX%NX(3)+DUDE*EZ+DUDT*TZ)*VOL
-      DVDZ = (DVDN*VSFLUX%NX(3)+DVDE*EZ+DVDT*TZ)*VOL
-      DWDZ = (DWDN*VSFLUX%NX(3)+DWDE*EZ+DWDT*TZ)*VOL
-      DTDZ = (DTDN*VSFLUX%NX(3)+DTDE*EZ+DTDT*TZ)*VOL
-      DKDZ = (DKDN*VSFLUX%NX(3)+DKDE*EZ+DKDT*TZ)*VOL
-      DODZ = (DODN*VSFLUX%NX(3)+DODE*EZ+DODT*TZ)*VOL
+      dudz = (dudn*vsflux%nx(3)+dude*ez+dudt*tz)*vol
+      dvdz = (dvdn*vsflux%nx(3)+dvde*ez+dvdt*tz)*vol
+      dwdz = (dwdn*vsflux%nx(3)+dwde*ez+dwdt*tz)*vol
+      dtdz = (dtdn*vsflux%nx(3)+dtde*ez+dtdt*tz)*vol
+      dkdz = (dkdn*vsflux%nx(3)+dkde*ez+dkdt*tz)*vol
+      dodz = (dodn*vsflux%nx(3)+dode*ez+dodt*tz)*vol
       
-      BIGF = VSFLUX%CALBIGF(DKDX*DODX+DKDY*DODY+DKDZ*DODZ)
+      bigf = vsflux%calbigf(dkdx*dodx+dkdy*dody+dkdz*dodz)
       
-      TDK = BIGF*VSFLUX%TDK1 + (1.D0-BIGF)*VSFLUX%TDK2
-      TDO = BIGF*VSFLUX%TDO1 + (1.D0-BIGF)*VSFLUX%TDO2
+      tdk = bigf*vsflux%tdk1 + (1.d0-bigf)*vsflux%tdk2
+      tdo = bigf*vsflux%tdo1 + (1.d0-bigf)*vsflux%tdo2
 
-      TAUXX = (VIS+EMUT)*(2.D0*DUDX - C23*(DUDX+DVDY+DWDZ))
-      TAUYY = (VIS+EMUT)*(2.D0*DVDY - C23*(DUDX+DVDY+DWDZ))
-      TAUZZ = (VIS+EMUT)*(2.D0*DWDZ - C23*(DUDX+DVDY+DWDZ))
-      TAUXY = (VIS+EMUT)*(DUDY+DVDX)
-      TAUXZ = (VIS+EMUT)*(DUDZ+DWDX)
-      TAUYZ = (VIS+EMUT)*(DVDZ+DWDY)
+      tauxx = (vis+emut)*(2.d0*dudx - c23*(dudx+dvdy+dwdz))
+      tauyy = (vis+emut)*(2.d0*dvdy - c23*(dudx+dvdy+dwdz))
+      tauzz = (vis+emut)*(2.d0*dwdz - c23*(dudx+dvdy+dwdz))
+      tauxy = (vis+emut)*(dudy+dvdx)
+      tauxz = (vis+emut)*(dudz+dwdx)
+      tauyz = (vis+emut)*(dvdz+dwdy)
             
-      FX(1) = 0.D0
-      FX(2) = (TAUXX*VSFLUX%NX(1)+TAUXY*VSFLUX%NX(2)+TAUXZ*VSFLUX%NX(3))
-      FX(3) = (TAUXY*VSFLUX%NX(1)+TAUYY*VSFLUX%NX(2)+TAUYZ*VSFLUX%NX(3))
-      FX(4) = (TAUXZ*VSFLUX%NX(1)+TAUYZ*VSFLUX%NX(2)+TAUZZ*VSFLUX%NX(3))
-      FX(5) = (VSFLUX%NX(1)*(UC*TAUXX+VC*TAUXY+WC*TAUXZ+(CON+TCON)*DTDX) &
-            +  VSFLUX%NX(2)*(UC*TAUXY+VC*TAUYY+WC*TAUYZ+(CON+TCON)*DTDY) &
-            +  VSFLUX%NX(3)*(UC*TAUXZ+VC*TAUYZ+WC*TAUZZ+(CON+TCON)*DTDZ) )
-      FX(6) = 0.D0
-      FX(7) = 0.D0
-      FX(8) = (VIS+EMUT*TDK)*(DKDX*VSFLUX%NX(1)+DKDY*VSFLUX%NX(2)+DKDZ*VSFLUX%NX(3))
-      FX(9) = (VIS+EMUT*TDO)*(DODX*VSFLUX%NX(1)+DODY*VSFLUX%NX(2)+DODZ*VSFLUX%NX(3))
+      fx(1) = 0.d0
+      fx(2) = (tauxx*vsflux%nx(1)+tauxy*vsflux%nx(2)+tauxz*vsflux%nx(3))
+      fx(3) = (tauxy*vsflux%nx(1)+tauyy*vsflux%nx(2)+tauyz*vsflux%nx(3))
+      fx(4) = (tauxz*vsflux%nx(1)+tauyz*vsflux%nx(2)+tauzz*vsflux%nx(3))
+      fx(5) = (vsflux%nx(1)*(uc*tauxx+vc*tauxy+wc*tauxz+(con+tcon)*dtdx) &
+            +  vsflux%nx(2)*(uc*tauxy+vc*tauyy+wc*tauyz+(con+tcon)*dtdy) &
+            +  vsflux%nx(3)*(uc*tauxz+vc*tauyz+wc*tauzz+(con+tcon)*dtdz) )
+      fx(6) = 0.d0
+      fx(7) = 0.d0
+      fx(8) = (vis+emut*tdk)*(dkdx*vsflux%nx(1)+dkdy*vsflux%nx(2)+dkdz*vsflux%nx(3))
+      fx(9) = (vis+emut*tdo)*(dodx*vsflux%nx(1)+dody*vsflux%nx(2)+dodz*vsflux%nx(3))
       
-    END SUBROUTINE VSFLUX_TURBULENT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KWSST(VSFLUX,PKW) RESULT(BIGF)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(IN) :: PKW
-      REAL(8) :: BIGF
-      REAL(8) :: TERM0,TERM1,TERM2,TERM3,CDKW,ARG1,ARG2
-      REAL(8) :: RHO,YDNS,VIS,K,O
+    end subroutine vsflux_turbulent
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kwsst(vsflux,pkw) result(bigf)
+      implicit none
+      class(t_vsflux), intent(in) :: vsflux
+      real(8), intent(in) :: pkw
+      real(8) :: bigf
+      real(8) :: term0,term1,term2,term3,cdkw,arg1,arg2
+      real(8) :: rho,ydns,vis,k,o
       
-      RHO = 0.5D0*(VSFLUX%DVL(1)+VSFLUX%DVR(1))
-      YDNS = 0.5D0*(VSFLUX%GRDL(5)+VSFLUX%GRDR(5))
-      VIS = 0.5D0*(VSFLUX%TVL(1)+VSFLUX%TVR(1))
-      K = 0.5D0*(VSFLUX%PV(4,8)+VSFLUX%PV(3,8)) 
-      O = 0.5D0*(VSFLUX%PV(4,9)+VSFLUX%PV(3,9))
+      rho = 0.5d0*(vsflux%dvl(1)+vsflux%dvr(1))
+      ydns = 0.5d0*(vsflux%grdl(5)+vsflux%grdr(5))
+      vis = 0.5d0*(vsflux%tvl(1)+vsflux%tvr(1))
+      k = 0.5d0*(vsflux%pv(4,8)+vsflux%pv(3,8)) 
+      o = 0.5d0*(vsflux%pv(4,9)+vsflux%pv(3,9))
       
-      TERM0 = 1.712D0*RHO/O*PKW
-      CDKW = DMAX1(TERM0,1.D-10)
+      term0 = 1.712d0*rho/o*pkw
+      cdkw = dmax1(term0,1.d-10)
       
-      TERM1 = DSQRT(K)/(0.09D0*O*YDNS)
-      TERM2 = 500.D0*VIS/RHO/(O*YDNS**2)
-      TERM3 = (3.424D0*RHO*K)/(CDKW*YDNS**2)
+      term1 = dsqrt(k)/(0.09d0*o*ydns)
+      term2 = 500.d0*vis/rho/(o*ydns**2)
+      term3 = (3.424d0*rho*k)/(cdkw*ydns**2)
       
-      ARG2 = DMAX1(TERM1,TERM2)
-      ARG1 = DMIN1(ARG2,TERM3)
+      arg2 = dmax1(term1,term2)
+      arg1 = dmin1(arg2,term3)
       
-      BIGF = DTANH(ARG1**4)
+      bigf = dtanh(arg1**4)
       
-    END FUNCTION KWSST
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION KEPSILON(VSFLUX,PKW) RESULT(BIGF)
-      IMPLICIT NONE
-      CLASS(T_VSFLUX), INTENT(IN) :: VSFLUX
-      REAL(8), INTENT(IN) :: PKW
-      REAL(8) :: BIGF
+    end function kwsst
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function kepsilon(vsflux,pkw) result(bigf)
+      implicit none
+      class(t_vsflux), intent(in) :: vsflux
+      real(8), intent(in) :: pkw
+      real(8) :: bigf
 
-      BIGF = 0.D0
+      bigf = 0.d0
       
-    END FUNCTION KEPSILON
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE VSFLUX_MODULE
-    
+    end function kepsilon
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module vsflux_module

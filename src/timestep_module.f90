@@ -1,361 +1,361 @@
-MODULE TIMESTEP_MODULE
-  USE CONFIG_MODULE
-  USE GRID_MODULE
-  USE VARIABLE_MODULE
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: T_TIMESTEP,T_LOCALTIME,T_MINTIME,T_FIXEDTIME
+module timestep_module
+  use config_module
+  use grid_module
+  use variable_module
+  implicit none
+  private
+  public :: t_timestep,t_localtime,t_mintime,t_fixedtime
 
-  TYPE, ABSTRACT :: T_TIMESTEP
-    PRIVATE
-    INTEGER :: NPV,NDV,NTV,NGRD,IMAX,JMAX,KMAX
-    REAL(8) :: CFL,UREF,STR
-    REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: DT
-    PROCEDURE(P_GETSNDP2), POINTER :: GETSNDP2
-    PROCEDURE(P_GETEIGENVIS), POINTER :: GETEIGENVIS
-    CONTAINS
-      PROCEDURE :: CONSTRUCT
-      PROCEDURE :: DESTRUCT
-      PROCEDURE :: GETDT
-      PROCEDURE(P_CALTIMESTEP), DEFERRED :: CALTIMESTEP
-  END TYPE T_TIMESTEP
+  type, abstract :: t_timestep
+    private
+    integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
+    real(8) :: cfl,uref,str
+    real(8), dimension(:,:,:), allocatable :: dt
+    procedure(p_getsndp2), pointer :: getsndp2
+    procedure(p_geteigenvis), pointer :: geteigenvis
+    contains
+      procedure :: construct
+      procedure :: destruct
+      procedure :: getdt
+      procedure(p_caltimestep), deferred :: caltimestep
+  end type t_timestep
 
-  ABSTRACT INTERFACE
-    SUBROUTINE P_CALTIMESTEP(TIMESTEP,GRID,VARIABLE)
-      IMPORT T_TIMESTEP
-      IMPORT T_GRID
-      IMPORT T_VARIABLE
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(INOUT) :: TIMESTEP
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  abstract interface
+    subroutine p_caltimestep(timestep,grid,variable)
+      import t_timestep
+      import t_grid
+      import t_variable
+      implicit none
+      class(t_timestep), intent(inout) :: timestep
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
       
-    END SUBROUTINE P_CALTIMESTEP
-  END INTERFACE
+    end subroutine p_caltimestep
+  end interface
   
-  TYPE, EXTENDS(T_TIMESTEP) :: T_LOCALTIME
-    CONTAINS
-      PROCEDURE :: CALTIMESTEP => LOCALTIME
-  END TYPE T_LOCALTIME
+  type, extends(t_timestep) :: t_localtime
+    contains
+      procedure :: caltimestep => localtime
+  end type t_localtime
   
-  TYPE, EXTENDS(T_TIMESTEP) :: T_MINTIME
-    CONTAINS
-      PROCEDURE :: CALTIMESTEP => MINTIME
-  END TYPE T_MINTIME
+  type, extends(t_timestep) :: t_mintime
+    contains
+      procedure :: caltimestep => mintime
+  end type t_mintime
   
-  TYPE, EXTENDS(T_TIMESTEP) :: T_FIXEDTIME
-    CONTAINS
-      PROCEDURE :: CALTIMESTEP => FIXEDTIME
-  END TYPE T_FIXEDTIME
+  type, extends(t_timestep) :: t_fixedtime
+    contains
+      procedure :: caltimestep => fixedtime
+  end type t_fixedtime
   
-  INTERFACE
-    FUNCTION P_GETSNDP2(TIMESTEP,SND2,UUU2) RESULT(SNDP2)
-      IMPORT T_TIMESTEP
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      REAL(8) :: SNDP2
-    END FUNCTION P_GETSNDP2
-    FUNCTION P_GETEIGENVIS(TIMESTEP,DV,TV) RESULT(EIGENVIS)
-      IMPORT T_TIMESTEP
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: DV(TIMESTEP%NDV),TV(TIMESTEP%NTV)
-      REAL(8) :: EIGENVIS
-    END FUNCTION P_GETEIGENVIS
-  END INTERFACE
+  interface
+    function p_getsndp2(timestep,snd2,uuu2) result(sndp2)
+      import t_timestep
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+    end function p_getsndp2
+    function p_geteigenvis(timestep,dv,tv) result(eigenvis)
+      import t_timestep
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
+      real(8) :: eigenvis
+    end function p_geteigenvis
+  end interface
   
-  CONTAINS
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE CONSTRUCT(TIMESTEP,CONFIG,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(OUT) :: TIMESTEP
-      TYPE(T_CONFIG), INTENT(IN) :: CONFIG
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+  contains
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct(timestep,config,grid,variable)
+      implicit none
+      class(t_timestep), intent(out) :: timestep
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
       
-      TIMESTEP%CFL  = CONFIG%GETCFL()
-      TIMESTEP%UREF = CONFIG%GETUREF()
-      TIMESTEP%STR  =  CONFIG%GETSTR()
+      timestep%cfl  = config%getcfl()
+      timestep%uref = config%geturef()
+      timestep%str  =  config%getstr()
       
-      SELECT CASE(CONFIG%GETITURB())
-      CASE(-1,0)
-        TIMESTEP%GETEIGENVIS => TURBULENT
-      CASE(-2)
-        TIMESTEP%GETEIGENVIS => LAMINAR
-      CASE(-3)
-        TIMESTEP%GETEIGENVIS => EULER
-      END SELECT
+      select case(config%getiturb())
+      case(-1,0)
+        timestep%geteigenvis => turbulent
+      case(-2)
+        timestep%geteigenvis => laminar
+      case(-3)
+        timestep%geteigenvis => euler
+      end select
 
-      SELECT CASE(CONFIG%GETPREC())
-      CASE(0)
-        TIMESTEP%GETSNDP2 => NO_PREC
-      CASE(1)
-        TIMESTEP%GETSNDP2 => STEADY_PREC
-      CASE(2)
-        TIMESTEP%GETSNDP2 => UNSTEADY_PREC
-      END SELECT
+      select case(config%getprec())
+      case(0)
+        timestep%getsndp2 => no_prec
+      case(1)
+        timestep%getsndp2 => steady_prec
+      case(2)
+        timestep%getsndp2 => unsteady_prec
+      end select
 
-      TIMESTEP%NGRD = GRID%GETNGRD()
-      TIMESTEP%IMAX = GRID%GETIMAX()
-      TIMESTEP%JMAX = GRID%GETJMAX()
-      TIMESTEP%KMAX = GRID%GETKMAX()
+      timestep%ngrd = grid%getngrd()
+      timestep%imax = grid%getimax()
+      timestep%jmax = grid%getjmax()
+      timestep%kmax = grid%getkmax()
 
-      TIMESTEP%NPV = VARIABLE%GETNPV()
-      TIMESTEP%NDV = VARIABLE%GETNDV()
-      TIMESTEP%NTV = VARIABLE%GETNTV()
+      timestep%npv = variable%getnpv()
+      timestep%ndv = variable%getndv()
+      timestep%ntv = variable%getntv()
       
-      ALLOCATE(TIMESTEP%DT(2:TIMESTEP%IMAX,2:TIMESTEP%JMAX,2:TIMESTEP%KMAX))
+      allocate(timestep%dt(2:timestep%imax,2:timestep%jmax,2:timestep%kmax))
       
-    END SUBROUTINE CONSTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE DESTRUCT(TIMESTEP)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(INOUT) :: TIMESTEP
+    end subroutine construct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine destruct(timestep)
+      implicit none
+      class(t_timestep), intent(inout) :: timestep
       
-      IF(ASSOCIATED(TIMESTEP%GETSNDP2))     NULLIFY(TIMESTEP%GETSNDP2)
-      IF(ASSOCIATED(TIMESTEP%GETEIGENVIS))  NULLIFY(TIMESTEP%GETEIGENVIS)
+      if(associated(timestep%getsndp2))     nullify(timestep%getsndp2)
+      if(associated(timestep%geteigenvis))  nullify(timestep%geteigenvis)
       
-      DEALLOCATE(TIMESTEP%DT)
+      deallocate(timestep%dt)
 
-    END SUBROUTINE DESTRUCT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE LOCALTIME(TIMESTEP,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_LOCALTIME), INTENT(INOUT) :: TIMESTEP
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INTEGER :: I,J,K    
-      REAL(8) :: CX1(3),CX2(3),EX1(3),EX2(3),TX1(3),TX2(3)
-      REAL(8) :: PV(TIMESTEP%NPV)
-      REAL(8) :: TV(TIMESTEP%NTV)
-      REAL(8) :: DV(TIMESTEP%NDV)
-      REAL(8) :: GRD(TIMESTEP%NGRD)
-      REAL(8) :: C1,C2,C3,E1,E2,E3,T1,T2,T3,S1,S2,S3
-      REAL(8) :: UC,VC,WC,UV2,SNDP2
-      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENZ,EIGENVIS
+    end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine localtime(timestep,grid,variable)
+      implicit none
+      class(t_localtime), intent(inout) :: timestep
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      integer :: i,j,k    
+      real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
+      real(8) :: pv(timestep%npv)
+      real(8) :: tv(timestep%ntv)
+      real(8) :: dv(timestep%ndv)
+      real(8) :: grd(timestep%ngrd)
+      real(8) :: c1,c2,c3,e1,e2,e3,t1,t2,t3,s1,s2,s3
+      real(8) :: uc,vc,wc,uv2,sndp2
+      real(8) :: up,d,eigenx,eigeny,eigenz,eigenvis
       
-      DO K = 2,TIMESTEP%KMAX
-        DO J = 2,TIMESTEP%JMAX 
-          DO I = 2,TIMESTEP%IMAX            
-            PV = VARIABLE%GETPV(I,J,K)
-            TV = VARIABLE%GETTV(I,J,K)
-            DV = VARIABLE%GETDV(I,J,K)
-            GRD = GRID%GETGRD(I,J,K)
-            CX1 = GRID%GETCX(I-1,J,K)
-            CX2 = GRID%GETCX(I,J,K)
-            EX1 = GRID%GETEX(I,J-1,K)
-            EX2 = GRID%GETEX(I,J,K)
-            TX1 = GRID%GETTX(I,J,K-1)
-            TX2 = GRID%GETTX(I,J,K)
+      do k = 2,timestep%kmax
+        do j = 2,timestep%jmax 
+          do i = 2,timestep%imax            
+            pv = variable%getpv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            cx1 = grid%getcx(i-1,j,k)
+            cx2 = grid%getcx(i,j,k)
+            ex1 = grid%getex(i,j-1,k)
+            ex2 = grid%getex(i,j,k)
+            tx1 = grid%gettx(i,j,k-1)
+            tx2 = grid%gettx(i,j,k)
         
-            C1 = 0.5D0*(CX1(1)+CX2(1))
-            C2 = 0.5D0*(CX1(2)+CX2(2))
-            C3 = 0.5D0*(CX1(3)+CX2(3))
-            E1 = 0.5D0*(EX1(1)+EX2(1))
-            E2 = 0.5D0*(EX1(2)+EX2(2))
-            E3 = 0.5D0*(EX1(3)+EX2(3))
-            T1 = 0.5D0*(TX1(1)+TX2(1))
-            T2 = 0.5D0*(TX1(2)+TX2(2))
-            T3 = 0.5D0*(TX1(3)+TX2(3))
+            c1 = 0.5d0*(cx1(1)+cx2(1))
+            c2 = 0.5d0*(cx1(2)+cx2(2))
+            c3 = 0.5d0*(cx1(3)+cx2(3))
+            e1 = 0.5d0*(ex1(1)+ex2(1))
+            e2 = 0.5d0*(ex1(2)+ex2(2))
+            e3 = 0.5d0*(ex1(3)+ex2(3))
+            t1 = 0.5d0*(tx1(1)+tx2(1))
+            t2 = 0.5d0*(tx1(2)+tx2(2))
+            t3 = 0.5d0*(tx1(3)+tx2(3))
             
-            UC = DABS(C1*PV(2)+C2*PV(3)+C3*PV(4))
-            VC = DABS(E1*PV(2)+E2*PV(3)+E3*PV(4))
-            WC = DABS(T1*PV(2)+T2*PV(3)+T3*PV(4))
+            uc = dabs(c1*pv(2)+c2*pv(3)+c3*pv(4))
+            vc = dabs(e1*pv(2)+e2*pv(3)+e3*pv(4))
+            wc = dabs(t1*pv(2)+t2*pv(3)+t3*pv(4))
             
-            S1 = C1**2+C2**2+C3**2
-            S2 = E1**2+E2**2+E3**2
-            S3 = T1**2+T2**2+T3**2
+            s1 = c1**2+c2**2+c3**2
+            s2 = e1**2+e2**2+e3**2
+            s3 = t1**2+t2**2+t3**2
             
-            UV2 = PV(2)**2+PV(3)**2+PV(4)**2
+            uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             
-            SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
+            sndp2 = timestep%getsndp2(dv(6),uv2)
             
-            UP = UC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
-            EIGENX = 0.5D0*(UP+D)
+            up = uc*(1.d0+sndp2/dv(6))
+            d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
+            eigenx = 0.5d0*(up+d)
             
-            UP = VC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
-            EIGENY = 0.5D0*(UP+D)
+            up = vc*(1.d0+sndp2/dv(6))
+            d = dsqrt(vc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s2)
+            eigeny = 0.5d0*(up+d)
 
-            UP = WC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(WC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S3)
-            EIGENZ = 0.5D0*(UP+D)
+            up = wc*(1.d0+sndp2/dv(6))
+            d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
+            eigenz = 0.5d0*(up+d)
             
-            EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2+S3)/GRD(1)
+            eigenvis = timestep%geteigenvis(dv,tv)*(s1+s2+s3)/grd(1)
             
-            TIMESTEP%DT(I,J,K) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + EIGENZ + 4.D0*EIGENVIS)
-           END DO
-        END DO
-      END DO
-    END SUBROUTINE LOCALTIME
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE MINTIME(TIMESTEP,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_MINTIME), INTENT(INOUT) :: TIMESTEP
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
-      INCLUDE 'mpif.h'
-      INTEGER :: I,J,K    
-      REAL(8) :: CX1(3),CX2(3),EX1(3),EX2(3),TX1(3),TX2(3)
-      REAL(8) :: PV(TIMESTEP%NPV)
-      REAL(8) :: TV(TIMESTEP%NTV)
-      REAL(8) :: DV(TIMESTEP%NDV)
-      REAL(8) :: GRD(TIMESTEP%NGRD)
-      REAL(8) :: C1,C2,C3,E1,E2,E3,T1,T2,T3,S1,S2,S3
-      REAL(8) :: UC,VC,WC,UV2,SNDP2
-      REAL(8) :: UP,D,EIGENX,EIGENY,EIGENZ,EIGENVIS
-      REAL(8) :: DTMIN,MPI_DTMIN
-      INTEGER :: IERR
+            timestep%dt(i,j,k) = timestep%cfl*grd(1)/(eigenx + eigeny + eigenz + 4.d0*eigenvis)
+           end do
+        end do
+      end do
+    end subroutine localtime
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine mintime(timestep,grid,variable)
+      implicit none
+      class(t_mintime), intent(inout) :: timestep
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      include 'mpif.h'
+      integer :: i,j,k    
+      real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
+      real(8) :: pv(timestep%npv)
+      real(8) :: tv(timestep%ntv)
+      real(8) :: dv(timestep%ndv)
+      real(8) :: grd(timestep%ngrd)
+      real(8) :: c1,c2,c3,e1,e2,e3,t1,t2,t3,s1,s2,s3
+      real(8) :: uc,vc,wc,uv2,sndp2
+      real(8) :: up,d,eigenx,eigeny,eigenz,eigenvis
+      real(8) :: dtmin,mpi_dtmin
+      integer :: ierr
       
-      DTMIN = 1.D30
+      dtmin = 1.d30
       
-      DO K = 2,TIMESTEP%KMAX
-        DO J = 2,TIMESTEP%JMAX 
-          DO I = 2,TIMESTEP%IMAX            
-            PV = VARIABLE%GETPV(I,J,K)
-            TV = VARIABLE%GETTV(I,J,K)
-            DV = VARIABLE%GETDV(I,J,K)
-            GRD = GRID%GETGRD(I,J,K)
-            CX1 = GRID%GETCX(I-1,J,K)
-            CX2 = GRID%GETCX(I,J,K)
-            EX1 = GRID%GETEX(I,J-1,K)
-            EX2 = GRID%GETEX(I,J,K)
-            TX1 = GRID%GETTX(I,J,K-1)
-            TX2 = GRID%GETTX(I,J,K)
+      do k = 2,timestep%kmax
+        do j = 2,timestep%jmax 
+          do i = 2,timestep%imax            
+            pv = variable%getpv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            cx1 = grid%getcx(i-1,j,k)
+            cx2 = grid%getcx(i,j,k)
+            ex1 = grid%getex(i,j-1,k)
+            ex2 = grid%getex(i,j,k)
+            tx1 = grid%gettx(i,j,k-1)
+            tx2 = grid%gettx(i,j,k)
         
-            C1 = 0.5D0*(CX1(1)+CX2(1))
-            C2 = 0.5D0*(CX1(2)+CX2(2))
-            C3 = 0.5D0*(CX1(3)+CX2(3))
-            E1 = 0.5D0*(EX1(1)+EX2(1))
-            E2 = 0.5D0*(EX1(2)+EX2(2))
-            E3 = 0.5D0*(EX1(3)+EX2(3))
-            T1 = 0.5D0*(TX1(1)+TX2(1))
-            T2 = 0.5D0*(TX1(2)+TX2(2))
-            T3 = 0.5D0*(TX1(3)+TX2(3))
+            c1 = 0.5d0*(cx1(1)+cx2(1))
+            c2 = 0.5d0*(cx1(2)+cx2(2))
+            c3 = 0.5d0*(cx1(3)+cx2(3))
+            e1 = 0.5d0*(ex1(1)+ex2(1))
+            e2 = 0.5d0*(ex1(2)+ex2(2))
+            e3 = 0.5d0*(ex1(3)+ex2(3))
+            t1 = 0.5d0*(tx1(1)+tx2(1))
+            t2 = 0.5d0*(tx1(2)+tx2(2))
+            t3 = 0.5d0*(tx1(3)+tx2(3))
             
-            UC = DABS(C1*PV(2)+C2*PV(3)+C3*PV(4))
-            VC = DABS(E1*PV(2)+E2*PV(3)+E3*PV(4))
-            WC = DABS(T1*PV(2)+T2*PV(3)+T3*PV(4))
+            uc = dabs(c1*pv(2)+c2*pv(3)+c3*pv(4))
+            vc = dabs(e1*pv(2)+e2*pv(3)+e3*pv(4))
+            wc = dabs(t1*pv(2)+t2*pv(3)+t3*pv(4))
             
-            S1 = C1**2+C2**2+C3**2
-            S2 = E1**2+E2**2+E3**2
-            S3 = T1**2+T2**2+T3**2
+            s1 = c1**2+c2**2+c3**2
+            s2 = e1**2+e2**2+e3**2
+            s3 = t1**2+t2**2+t3**2
             
-            UV2 = PV(2)**2+PV(3)**2+PV(4)**2
+            uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             
-            SNDP2 = TIMESTEP%GETSNDP2(DV(6),UV2)
+            sndp2 = timestep%getsndp2(dv(6),uv2)
             
-            UP = UC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(UC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S1)
-            EIGENX = 0.5D0*(UP+D)
+            up = uc*(1.d0+sndp2/dv(6))
+            d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
+            eigenx = 0.5d0*(up+d)
             
-            UP = VC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(VC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S2)
-            EIGENY = 0.5D0*(UP+D)
+            up = vc*(1.d0+sndp2/dv(6))
+            d = dsqrt(vc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s2)
+            eigeny = 0.5d0*(up+d)
 
-            UP = WC*(1.D0+SNDP2/DV(6))
-            D = DSQRT(WC**2*(1.D0-SNDP2/DV(6))**2+4.D0*SNDP2*S3)
-            EIGENZ = 0.5D0*(UP+D)
+            up = wc*(1.d0+sndp2/dv(6))
+            d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
+            eigenz = 0.5d0*(up+d)
             
-            EIGENVIS = TIMESTEP%GETEIGENVIS(DV,TV)*(S1+S2+S3)/GRD(1)
+            eigenvis = timestep%geteigenvis(dv,tv)*(s1+s2+s3)/grd(1)
             
-            TIMESTEP%DT(I,J,K) = TIMESTEP%CFL*GRD(1)/(EIGENX + EIGENY + EIGENZ + 4.D0*EIGENVIS)
+            timestep%dt(i,j,k) = timestep%cfl*grd(1)/(eigenx + eigeny + eigenz + 4.d0*eigenvis)
 
-            IF(DTMIN.GE.TIMESTEP%DT(I,J,K)) THEN
-              DTMIN = TIMESTEP%DT(I,J,K)
-            END IF
-           END DO
-        END DO
-      END DO
+            if(dtmin.ge.timestep%dt(i,j,k)) then
+              dtmin = timestep%dt(i,j,k)
+            end if
+           end do
+        end do
+      end do
       
-      MPI_DTMIN = DTMIN
-      CALL MPI_REDUCE(DTMIN,MPI_DTMIN,1,MPI_REAL8,MPI_MIN,0,MPI_COMM_WORLD,IERR)
-      CALL MPI_BCAST(MPI_DTMIN,1,MPI_REAL8,0,MPI_COMM_WORLD,IERR)
-      TIMESTEP%DT = MPI_DTMIN
+      mpi_dtmin = dtmin
+      call mpi_reduce(dtmin,mpi_dtmin,1,mpi_real8,mpi_min,0,mpi_comm_world,ierr)
+      call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
+      timestep%dt = mpi_dtmin
       
-    END SUBROUTINE MINTIME
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    SUBROUTINE FIXEDTIME(TIMESTEP,GRID,VARIABLE)
-      IMPLICIT NONE
-      CLASS(T_FIXEDTIME), INTENT(INOUT) :: TIMESTEP
-      TYPE(T_GRID), INTENT(IN) :: GRID
-      TYPE(T_VARIABLE), INTENT(IN) :: VARIABLE
+    end subroutine mintime
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine fixedtime(timestep,grid,variable)
+      implicit none
+      class(t_fixedtime), intent(inout) :: timestep
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
 
-      TIMESTEP%DT = TIMESTEP%CFL
+      timestep%dt = timestep%cfl
 
-    END SUBROUTINE FIXEDTIME
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION NO_PREC(TIMESTEP,SND2,UUU2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      REAL(8) :: SNDP2
+    end subroutine fixedtime
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_prec(timestep,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
       
-      SNDP2 = SND2
+      sndp2 = snd2
       
-    END FUNCTION NO_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION STEADY_PREC(TIMESTEP,SND2,UUU2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      REAL(8) :: SNDP2
+    end function no_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function steady_prec(timestep,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
       
-      SNDP2 = DMIN1(SND2,DMAX1(UUU2,TIMESTEP%UREF**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2))
       
-    END FUNCTION STEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION UNSTEADY_PREC(TIMESTEP,SND2,UUU2) RESULT(SNDP2)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: SND2,UUU2
-      REAL(8) :: SNDP2
+    end function steady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function unsteady_prec(timestep,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
       
-      SNDP2 = DMIN1(SND2,DMAX1(UUU2,TIMESTEP%UREF**2,TIMESTEP%STR**2*UUU2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2,timestep%str**2*uuu2))
       
-    END FUNCTION UNSTEADY_PREC
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION EULER(TIMESTEP,DV,TV) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: DV(TIMESTEP%NDV),TV(TIMESTEP%NTV)
-      REAL(8) :: EIGENVIS
+    end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function euler(timestep,dv,tv) result(eigenvis)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
+      real(8) :: eigenvis
       
-      EIGENVIS = 0.D0
+      eigenvis = 0.d0
       
-    END FUNCTION EULER
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION LAMINAR(TIMESTEP,DV,TV) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: DV(TIMESTEP%NDV),TV(TIMESTEP%NTV)
-      REAL(8) :: EIGENVIS
+    end function euler
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function laminar(timestep,dv,tv) result(eigenvis)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
+      real(8) :: eigenvis
 
-      EIGENVIS = DMAX1(DV(7)*TV(2)/(DV(8)+DV(12)*DV(7)*DV(1)-DV(11)*DV(8)*DV(1)),  &
-                       4.D0/3.D0*TV(1)/DV(1)) 
-    END FUNCTION LAMINAR
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION TURBULENT(TIMESTEP,DV,TV) RESULT(EIGENVIS)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      REAL(8), INTENT(IN) :: DV(TIMESTEP%NDV),TV(TIMESTEP%NTV)
-      REAL(8) :: EIGENVIS
-      REAL(8), PARAMETER :: PR_T = 0.9D0
+      eigenvis = dmax1(dv(7)*tv(2)/(dv(8)+dv(12)*dv(7)*dv(1)-dv(11)*dv(8)*dv(1)),  &
+                       4.d0/3.d0*tv(1)/dv(1)) 
+    end function laminar
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function turbulent(timestep,dv,tv) result(eigenvis)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
+      real(8) :: eigenvis
+      real(8), parameter :: pr_t = 0.9d0
    
-      EIGENVIS = DMAX1(DV(7)*(TV(2)+DV(12)*TV(3)/PR_T)/(DV(8)+DV(12)*DV(7)*DV(1)    &
-                       -DV(11)*DV(8)*DV(1)),4.D0/3.D0*(TV(1)+TV(3))/DV(1))
-    END FUNCTION TURBULENT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-    FUNCTION GETDT(TIMESTEP,I,J,K)
-      IMPLICIT NONE
-      CLASS(T_TIMESTEP), INTENT(IN) :: TIMESTEP
-      INTEGER, INTENT(IN) :: I,J,K
-      REAL(8) :: GETDT
+      eigenvis = dmax1(dv(7)*(tv(2)+dv(12)*tv(3)/pr_t)/(dv(8)+dv(12)*dv(7)*dv(1)    &
+                       -dv(11)*dv(8)*dv(1)),4.d0/3.d0*(tv(1)+tv(3))/dv(1))
+    end function turbulent
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getdt(timestep,i,j,k)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      integer, intent(in) :: i,j,k
+      real(8) :: getdt
       
-      GETDT = TIMESTEP%DT(I,J,K)
+      getdt = timestep%dt(i,j,k)
       
-    END FUNCTION GETDT
-    !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-END MODULE TIMESTEP_MODULE
+    end function getdt
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+end module timestep_module
