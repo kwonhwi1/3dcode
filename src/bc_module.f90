@@ -323,7 +323,47 @@ module bc_module
                            *(bc%npv+bc%ntv+bc%ndv)
         allocate(bc%mpitemp(n)%sendbuf(bc%mpitemp(n)%num),bc%mpitemp(n)%recvbuf(bc%mpitemp(n)%num))
       end do
-     
+      
+      bc%edge(1)%istart(1)  =               -1; bc%edge(1)%iend(1)  = 1
+      bc%edge(1)%istart(2)  =               -1; bc%edge(1)%iend(2)  = 1
+      bc%edge(1)%istart(3)  =                2; bc%edge(1)%iend(3)  = grid%getkmax()
+      bc%edge(2)%istart(1)  = grid%getimax()+1; bc%edge(2)%iend(1)  = grid%getimax()+3
+      bc%edge(2)%istart(2)  =               -1; bc%edge(2)%iend(2)  = 1
+      bc%edge(2)%istart(3)  =                2; bc%edge(2)%iend(3)  = grid%getkmax()
+      bc%edge(3)%istart(1)  =               -1; bc%edge(3)%iend(1)  = 1
+      bc%edge(3)%istart(2)  = grid%getjmax()+1; bc%edge(3)%iend(2)  = grid%getjmax()+3
+      bc%edge(3)%istart(3)  =                2; bc%edge(3)%iend(3)  = grid%getkmax()
+      bc%edge(4)%istart(1)  = grid%getimax()+1; bc%edge(4)%iend(1)  = grid%getimax()+3
+      bc%edge(4)%istart(2)  = grid%getjmax()+1; bc%edge(4)%iend(2)  = grid%getjmax()+3
+      bc%edge(4)%istart(3)  =                2; bc%edge(4)%iend(3)  = grid%getkmax()
+      
+      bc%edge(5)%istart(1)  =               -1; bc%edge(5)%iend(1)  = 1
+      bc%edge(5)%istart(2)  =                2; bc%edge(5)%iend(2)  = grid%getjmax()
+      bc%edge(5)%istart(3)  =               -1; bc%edge(5)%iend(3)  = 1
+      bc%edge(6)%istart(1)  = grid%getimax()+1; bc%edge(6)%iend(1)  = grid%getimax()+3
+      bc%edge(6)%istart(2)  =                2; bc%edge(6)%iend(2)  = grid%getjmax()
+      bc%edge(6)%istart(3)  =               -1; bc%edge(6)%iend(3)  = 1
+      bc%edge(7)%istart(1)  =               -1; bc%edge(7)%iend(1)  = 1
+      bc%edge(7)%istart(2)  =                2; bc%edge(7)%iend(2)  = grid%getjmax()
+      bc%edge(7)%istart(3)  = grid%getkmax()+1; bc%edge(7)%iend(3)  = grid%getkmax()+3
+      bc%edge(8)%istart(1)  = grid%getimax()+1; bc%edge(8)%iend(1)  = grid%getimax()+3
+      bc%edge(8)%istart(2)  =                2; bc%edge(8)%iend(2)  = grid%getjmax()
+      bc%edge(8)%istart(3)  = grid%getkmax()+1; bc%edge(8)%iend(3)  = grid%getkmax()+3  
+      
+      bc%edge(9)%istart(1)  =                2; bc%edge(9)%iend(1)  = grid%getimax()
+      bc%edge(9)%istart(2)  =               -1; bc%edge(9)%iend(2)  = 1
+      bc%edge(9)%istart(3)  =               -1; bc%edge(9)%iend(3)  = 1
+      bc%edge(10)%istart(1) =                2; bc%edge(10)%iend(1) = grid%getimax()
+      bc%edge(10)%istart(2) = grid%getjmax()+1; bc%edge(10)%iend(2) = grid%getjmax()+3
+      bc%edge(10)%istart(3) =               -1; bc%edge(10)%iend(3) = 1
+      bc%edge(11)%istart(1) =                2; bc%edge(11)%iend(1) = grid%getimax()
+      bc%edge(11)%istart(2) =               -1; bc%edge(11)%iend(2) = 1
+      bc%edge(11)%istart(3) = grid%getkmax()+1; bc%edge(11)%iend(3) = grid%getkmax()+3
+      bc%edge(12)%istart(1) =                2; bc%edge(12)%iend(1) = grid%getimax()
+      bc%edge(12)%istart(2) = grid%getjmax()+1; bc%edge(12)%iend(2) = grid%getjmax()+3
+      bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3          
+      
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(bc)
