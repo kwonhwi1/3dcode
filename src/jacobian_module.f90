@@ -137,7 +137,7 @@ module jacobian_module
       ge5 = vis*jac%dv(8)
       ge6 = vis*jac%dv(9)
       ge7 = vis*jac%dv(10)
-      uuu = u+landa+vis
+      uuu = u+lamda+vis
 
       jac%a(1,1) = a1+g1+ge1
       jac%a(1,2) = a2
