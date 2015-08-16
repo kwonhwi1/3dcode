@@ -118,7 +118,7 @@ module cav_module
       pww = eos%get_pww(cav%pv(5))
       rho1 = 1.d0/cav%dv(1)
       
-      av = cav%dv(1)*cav%pv(6)*(1.d-cav%pv(7))/cav%dv(4)
+      av = cav%dv(1)*cav%pv(6)*(1.d0-cav%pv(7))/cav%dv(4)
       ag = cav%dv(1)*cav%pv(6)*cav%pv(7)/cav%dv(5)
       al = 1.d0 - av - ag
 

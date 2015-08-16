@@ -1,8 +1,10 @@
 module datawriting_module
   use config_module
-  use grid_module
+  use postgrid_module
   use postvariable_module
   implicit none
+#include 'cgnslib_f.h'
+#include 'cgnstypes_f.h'
   private
   public :: t_datawriting
   
@@ -10,14 +12,13 @@ module datawriting_module
   
     contains
       procedure :: cgnswriting
-      procedure :: cl_writing
+      procedure :: clcd_writing
   end type t_datawriting
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine cgnswriting(datawriting,config,variable)
       implicit none
-      include 'cgnslib_f.h'
       class(t_datawriting), intent(inout) :: datawriting
       type(t_config), intent(in) :: config
       type(t_variable), intent(in) :: variable
@@ -106,7 +107,7 @@ module datawriting_module
       deallocate(solname,time)
     end subroutine cgnswriting
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cl_writing(datawriting,config,grid,variable)
+    subroutine clcd_writing(datawriting,config,grid,variable)
       implicit none
       class(t_datawriting), intent(inout) :: datawriting
       type(t_config), intent(in) :: config
@@ -169,6 +170,6 @@ module datawriting_module
       !end do
       !close(io)
       
-    end subroutine cl_writing
+    end subroutine clcd_writing
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module datawriting_module

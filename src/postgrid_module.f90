@@ -1,4 +1,4 @@
-module grid_module
+module postgrid_module
   use config_module
   implicit none
 #include 'cgnslib_f.h'
@@ -17,7 +17,7 @@ module grid_module
   end type t_connectinfo
 
   type t_zone
-    integer :: imax,jmax,nbc,ncon
+    integer :: imax,jmax,kmax,nbc,ncon
     character(32) :: zonename
     type(t_bcinfo), dimension(:), allocatable :: bcinfo
     type(t_connectinfo), dimension(:), allocatable ::connectinfo  
@@ -377,10 +377,10 @@ module grid_module
           end do
         end do
       
-        do n = 1,grid%zone(n)%nbc
-          if((trim(grid%zone(n)%bcinfo(n)%bcname).eq.'BCDegeneratePoint').or.(trim(grid%zone(n)%bcinfo(n)%bcname).eq.'BCDegenerateLine')) then
-            if(grid%zone(n)%bcinfo(n)%istart(1).eq.grid%zone(n)%bcinfo(n)%iend(1)) then
-              if(grid%zone(n)%bcinfo(n)%istart(1).eq.1) then
+        do m = 1,grid%zone(n)%nbc
+          if((trim(grid%zone(n)%bcinfo(m)%bcname).eq.'BCDegeneratePoint').or.(trim(grid%zone(n)%bcinfo(m)%bcname).eq.'BCDegenerateLine')) then
+            if(grid%zone(n)%bcinfo(m)%istart(1).eq.grid%zone(n)%bcinfo(m)%iend(1)) then
+              if(grid%zone(n)%bcinfo(m)%istart(1).eq.1) then
                 grid%zone(n)%cx(1,1,:,:) = 0.d0
                 grid%zone(n)%cx(2,1,:,:) = 0.d0
                 grid%zone(n)%cx(3,1,:,:) = 0.d0
@@ -390,8 +390,8 @@ module grid_module
                 grid%zone(n)%cx(3,grid%zone(n)%imax,:,:) = 0.d0
               end if
             end if
-            if(grid%zone(n)%bcinfo(n)%istart(2).eq.grid%zone(n)%bcinfo(n)%iend(2)) then
-              if(grid%zone(n)%bcinfo(n)%istart(2).eq.1) then
+            if(grid%zone(n)%bcinfo(m)%istart(2).eq.grid%zone(n)%bcinfo(m)%iend(2)) then
+              if(grid%zone(n)%bcinfo(m)%istart(2).eq.1) then
                 grid%zone(n)%ex(1,:,1,:) = 0.d0
                 grid%zone(n)%ex(2,:,1,:) = 0.d0
                 grid%zone(n)%ex(3,:,1,:) = 0.d0
@@ -401,8 +401,8 @@ module grid_module
                 grid%zone(n)%ex(3,:,grid%zone(n)%jmax,:) = 0.d0
               end if
             end if
-            if(grid%zone(n)%bcinfo(n)%istart(3).eq.grid%zone(n)%bcinfo(n)%iend(3)) then
-              if(grid%zone(n)%bcinfo(n)%istart(3).eq.1) then
+            if(grid%zone(n)%bcinfo(m)%istart(3).eq.grid%zone(n)%bcinfo(m)%iend(3)) then
+              if(grid%zone(n)%bcinfo(m)%istart(3).eq.1) then
                 grid%zone(n)%tx(1,:,:,1) = 0.d0
                 grid%zone(n)%tx(2,:,:,1) = 0.d0
                 grid%zone(n)%tx(3,:,:,1) = 0.d0
@@ -415,7 +415,7 @@ module grid_module
           end if
         end do
       
-         grid%zone(n)%cx(:,:,1,:) = grid%zone(n)%cx(:,:,2,:)
+        grid%zone(n)%cx(:,:,1,:) = grid%zone(n)%cx(:,:,2,:)
         grid%zone(n)%cx(:,:,grid%zone(n)%jmax+1,:) = grid%zone(n)%cx(:,:,grid%zone(n)%jmax,:)
         grid%zone(n)%cx(:,:,:,1) = grid%zone(n)%cx(:,:,:,2)
         grid%zone(n)%cx(:,:,:,grid%zone(n)%kmax+1) = grid%zone(n)%cx(:,:,:,grid%zone(n)%kmax)
@@ -668,13 +668,13 @@ module grid_module
     function getjmax(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
-      integer, intetn(in) :: i
+      integer, intent(in) :: i
       integer :: getjmax
       
       getjmax = grid%zone(i)%jmax
     end function getjmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getkmax(grid)
+    function getkmax(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -835,4 +835,4 @@ module grid_module
       getconnectiend_donor = grid%zone(n)%connectinfo(i)%iend_donor(j)
     end function getconnectiend_donor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-end module grid_module
+end module postgrid_module

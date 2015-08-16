@@ -10,7 +10,7 @@ program postprocess
   type(t_config) :: config
   type(t_eos) :: eos
   type(t_prop) :: prop
-  type(t_grod) :: grid
+  type(t_grid) :: grid
   type(t_variable) :: variable
   type(t_datawriting) :: datawriting
   

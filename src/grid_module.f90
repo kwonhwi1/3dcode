@@ -930,7 +930,7 @@ module grid_module
       integer :: i,j,k,n,l,ii,jj,kk
       real(8) :: pa(3),pb(3),pc(3),pd(3)
       real(8) :: volp1,volp2,volp3,volp4,volp5,volp6
-      integer :: ier,request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%nconc)
+      integer :: ier,request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%ncon)
       integer :: status(mpi_status_size,grid%ncon)
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
 
