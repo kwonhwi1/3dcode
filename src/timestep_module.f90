@@ -8,6 +8,7 @@ module timestep_module
 
   type, abstract :: t_timestep
     private
+    integer :: rank
     integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
     real(8) :: cfl,uref,str
     real(8), dimension(:,:,:), allocatable :: dt
@@ -74,6 +75,7 @@ module timestep_module
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       
+      timestep%rank = config%getrank()
       timestep%cfl  = config%getcfl()
       timestep%uref = config%geturef()
       timestep%str  =  config%getstr()
@@ -207,6 +209,7 @@ module timestep_module
       real(8) :: uc,vc,wc,uv2,sndp2
       real(8) :: up,d,eigenx,eigeny,eigenz,eigenvis
       real(8) :: dtmin,mpi_dtmin
+      real(8), save :: time = 0.d0
       integer :: ierr
       
       dtmin = 1.d30
@@ -274,7 +277,8 @@ module timestep_module
       call mpi_reduce(dtmin,mpi_dtmin,1,mpi_real8,mpi_min,0,mpi_comm_world,ierr)
       call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
       timestep%dt = mpi_dtmin
-      
+      time = time + mpi_dtmin
+      if(timestep%rank.eq.0) write(*,*) 'Solution time=',time
     end subroutine mintime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine fixedtime(timestep,grid,variable)

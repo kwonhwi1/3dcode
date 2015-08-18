@@ -1,4 +1,5 @@
 *~
+*.obj
 *.o
 *.mod
 *__genmod.f90
