@@ -81,7 +81,7 @@ module postvariable_module
           write(iter_tag,'(i7.7)') istart+iter*config%getnexport()*(l-1)
         end if
         
-        open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='read',form='unformatted',shared)
+        open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='read',form='unformatted')
         read(io) variable%solution(l)%size,variable%solution(l)%nps,variable%solution(l)%nts,nqq
         
         allocate(variable%solution(l)%domain(1:variable%solution(l)%size))

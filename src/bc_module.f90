@@ -363,7 +363,7 @@ module bc_module
       bc%edge(12)%istart(2) = grid%getjmax()+1; bc%edge(12)%iend(2) = grid%getjmax()+3
       bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3          
       
-
+      bc%corner
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(bc)
