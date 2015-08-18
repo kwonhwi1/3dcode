@@ -5,5 +5,5 @@ end
 n
 0
 
-! name, nsteady, nexport, iturb must check in  input.inp for postprocessing
-! naxi, uref, rhoref, l_chord, aoa for clcd caculation
+! name, nsteady, nexport, iturb, fluid, fluid_eostype, ngas, gas_eostype, mixingrule must check in  input.inp for postprocessing
+! uref, rhoref, l_chord, aoa for clcd caculation
