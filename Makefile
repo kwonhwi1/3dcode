@@ -14,7 +14,7 @@ BIN_DIR     =   bin
 INC_DIR     =   /usr/local/include
 
 # f90 compiler
-ifeq($(mpi),open)
+ifeq ($(mpi),open)
 FC          =   mpif90
 else
 FC          =   mpiifort
