@@ -62,7 +62,9 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: l,n,m
       integer, parameter :: dim = 3
-      
+      logical :: isurf_edge(12),jsurf_edge(12),ksurf_edge(12)
+      logical :: isurf_corner(8),jsurf_corner(8),ksurf_corner(8)
+
       bc%rank = config%getrank() 
       bc%size = config%getsize()
       bc%iturb = config%getiturb()
@@ -362,7 +364,38 @@ module bc_module
       bc%edge(12)%istart(1) =                2; bc%edge(12)%iend(1) = grid%getimax()
       bc%edge(12)%istart(2) = grid%getjmax()+1; bc%edge(12)%iend(2) = grid%getjmax()+3
       bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3          
+      bc%corner(1)%istart(1) =               -1; bc%corner(1)%iend(1) = 1
+      bc%corner(1)%istart(2) =               -1; bc%corner(1)%iend(2) = 1
+      bc%corner(1)%istart(3) =               -1; bc%corner(1)%iend(3) = 1
+      bc%corner(2)%istart(1) = grid%getimax()+1; bc%corner(2)%iend(1) = grid%getimax()+3
+      bc%corner(2)%istart(2) =               -1; bc%corner(2)%iend(2) = 1
+      bc%corner(2)%istart(3) =               -1; bc%corner(2)%iend(3) = 1
+      bc%corner(3)%istart(1) =               -1; bc%corner(3)%iend(1) = 1
+      bc%corner(3)%istart(2) = grid%getjmax()+1; bc%corner(3)%iend(2) = grid%getjmax()+3
+      bc%corner(3)%istart(3) =               -1; bc%corner(3)%iend(3) = 1
+      bc%corner(4)%istart(1) = grid%getimax()+1; bc%corner(4)%iend(1) = grid%getimax()+3
+      bc%corner(4)%istart(2) = grid%getjmax()+1; bc%corner(4)%iend(2) = grid%getjmax()+3
+      bc%corner(4)%istart(3) =               -1; bc%corner(4)%iend(3) = 1
+      bc%corner(5)%istart(1) =               -1; bc%corner(5)%iend(1) = 1
+      bc%corner(5)%istart(2) =               -1; bc%corner(5)%iend(2) = 1
+      bc%corner(5)%istart(3) = grid%getkmax()+1; bc%corner(5)%iend(3) = grid%getkmax()+3
+      bc%corner(6)%istart(1) = grid%getimax()+1; bc%corner(6)%iend(1) = grid%getimax()+3
+      bc%corner(6)%istart(2) =               -1; bc%corner(6)%iend(2) = 1
+      bc%corner(6)%istart(3) = grid%getkmax()+1; bc%corner(6)%iend(3) = grid%getkmax()+3
+      bc%corner(7)%istart(1) =               -1; bc%corner(7)%iend(1) = 1
+      bc%corner(7)%istart(2) = grid%getjmax()+1; bc%corner(7)%iend(2) = grid%getjmax()+3
+      bc%corner(7)%istart(3) = grid%getkmax()+1; bc%corner(7)%iend(3) = grid%getkmax()+3
+      bc%corner(8)%istart(1) = grid%getimax()+1; bc%corner(8)%iend(1) = grid%getimax()+3
+      bc%corner(8)%istart(2) = grid%getjmax()+1; bc%corner(8)%iend(2) = grid%getjmax()+3
+      bc%corner(8)%istart(3) = grid%getkmax()+1; bc%corner(8)%iend(3) = grid%getkmax()+3
       
+      isurf_edge = .false.; jsurf_edge = .false.; ksurf_edge = .false.
+      isurf_corner = .false.; jsurf_corner = .false.; ksurf_corner = .false.
+
+      do n=1,bc%nbc
+
+      end do
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(bc)

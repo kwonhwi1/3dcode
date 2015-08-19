@@ -39,7 +39,7 @@ endif
 IFLAGS = -I $(INC_DIR) 
 
 # library needed for linking
-LFLAGS = -L $(LIB_DIR) -lcgns -L $(HDF_LIB) -lhdf5_serial -lstdc++
+LFLAGS = -L $(LIB_DIR) -lcgns -L $(HDF_LIB) -lhdf5 -lstdc++
 
 # defin needed for preprocessor
 DFLAGS = -D $(def)
