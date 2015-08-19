@@ -14,7 +14,11 @@ BIN_DIR     =   bin
 INC_DIR     =   /usr/local/include
 
 # f90 compiler
+ifeq($(mpi),open)
+FC          =   mpif90
+else
 FC          =   mpiifort
+endif
 
 # flags for maximum performance
 ifeq ($(compiler),gcc)
@@ -25,9 +29,9 @@ FFLAGS = -O3 -ffree-line-length-none $(OBJ_DIR)
 endif
 else
 ifeq ($(mode),debug)
-FFLAGS = -O0 -fpp -debug full -warn all -ftrapuv -traceback -check all -fpe0 -module $(OBJ_DIR)
+FFLAGS = -O0 -fpp -debug full -warn all -ftrapuv -fp-model strict -traceback -check all -fpe0 -module $(OBJ_DIR)
 else
-FFLAGS = -O3 -fpp -fpe0 -module $(OBJ_DIR)
+FFLAGS = -O3 -fpp -fpe0 -fp-model strict -module $(OBJ_DIR)
 endif
 endif
 
