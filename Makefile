@@ -17,10 +17,18 @@ INC_DIR     =   /usr/local/include
 FC          =   mpiifort
 
 # flags for maximum performance
+ifeq ($(compiler),gcc)
+ifeq ($(mode),debug)
+FFLAGS = -O0 -fbounds-check -Wall -pedantic -ffree-line-length-none $(OBJ_DIR)
+else
+FFLAGS = -O3 -ffree-line-length-none $(OBJ_DIR)
+endif
+else
 ifeq ($(mode),debug)
 FFLAGS = -O0 -fpp -debug full -warn all -ftrapuv -traceback -check all -fpe0 -module $(OBJ_DIR)
 else
 FFLAGS = -O3 -fpp -fpe0 -module $(OBJ_DIR)
+endif
 endif
 
 # include needed for compile

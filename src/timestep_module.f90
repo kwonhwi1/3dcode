@@ -8,7 +8,7 @@ module timestep_module
 
   type, abstract :: t_timestep
     private
-    integer :: rank
+    integer :: rank,nprint
     integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
     real(8) :: cfl,uref,str
     real(8), dimension(:,:,:), allocatable :: dt
@@ -22,7 +22,7 @@ module timestep_module
   end type t_timestep
 
   abstract interface
-    subroutine p_caltimestep(timestep,grid,variable)
+    subroutine p_caltimestep(timestep,grid,variable,nt_phy,nt)
       import t_timestep
       import t_grid
       import t_variable
@@ -30,6 +30,7 @@ module timestep_module
       class(t_timestep), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
       
     end subroutine p_caltimestep
   end interface
@@ -76,6 +77,7 @@ module timestep_module
       type(t_variable), intent(in) :: variable
       
       timestep%rank = config%getrank()
+      timestep%nprint = config%getnprint()
       timestep%cfl  = config%getcfl()
       timestep%uref = config%geturef()
       timestep%str  =  config%getstr()
@@ -122,11 +124,12 @@ module timestep_module
 
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine localtime(timestep,grid,variable)
+    subroutine localtime(timestep,grid,variable,nt_phy,nt)
       implicit none
       class(t_localtime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
       integer :: i,j,k    
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)
@@ -193,11 +196,12 @@ module timestep_module
       end do
     end subroutine localtime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine mintime(timestep,grid,variable)
+    subroutine mintime(timestep,grid,variable,nt_phy,nt)
       implicit none
       class(t_mintime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
       include 'mpif.h'
       integer :: i,j,k    
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
@@ -278,14 +282,15 @@ module timestep_module
       call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
       timestep%dt = mpi_dtmin
       time = time + mpi_dtmin
-      if(timestep%rank.eq.0) write(*,*) 'Solution time=',time
+      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',time
     end subroutine mintime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine fixedtime(timestep,grid,variable)
+    subroutine fixedtime(timestep,grid,variable,nt_phy,nt)
       implicit none
       class(t_fixedtime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      integer, intent(in) :: nt_phy,nt
 
       timestep%dt = timestep%cfl
 

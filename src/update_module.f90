@@ -36,7 +36,7 @@ module update_module
   end type t_update
   
   abstract interface
-    subroutine p_timeinteg(update,grid,variable,eos,prop)
+    subroutine p_timeinteg(update,grid,variable,eos,prop,nt_phy,nt)
       import t_update
       import t_grid
       import t_variable
@@ -48,6 +48,7 @@ module update_module
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      integer, intent(in) :: nt_phy,nt
     end subroutine p_timeinteg
   end interface
   
@@ -444,13 +445,14 @@ module update_module
       
     end subroutine destruct_lusgs
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine eulerex(update,grid,variable,eos,prop)
+    subroutine eulerex(update,grid,variable,eos,prop,nt_phy,nt)
       implicit none
       class(t_eulerex), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
       real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
@@ -460,7 +462,7 @@ module update_module
 
       
       call update%bc%setbc(grid,variable,eos,prop)
-      call update%timestep%caltimestep(grid,variable)
+      call update%timestep%caltimestep(grid,variable,nt_phy,nt)
       call update%rhs%calrhs(grid,variable,eos)
       
       do k=2,update%kmax
@@ -567,13 +569,14 @@ module update_module
       end if
     end subroutine eulerex
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine rk3rd(update,grid,variable,eos,prop)
+    subroutine rk3rd(update,grid,variable,eos,prop,nt_phy,nt)
       implicit none
       class(t_rk3rd), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l,m
       real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
@@ -585,7 +588,7 @@ module update_module
       
       do m=1,3
         call update%bc%setbc(grid,variable,eos,prop)
-        if(m.eq.1) call update%timestep%caltimestep(grid,variable)
+        if(m.eq.1) call update%timestep%caltimestep(grid,variable,nt_phy,nt)
         call update%rhs%calrhs(grid,variable,eos)
         do k=2,update%kmax
           do j=2,update%jmax
@@ -693,13 +696,14 @@ module update_module
       
     end subroutine rk3rd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine lusgs(update,grid,variable,eos,prop)
+    subroutine lusgs(update,grid,variable,eos,prop,nt_phy,nt)
       implicit none
       class(t_lusgs), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
       real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
@@ -707,7 +711,7 @@ module update_module
       real(8), target :: x(7,update%npv)
             
       call update%bc%setbc(grid,variable,eos,prop)
-      call update%timestep%caltimestep(grid,variable)
+      call update%timestep%caltimestep(grid,variable,nt_phy,nt)
       call update%rhs%calrhs(grid,variable,eos)
       
       update%dcv = 0.d0

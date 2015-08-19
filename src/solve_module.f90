@@ -134,7 +134,7 @@ module solve_module
       do nt_phy=nps,solve%npmax
         do nt=nts,solve%ntmax
           call solve%resi%setqres(variable)
-          call solve%update%timeinteg(grid,variable,eos,prop)
+          call solve%update%timeinteg(grid,variable,eos,prop,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
           if(solve%resi%getconverge()) then
             call solve%post%export_variable(variable,nt_phy,nt)
