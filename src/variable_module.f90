@@ -75,7 +75,7 @@ module variable_module
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnpv(variable)
+    pure function getnpv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getnpv
@@ -84,7 +84,7 @@ module variable_module
       
     end function getnpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getndv(variable)
+    pure function getndv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getndv
@@ -93,7 +93,7 @@ module variable_module
       
     end function getndv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getntv(variable)
+    pure function getntv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getntv
@@ -102,7 +102,7 @@ module variable_module
       
     end function getntv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnqq(variable)
+    pure function getnqq(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getnqq

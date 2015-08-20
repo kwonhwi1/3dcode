@@ -9,12 +9,13 @@ SRC_DIR     =   src
 OBJ_DIR     =   obj
 LIB_DIR     =   /usr/local/lib
 HDF_LIB     =   /usr/lib/x86_64-linux-gnu/hdf5/serial
+#HDF_LIB     =   /opt/local/lib
 HDF_INC     =   /usr/include/hdf5/serial
 BIN_DIR     =   bin
 INC_DIR     =   /usr/local/include
 
 # f90 compiler
-ifeq ($(mpi),open)
+ifeq ($(mpi),ompi)
 FC          =   mpif90
 else
 FC          =   mpiifort
@@ -23,9 +24,9 @@ endif
 # flags for maximum performance
 ifeq ($(compiler),gcc)
 ifeq ($(mode),debug)
-FFLAGS = -O0 -fbounds-check -Wall -pedantic -ffree-line-length-none $(OBJ_DIR)
+FFLAGS = -O0 -cpp -ffpe-trap=invalid -fbounds-check -Wall -pedantic -ffree-line-length-none -J $(OBJ_DIR)
 else
-FFLAGS = -O3 -ffree-line-length-none $(OBJ_DIR)
+FFLAGS = -O3 -cpp -ffpe-trap=invalid -ffree-line-length-none -J $(OBJ_DIR)
 endif
 else
 ifeq ($(mode),debug)

@@ -7,10 +7,9 @@ module config_module
   
   type t_config
     private
-    logical, public :: status
-    character(3) :: cpunum
+    logical :: status
     character(30) :: name
-    integer :: rank,size
+    integer :: rank,size,stencil
     integer :: iread,rstnum
     integer :: nsteady,npmax,ntmax,bond
     real(8) :: dt_phy
@@ -32,6 +31,7 @@ module config_module
       procedure :: destruct
       procedure :: getrank
       procedure :: getsize
+      procedure :: getstencil
       procedure :: getname
       procedure :: getiread
       procedure :: getnsteady
@@ -82,11 +82,11 @@ module config_module
       type(t_eos), intent(out) :: eos
       type(t_prop), intent(out) :: prop
       integer :: n,io,ierr
-    
+      
+      config%stencil = 38
       call mpi_init(ierr)
       call mpi_comm_size(mpi_comm_world,config%size,ierr)
       call mpi_comm_rank(mpi_comm_world,config%rank,ierr)
-      write(config%cpunum,'(i3.3)') config%rank
     
       do n = 0,config%size-1
         if(n.eq.config%rank) then
@@ -151,7 +151,7 @@ module config_module
       call mpi_finalize(ierr)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
-    function getrank(config)
+    pure function getrank(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getrank
@@ -160,7 +160,7 @@ module config_module
       
     end function getrank
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getsize(config)
+    pure function getsize(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getsize
@@ -168,6 +168,15 @@ module config_module
       getsize = config%size
       
     end function getsize
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getstencil(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getstencil
+
+      getstencil = config%stencil
+
+    end function getstencil
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getname(config)
       implicit none
@@ -177,8 +186,8 @@ module config_module
       getname = config%name
       
     end function getname
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getiread(config)
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc      
+    pure function getiread(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getiread
@@ -187,7 +196,7 @@ module config_module
       
     end function getiread
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnsteady(config)
+    pure function getnsteady(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnsteady
@@ -196,7 +205,7 @@ module config_module
       
     end function getnsteady
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnpmax(config)
+    pure function getnpmax(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnpmax
@@ -205,7 +214,7 @@ module config_module
       
     end function getnpmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getntmax(config)
+    pure function getntmax(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getntmax
@@ -214,7 +223,7 @@ module config_module
       
     end function getntmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getbond(config)
+    pure function getbond(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getbond
@@ -223,7 +232,7 @@ module config_module
       
     end function getbond
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getdt_phy(config)
+    pure function getdt_phy(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getdt_phy
@@ -232,7 +241,7 @@ module config_module
       
     end function getdt_phy
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnexport(config)
+    pure function getnexport(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnexport
@@ -241,7 +250,7 @@ module config_module
       
     end function getnexport
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnprint(config)
+    pure function getnprint(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnprint
@@ -250,7 +259,7 @@ module config_module
       
     end function getnprint
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getrstnum(config)
+    pure function getrstnum(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getrstnum
@@ -259,7 +268,7 @@ module config_module
       
     end function getrstnum
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getiturb(config)
+    pure function getiturb(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getiturb
@@ -268,7 +277,7 @@ module config_module
       
     end function getiturb
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnscheme(config)
+    pure function getnscheme(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnscheme
@@ -277,7 +286,7 @@ module config_module
       
     end function getnscheme
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getprecd(config)
+    pure function getprecd(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getprecd
@@ -286,7 +295,7 @@ module config_module
       
     end function getprecd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnmuscl(config)
+    pure function getnmuscl(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnmuscl
@@ -295,7 +304,7 @@ module config_module
       
     end function getnmuscl
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnlim(config)
+    pure function getnlim(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getnlim
@@ -303,7 +312,7 @@ module config_module
       getnlim = config%nlim
     end function getnlim
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function gettimemethod(config)
+    pure function gettimemethod(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: gettimemethod
@@ -312,7 +321,7 @@ module config_module
       
     end function gettimemethod
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getlocal(config)
+    pure function getlocal(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getlocal
@@ -321,7 +330,7 @@ module config_module
       
     end function getlocal
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getprec(config)
+    pure function getprec(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getprec
@@ -330,7 +339,7 @@ module config_module
       
     end function getprec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getncav(config)
+    pure function getncav(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: getncav
@@ -339,7 +348,7 @@ module config_module
       
     end function getncav
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function gettcomp(config)
+    pure function gettcomp(config)
       implicit none
       class(t_config), intent(in) :: config
       integer :: gettcomp
@@ -348,7 +357,7 @@ module config_module
       
     end function gettcomp
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getc_v(config)
+    pure function getc_v(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getc_v
@@ -357,7 +366,7 @@ module config_module
       
     end function getc_v
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getc_c(config)
+    pure function getc_c(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getc_c
@@ -366,7 +375,7 @@ module config_module
       
     end function getc_c
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getcfl(config)
+    pure function getcfl(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getcfl
@@ -375,7 +384,7 @@ module config_module
       
     end function getcfl
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getpref(config)
+    pure function getpref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getpref
@@ -384,7 +393,7 @@ module config_module
       
     end function getpref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function geturef(config)
+    pure function geturef(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: geturef
@@ -393,7 +402,7 @@ module config_module
       
     end function geturef
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getaoa(config)
+    pure function getaoa(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getaoa
@@ -402,7 +411,7 @@ module config_module
       
     end function getaoa
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function gettref(config)
+    pure function gettref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: gettref
@@ -411,7 +420,7 @@ module config_module
       
     end function gettref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function gety1ref(config)
+    pure function gety1ref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: gety1ref
@@ -420,7 +429,7 @@ module config_module
     
     end function gety1ref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function gety2ref(config)
+    pure function gety2ref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: gety2ref
@@ -429,7 +438,7 @@ module config_module
       
     end function gety2ref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getrhoref(config)
+    pure function getrhoref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getrhoref
@@ -438,7 +447,7 @@ module config_module
       
     end function getrhoref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getvisref(config)
+    pure function getvisref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getvisref
@@ -447,7 +456,7 @@ module config_module
       
     end function getvisref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getkref(config)
+    pure function getkref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getkref
@@ -456,7 +465,7 @@ module config_module
       
     end function getkref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getoref(config)
+    pure function getoref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getoref
@@ -465,7 +474,7 @@ module config_module
       
     end function getoref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getemutref(config)
+    pure function getemutref(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getemutref
@@ -474,7 +483,7 @@ module config_module
       
     end function getemutref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getl_chord(config)
+    pure function getl_chord(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getl_chord
@@ -483,7 +492,7 @@ module config_module
       
     end function getl_chord
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getl_character(config)
+    pure function getl_character(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getl_character
@@ -492,7 +501,7 @@ module config_module
       
     end function getl_character
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getscale(config)
+    pure function getscale(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getscale
@@ -501,7 +510,7 @@ module config_module
       
     end function getscale
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getstr(config)
+    pure function getstr(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getstr
@@ -510,7 +519,7 @@ module config_module
       
     end function getstr
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getpi(config)
+    pure function getpi(config)
       implicit none
       class(t_config), intent(in) :: config
       real(8) :: getpi

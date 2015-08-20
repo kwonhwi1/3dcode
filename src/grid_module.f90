@@ -1,8 +1,8 @@
 module grid_module
   use config_module
   implicit none
-#include 'cgnslib_f.h'
-#include 'cgnstypes_f.h'
+#include <cgnslib_f.h>
+#include <cgnstypes_f.h>
   private
   public :: t_grid,t_bcinfo,t_connectinfo, t_mpitemp
 
@@ -343,7 +343,7 @@ module grid_module
       integer :: sendnum,recvnum
       integer :: ier
       integer :: status(mpi_status_size,grid%ncon)
-      integer :: recvcount(0:config%getsize()-1),disp(0:config%getsize()-1)
+      integer :: recvcount(0:grid%size-1),disp(0:grid%size()-1)
       integer, parameter :: dim = 3
       real(8), dimension(:), allocatable :: sendxb,sendyb,sendzb,recvxb,recvyb,recvzb
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
@@ -439,12 +439,12 @@ module grid_module
       call mpi_allgather(sendnum,1,mpi_integer4,recvcount,1,mpi_integer4,mpi_comm_world,ier)
       
       disp(0) = 0
-      do m=1,config%getsize()-1
+      do m=1,grid%size()-1
         disp(m) = disp(m-1) + recvcount(m-1)
       end do
       
       recvnum = 0
-      do m=0,config%getsize()-1
+      do m=0,grid%size()-1
         recvnum = recvnum + recvcount(m)
       end do
       
@@ -557,10 +557,12 @@ module grid_module
         end if    
       end do
       
-      call mpi_waitall(grid%ncon,request_s ,status,ier)
-      call mpi_waitall(grid%ncon,request_r ,status,ier)
-      call mpi_waitall(grid%ncon,request_ra,status,ier)
-      call mpi_waitall(grid%ncon,request_sa,status,ier)
+      if(grid%size.gt.1) then
+        call mpi_waitall(grid%ncon,request_s ,status,ier)
+        call mpi_waitall(grid%ncon,request_r ,status,ier)
+        call mpi_waitall(grid%ncon,request_ra,status,ier)
+        call mpi_waitall(grid%ncon,request_sa,status,ier)
+      end if
 
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
@@ -829,10 +831,12 @@ module grid_module
         end if    
       end do
       
-      call mpi_waitall(grid%ncon,request_s ,status,ier)
-      call mpi_waitall(grid%ncon,request_sa,status,ier)
-      call mpi_waitall(grid%ncon,request_r ,status,ier)
-      call mpi_waitall(grid%ncon,request_ra,status,ier)
+      if(grid%size.gt.1) then
+        call mpi_waitall(grid%ncon,request_s ,status,ier)
+        call mpi_waitall(grid%ncon,request_sa,status,ier)
+        call mpi_waitall(grid%ncon,request_r ,status,ier)
+        call mpi_waitall(grid%ncon,request_ra,status,ier)
+      end if
 
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
@@ -1157,11 +1161,13 @@ module grid_module
         end if    
       end do
       
-      call mpi_waitall(grid%ncon,request_s ,status,ier)
-      call mpi_waitall(grid%ncon,request_sa,status,ier)
-      call mpi_waitall(grid%ncon,request_r ,status,ier)
-      call mpi_waitall(grid%ncon,request_ra,status,ier)
-      
+      if(grid%size.gt.1) then      
+        call mpi_waitall(grid%ncon,request_s ,status,ier)
+        call mpi_waitall(grid%ncon,request_sa,status,ier)
+        call mpi_waitall(grid%ncon,request_r ,status,ier)
+        call mpi_waitall(grid%ncon,request_ra,status,ier)
+      end if
+
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
           l = 0
@@ -1219,7 +1225,7 @@ module grid_module
       pyramid = dabs( volpx + volpy + volpz )
     end function pyramid
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getimax(grid)
+    pure function getimax(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getimax
@@ -1227,7 +1233,7 @@ module grid_module
       getimax = grid%imax
     end function getimax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getjmax(grid)
+    pure function getjmax(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getjmax
@@ -1235,7 +1241,7 @@ module grid_module
       getjmax = grid%jmax
     end function getjmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getkmax(grid)
+    pure function getkmax(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getkmax
@@ -1243,7 +1249,7 @@ module grid_module
       getkmax = grid%kmax
     end function getkmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnbc(grid)
+    pure function getnbc(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getnbc
@@ -1251,7 +1257,7 @@ module grid_module
       getnbc = grid%nbc
     end function getnbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     
-    function getncon(grid)
+    pure function getncon(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getncon
@@ -1295,7 +1301,7 @@ module grid_module
       gettx = grid%tx(:,i,j,k)
     end function gettx
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getngrd(grid)
+    pure function getngrd(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getngrd
@@ -1321,7 +1327,7 @@ module grid_module
       getbcname = grid%bcinfo(i)%bcname
     end function getbcname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getbcistart(grid,i,j)
+    pure function getbcistart(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
@@ -1330,7 +1336,7 @@ module grid_module
       getbcistart = grid%bcinfo(i)%istart(j)
     end function getbcistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getbciend(grid,i,j)
+    pure function getbciend(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
@@ -1339,7 +1345,7 @@ module grid_module
       getbciend = grid%bcinfo(i)%iend(j)
     end function getbciend
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getconnectdonor(grid,i)
+    pure function getconnectdonor(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getconnectdonor
@@ -1348,7 +1354,7 @@ module grid_module
       getconnectdonor = grid%connectinfo(i)%donor
     end function getconnectdonor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnecttransmat(grid,i,j,k)
+    pure function getconnecttransmat(grid,i,j,k)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getconnecttransmat
@@ -1357,7 +1363,7 @@ module grid_module
       getconnecttransmat = grid%connectinfo(i)%transmat(j,k)
     end function getconnecttransmat
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectistart(grid,i,j)
+    pure function getconnectistart(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
@@ -1366,7 +1372,7 @@ module grid_module
       getconnectistart = grid%connectinfo(i)%istart(j)
     end function getconnectistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectiend(grid,i,j)
+    pure function getconnectiend(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
@@ -1375,7 +1381,7 @@ module grid_module
       getconnectiend = grid%connectinfo(i)%iend(j)
     end function getconnectiend
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectistart_donor(grid,i,j)
+    pure function getconnectistart_donor(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
@@ -1384,7 +1390,7 @@ module grid_module
       getconnectistart_donor = grid%connectinfo(i)%istart_donor(j)
     end function getconnectistart_donor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectiend_donor(grid,i,j)
+    pure function getconnectiend_donor(grid,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
