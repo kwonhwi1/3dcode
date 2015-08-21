@@ -54,8 +54,8 @@ module datawriting_module
       
       do n=1,variable%getnsolution()
         write(*,*) 'solution=',n, 'nps=',variable%getnps(n), 'nts=',variable%getnts(n)
-        do m=0,variable%getsize(n)-1
-          write(*,*) 'writing variables to domain',m+1
+        do m=1,variable%getsize(n)
+          write(*,*) 'writing variables to domain',m
           allocate(pv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getnpv()))
           allocate(dv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getndv()))
           allocate(tv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getntv()))
