@@ -7,13 +7,14 @@ module muscl_module
 
   type, abstract :: t_muscl
     private
-    integer :: npv
-    real(8), pointer, public :: x(:,:)
+    integer :: stencil,npv
+    real(8), pointer :: x(:,:)
     real(8) :: r(2),r1(2),r2(2),alp(2)
     procedure(p_limiter), pointer :: limiter
     contains
       procedure :: construct                                !(iturb,lim)
       procedure :: destruct
+      procedure :: setpv
       procedure(p_interpolation), deferred :: interpolation !(xl(npv),xr(npv))
   end type t_muscl
 
@@ -75,7 +76,9 @@ module muscl_module
         muscl%limiter => i_5th
       end select
       
+      muscl%stencil = config%getstencil()
       muscl%npv  = variable%getnpv()
+  
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(muscl)
@@ -86,6 +89,14 @@ module muscl_module
       if(associated(muscl%limiter)) nullify(muscl%limiter)
 
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(muscl,x)
+      implicit none
+      class(t_muscl), intent(inout) :: muscl
+      real(8), intent(in), target :: x(muscl%stencil,muscl%npv)
+
+      muscl%x => x
+    end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine tvd(muscl,xl,xr)
       implicit none

@@ -1,5 +1,6 @@
 module vsflux_module
   use config_module
+  use grid_module
   use variable_module
   implicit none
   private
@@ -7,20 +8,25 @@ module vsflux_module
 
   type, abstract :: t_vsflux
     private
-    integer :: npv
+    integer :: stencil,ngrd,npv,ndv,ntv
     real(8) :: tdk1,tdk2,tdo1,tdo2
     real(8) :: pr_t
-    real(8), pointer, public :: pv(:,:)
-    real(8), pointer, public :: nx(:)
-    real(8), pointer, public :: ex1(:),ex2(:),ex3(:),ex4(:)
-    real(8), pointer, public :: tx1(:),tx2(:),tx3(:),tx4(:)
-    real(8), pointer, public :: grdl(:),grdr(:)
-    real(8), pointer, public :: dvl(:),dvr(:)
-    real(8), pointer, public :: tvl(:),tvr(:)
+    real(8), pointer :: pv(:,:)
+    real(8), pointer :: nx(:)
+    real(8), pointer :: ex1(:),ex2(:),ex3(:),ex4(:)
+    real(8), pointer :: tx1(:),tx2(:),tx3(:),tx4(:)
+    real(8), pointer :: grdl(:),grdr(:)
+    real(8), pointer :: dvl(:),dvr(:)
+    real(8), pointer :: tvl(:),tvr(:)
     procedure(p_calbigf), pointer :: calbigf
     contains
       procedure :: construct  
       procedure :: destruct
+      procedure :: setnorm    ! (nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
+      procedure :: setgrd     ! (grdl,grdr) vol,xcen,ycen,zcen,ydns
+      procedure :: setpv      ! (pv(14,npv)) p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv      ! (dvl,dvr) rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: settv      ! (tvl,tvr) vis,cond,emut
       procedure(p_calflux), deferred :: calflux
   end type t_vsflux
  
@@ -55,10 +61,11 @@ module vsflux_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    subroutine construct(vsflux,config,variable)
+    subroutine construct(vsflux,config,grid,variable)
       implicit none
       class(t_vsflux), intent(out) :: vsflux
       type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       
       select case(config%getiturb())
@@ -85,7 +92,11 @@ module vsflux_module
         vsflux%pr_t=0.d0
       end select
       
+      vsflux%stencil = config%getstencil()
+      vsflux%ngrd = grid%getngrd()
       vsflux%npv = variable%getnpv()
+      vsflux%ndv = variable%getndv()
+      vsflux%ntv = variable%getntv()
       
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
@@ -112,6 +123,63 @@ module vsflux_module
       if(associated(vsflux%calbigf)) nullify(vsflux%calbigf)
       
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(vsflux,nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
+      real(8), intent(in), target :: nx(3),ex1(3),ex2(3),ex3(3),ex4(3),tx1(3),tx2(3),tx3(3),tx4(3)
+      
+      vsflux%nx  => nx
+      vsflux%ex1 => ex1
+      vsflux%ex2 => ex2
+      vsflux%ex3 => ex3
+      vsflux%ex4 => ex4
+      vsflux%tx1 => tx1
+      vsflux%tx2 => tx2
+      vsflux%tx3 => tx3
+      vsflux%tx4 => tx4    
+
+    end subroutine setnorm 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(vsflux,grdl,grdr)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
+      real(8), intent(in), target :: grdl(vsflux%ngrd),grdr(vsflux%ngrd)
+      
+      vsflux%grdl => grdl
+      vsflux%grdr => grdr
+      
+    end subroutine setgrd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(vsflux,pv)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
+      real(8), intent(in), target :: pv(vsflux%stencil,vsflux%npv)
+      ! pv(19,:)~pv(38,:) are not used !! plz check
+      
+      vsflux%pv => pv
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
+    subroutine setdv(vsflux,dvl,dvr)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
+      real(8), intent(in), target :: dvl(vsflux%ndv),dvr(vsflux%ndv)
+      
+      vsflux%dvl => dvl
+      vsflux%dvr => dvr
+      
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(vsflux,tvl,tvr)
+      implicit none
+      class(t_vsflux), intent(inout) :: vsflux
+      real(8), intent(in), target :: tvl(vsflux%ntv),tvr(vsflux%ntv)
+      
+      vsflux%tvl => tvl
+      vsflux%tvr => tvr
+      
+    end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine vsflux_laminar(vsflux,fx)
       implicit none

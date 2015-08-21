@@ -19,7 +19,7 @@ module rhs_module
   
   type t_rhs
     private
-    integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
+    integer :: stencil,npv,ndv,ntv,ngrd,imax,jmax,kmax
     logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady
     real(8) :: pref
     real(8), dimension(:,:,:,:), allocatable :: res,icav,itt
@@ -126,7 +126,7 @@ module rhs_module
       end if
       
       if(allocated(rhs%vsflux)) then
-        call rhs%vsflux%construct(config,variable)
+        call rhs%vsflux%construct(config,grid,variable)
         rhs%l_vsflux = .true.
         allocate(rhs%eva(rhs%npv,rhs%imax),rhs%fva(rhs%npv,rhs%jmax),rhs%gva(rhs%npv,rhs%kmax))
       end if
@@ -137,7 +137,7 @@ module rhs_module
       end if
    
       if(allocated(rhs%cav)) then
-        call rhs%cav%construct(config)
+        call rhs%cav%construct(config,grid,variable)
         if(config%gettimemethod().eq.3) then
           allocate(rhs%icav(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
         end if
@@ -145,7 +145,7 @@ module rhs_module
       end if
       
       if(allocated(rhs%turbsource)) then
-        call rhs%turbsource%construct(config)
+        call rhs%turbsource%construct(config,grid,variable)
         if(config%gettimemethod().eq.3) then
           allocate(rhs%itt(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
         end if
@@ -154,7 +154,7 @@ module rhs_module
       end if
       
       if(allocated(rhs%unsteady)) then
-        call rhs%unsteady%construct(config,variable)
+        call rhs%unsteady%construct(config,grid,variable)
         rhs%l_unsteady   = .true.
       end if
 
@@ -207,14 +207,14 @@ module rhs_module
       type(t_eos), intent(in) :: eos
       integer :: i,j,k
       integer :: ii,jj,kk,ll
-      real(8), target :: nx(3)
-      real(8), target :: ex1(3),ex2(3),ex3(3),ex4(3)
-      real(8), target :: tx1(3),tx2(3),tx3(3),tx4(3)
-      real(8), target :: grdl(rhs%ngrd),grdr(rhs%ngrd)
-      real(8), target :: x(38,rhs%npv)
-      real(8), target :: pvl(rhs%npv),pvr(rhs%npv)
-      real(8), target :: dvl(rhs%ndv),dvr(rhs%ndv)
-      real(8), target :: tvl(rhs%ntv),tvr(rhs%ntv)
+      real(8) :: nx(3)
+      real(8) :: ex1(3),ex2(3),ex3(3),ex4(3)
+      real(8) :: tx1(3),tx2(3),tx3(3),tx4(3)
+      real(8) :: grdl(rhs%ngrd),grdr(rhs%ngrd)
+      real(8) :: x(rhs%stencil,rhs%npv)
+      real(8) :: pvl(rhs%npv),pvr(rhs%npv)
+      real(8) :: dvl(rhs%ndv),dvr(rhs%ndv)
+      real(8) :: tvl(rhs%ntv),tvr(rhs%ntv)
       type(t_cav_result) :: cav_result
       type(t_turb_result) :: turb_result
       
@@ -250,7 +250,7 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i-2,j,k)
               x(ll+2,:) = variable%getpv(i+3,j,k)
               
-              rhs%muscl%x => x
+              call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
               if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
               if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
@@ -273,12 +273,10 @@ module rhs_module
               dvr = variable%getdv(i+1,j,k)
             end if
             
-            rhs%flux%nx => nx  
-            rhs%flux%pvl => pvl 
-            rhs%flux%pvr => pvr
-            rhs%flux%dvl => dvl 
-            rhs%flux%dvr => dvr
-            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%setnorm(nx)
+            call rhs%flux%setpv(pvl,pvr)
+            call rhs%flux%setdv(dvl,dvr)
+            call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%ea(:,i))
             
             if(rhs%l_vsflux) then
@@ -297,22 +295,11 @@ module rhs_module
               tvl = variable%gettv(i,j,k)
               tvr = variable%gettv(i+1,j,k)
               
-              rhs%vsflux%nx => nx 
-              rhs%vsflux%ex1 => ex1 
-              rhs%vsflux%ex2 => ex2 
-              rhs%vsflux%ex3 => ex3 
-              rhs%vsflux%ex4 => ex4 
-              rhs%vsflux%tx1 => tx1 
-              rhs%vsflux%tx2 => tx2 
-              rhs%vsflux%tx3 => tx3 
-              rhs%vsflux%tx4 => tx4 
-              rhs%vsflux%grdl => grdl
-              rhs%vsflux%grdr => grdr
-              rhs%vsflux%dvl => dvl
-              rhs%vsflux%dvr => dvr
-              rhs%vsflux%tvl => tvl
-              rhs%vsflux%tvr => tvr
-              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%setnorm(nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
+              call rhs%vsflux%setgrd(grdl,grdr)
+              call rhs%vsflux%setpv(x)
+              call rhs%vsflux%setdv(dvl,dvr)
+              call rhs%vsflux%settv(tvl,tvr)
               call rhs%vsflux%calflux(rhs%eva(:,i))
             end if
           end do
@@ -355,7 +342,7 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i,j-2,k)
               x(ll+2,:) = variable%getpv(i,j+3,k)
               
-              rhs%muscl%x => x
+              call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
               if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
               if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
@@ -378,13 +365,10 @@ module rhs_module
               dvr = variable%getdv(i,j+1,k)
             end if
 
-
-            rhs%flux%nx => nx  
-            rhs%flux%pvl => pvl 
-            rhs%flux%pvr => pvr
-            rhs%flux%dvl => dvl 
-            rhs%flux%dvr => dvr
-            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%setnorm(nx)
+            call rhs%flux%setpv(pvl,pvr)
+            call rhs%flux%setdv(dvl,dvr)
+            call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%fa(:,j))
             
             if(rhs%l_vsflux) then
@@ -403,24 +387,11 @@ module rhs_module
               tvl = variable%gettv(i,j,k)
               tvr = variable%gettv(i,j+1,k)
 
-              
-              
-              rhs%vsflux%nx => nx 
-              rhs%vsflux%ex1 => ex1 
-              rhs%vsflux%ex2 => ex2 
-              rhs%vsflux%ex3 => ex3 
-              rhs%vsflux%ex4 => ex4 
-              rhs%vsflux%tx1 => tx1 
-              rhs%vsflux%tx2 => tx2 
-              rhs%vsflux%tx3 => tx3 
-              rhs%vsflux%tx4 => tx4 
-              rhs%vsflux%grdl => grdl
-              rhs%vsflux%grdr => grdr
-              rhs%vsflux%dvl => dvl
-              rhs%vsflux%dvr => dvr
-              rhs%vsflux%tvl => tvl
-              rhs%vsflux%tvr => tvr
-              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%setnorm(nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
+              call rhs%vsflux%setgrd(grdl,grdr)
+              call rhs%vsflux%setpv(x)
+              call rhs%vsflux%setdv(dvl,dvr)
+              call rhs%vsflux%settv(tvl,tvr)
               call rhs%vsflux%calflux(rhs%fva(:,j))
             end if
           end do
@@ -463,7 +434,7 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i,j,k-2)
               x(ll+2,:) = variable%getpv(i,j,k+3)
               
-              rhs%muscl%x => x
+              call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
               if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
               if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
@@ -486,14 +457,10 @@ module rhs_module
               dvr = variable%getdv(i,j,k+1)
             end if
 
-            
-            
-            rhs%flux%nx => nx  
-            rhs%flux%pvl => pvl 
-            rhs%flux%pvr => pvr
-            rhs%flux%dvl => dvl 
-            rhs%flux%dvr => dvr
-            rhs%flux%sdst => x(1:18,1)
+            call rhs%flux%setnorm(nx)
+            call rhs%flux%setpv(pvl,pvr)
+            call rhs%flux%setdv(dvl,dvr)
+            call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%ga(:,k))
             
             if(rhs%l_vsflux) then
@@ -512,22 +479,11 @@ module rhs_module
               tvl = variable%gettv(i,j,k)
               tvr = variable%gettv(i,j,k+1)
 
-              rhs%vsflux%nx => nx 
-              rhs%vsflux%ex1 => ex1 
-              rhs%vsflux%ex2 => ex2 
-              rhs%vsflux%ex3 => ex3 
-              rhs%vsflux%ex4 => ex4 
-              rhs%vsflux%tx1 => tx1 
-              rhs%vsflux%tx2 => tx2 
-              rhs%vsflux%tx3 => tx3 
-              rhs%vsflux%tx4 => tx4 
-              rhs%vsflux%grdl => grdl
-              rhs%vsflux%grdr => grdr
-              rhs%vsflux%dvl => dvl
-              rhs%vsflux%dvr => dvr
-              rhs%vsflux%tvl => tvl
-              rhs%vsflux%tvr => tvr
-              rhs%vsflux%pv => x(1:18,:)
+              call rhs%vsflux%setnorm(nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
+              call rhs%vsflux%setgrd(grdl,grdr)
+              call rhs%vsflux%setpv(x)
+              call rhs%vsflux%setdv(dvl,dvr)
+              call rhs%vsflux%settv(tvl,tvr)
               call rhs%vsflux%calflux(rhs%gva(:,k))
             end if
           end do
@@ -559,25 +515,20 @@ module rhs_module
             tvl = variable%gettv(i,j,k)
         
             if(rhs%l_cav) then
-              rhs%cav%grd => grdl
-              rhs%cav%pv => x(2,:)
-              rhs%cav%dv => dvl
+              call rhs%cav%setgrd(grdl)
+              call rhs%cav%setpv(x)
+              call rhs%cav%setdv(dvl)
               cav_result = rhs%cav%cavsource(eos)
               rhs%res(6,i,j,k) = rhs%res(6,i,j,k) + cav_result%cavsource
               if(allocated(rhs%icav)) rhs%icav(:,i,j,k) = cav_result%icav(:)
             end if
             
             if(rhs%l_turbsource) then
-              rhs%turbsource%cx1 => ex1
-              rhs%turbsource%cx2 => ex2
-              rhs%turbsource%ex1 => ex3
-              rhs%turbsource%ex2 => ex4
-              rhs%turbsource%tx1 => tx1
-              rhs%turbsource%tx2 => tx2
-              rhs%turbsource%grd => grdl
-              rhs%turbsource%pv => x(1:7,:)
-              rhs%turbsource%dv => dvl
-              rhs%turbsource%tv => tvl
+              call rhs%turbsource%setnorm(ex1,ex2,ex3,ex4,tx1,tx2)
+              call rhs%turbsource%setgrd(grdl)
+              call rhs%turbsource%setpv(x)
+              call rhs%turbsource%setdv(dvl)
+              call rhs%turbsource%settv(tvl)            
               turb_result = rhs%turbsource%calturbsource()
               rhs%omega_cut(i,j,k) = turb_result%omega_cut
               rhs%res(8:9,i,j,k) = rhs%res(8:9,i,j,k) + turb_result%source(:)
@@ -587,11 +538,10 @@ module rhs_module
             if(rhs%l_unsteady) then
               pvl = variable%getqq(1,i,j,k)
               pvr = variable%getqq(2,i,j,k)
-              rhs%unsteady%grd => grdl
-              rhs%unsteady%pv => x(2,:)
-              rhs%unsteady%dv => dvl
-              rhs%unsteady%qq1 => pvl
-              rhs%unsteady%qq2 => pvr
+              call rhs%unsteady%setgrd(grdl)
+              call rhs%unsteady%setpv(x)
+              call rhs%unsteady%setdv(dvl)
+              call rhs%unsteady%setqq(pvl,pvr)
               rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - rhs%unsteady%unsteadysource()
             end if
             

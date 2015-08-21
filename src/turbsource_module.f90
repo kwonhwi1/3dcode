@@ -1,5 +1,7 @@
 module turbsource_module
   use config_module
+  use grid_module
+  use variable_module
   implicit none
   private
   public :: t_turbsource,t_kepsilon,t_kwsst, t_turb_result
@@ -11,12 +13,18 @@ module turbsource_module
   type, abstract :: t_turbsource
     private
     logical :: tcomp
-    real(8), pointer, public :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
-    real(8), pointer, public :: pv(:,:)
-    real(8), pointer, public :: dv(:),grd(:),tv(:)
+    integer :: stencil,ngrd,npv,ndv,ntv
+    real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
+    real(8), pointer :: pv(:,:)
+    real(8), pointer :: dv(:),grd(:),tv(:)
     contains
       procedure :: construct
       procedure :: destruct
+      procedure :: setnorm      ! (cx1,cx2,ex1,ex2,tx1,tx2)
+      procedure :: setgrd       ! (grd) vol,xcen,ycen,zcen,ydns
+      procedure :: setpv        ! (pv) p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv        ! (dv) rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: settv        ! (tv) vis,cond,emut
       procedure(p_calturbsource), deferred :: calturbsource
       procedure, private :: calbigf
   end type t_turbsource
@@ -43,10 +51,12 @@ module turbsource_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(turbsource,config)
+    subroutine construct(turbsource,config,grid,variable)
       implicit none
       class(t_turbsource), intent(out) :: turbsource
       type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
      
       select case(config%gettcomp())
       case(0)
@@ -54,6 +64,12 @@ module turbsource_module
       case(1)
         turbsource%tcomp = .true.
       end select
+
+      turbsource%stencil = config%getstencil()
+      turbsource%ngrd = grid%getngrd()
+      turbsource%npv = variable%getnpv()
+      turbsource%ndv = variable%getndv()
+      turbsource%ntv = variable%getntv()
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -73,6 +89,57 @@ module turbsource_module
       if(associated(turbsource%tv))      nullify(turbsource%tv)      
       
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(turbsource,cx1,cx2,ex1,ex2,tx1,tx2)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
+      real(8), intent(in), target :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
+      
+      turbsource%cx1 => cx1
+      turbsource%cx2 => cx2
+      turbsource%ex1 => ex1
+      turbsource%ex2 => ex2
+      turbsource%tx1 => tx1
+      turbsource%tx2 => tx2
+      
+    end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(turbsource,grd)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
+      real(8), intent(in), target :: grd(turbsource%ngrd)
+      
+      turbsource%grd => grd
+      
+    end subroutine setgrd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(turbsource,pv)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
+      real(8), intent(in), target :: pv(turbsource%stencil,turbsource%npv)
+      ! pv(7,:)~pv(38,:) are not used !! plz check
+      
+      turbsource%pv => pv
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(turbsource,dv)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
+      real(8), intent(in), target :: dv(turbsource%ndv)
+      
+      turbsource%dv => dv
+      
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(turbsource,tv)
+      implicit none
+      class(t_turbsource), intent(inout) :: turbsource
+      real(8), intent(in), target :: tv(turbsource%ntv)
+      
+      turbsource%tv => tv
+      
+    end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function kepsilon(ts) result(turb_result)
       implicit none

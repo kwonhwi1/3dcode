@@ -343,7 +343,7 @@ module grid_module
       integer :: sendnum,recvnum
       integer :: ier
       integer :: status(mpi_status_size,grid%ncon)
-      integer :: recvcount(0:grid%size-1),disp(0:grid%size()-1)
+      integer :: recvcount(0:grid%size-1),disp(0:grid%size-1)
       integer, parameter :: dim = 3
       real(8), dimension(:), allocatable :: sendxb,sendyb,sendzb,recvxb,recvyb,recvzb
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
@@ -439,12 +439,12 @@ module grid_module
       call mpi_allgather(sendnum,1,mpi_integer4,recvcount,1,mpi_integer4,mpi_comm_world,ier)
       
       disp(0) = 0
-      do m=1,grid%size()-1
+      do m=1,grid%size-1
         disp(m) = disp(m-1) + recvcount(m-1)
       end do
       
       recvnum = 0
-      do m=0,grid%size()-1
+      do m=0,grid%size-1
         recvnum = recvnum + recvcount(m)
       end do
       

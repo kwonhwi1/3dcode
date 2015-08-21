@@ -1,17 +1,24 @@
 module eddy_module
+  use grid_module
+  use variable_module
   implicit none
   private
   public :: t_eddy,t_eddy_ke,t_eddy_kwsst
   
   type, abstract :: t_eddy
     private
-    logical :: l_eddy
-    real(8), pointer, public :: pv(:,:)
-    real(8), pointer, public :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
-    real(8), pointer, public :: dv(:),tv(:),grd(:)
+    integer :: ngrd,npv,ndv,ntv
+    real(8), pointer :: pv(:,:)
+    real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
+    real(8), pointer :: dv(:),tv(:),grd(:)
     contains
       procedure :: construct
       procedure :: destruct
+      procedure :: setnorm ! (cx1,cx2,ex1,ex2,tx1,tx2)
+      procedure :: setgrd  ! vol,xcen,ycen,zcen,ydns
+      procedure :: setpv   ! p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv   ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: settv   ! vis,cond,emut
       procedure(p_caleddy), deferred :: caleddy
   end type t_eddy
   
@@ -35,11 +42,17 @@ module eddy_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(eddy)
+    subroutine construct(eddy,grid,variable)
       implicit none
       class(t_eddy), intent(out) :: eddy
-      
-      eddy%l_eddy = .true.
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+    
+      eddy%ngrd = grid%getngrd()
+      eddy%npv  = variable%getnpv()
+      eddy%ndv  = variable%getndv()
+      eddy%ntv  = variable%getntv()      
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(eddy)
@@ -56,8 +69,57 @@ module eddy_module
       if(associated(eddy%pv))      nullify(eddy%pv) 
       if(associated(eddy%dv))      nullify(eddy%dv) 
       if(associated(eddy%tv))      nullify(eddy%tv)
-      eddy%l_eddy = .false.
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(eddy,cx1,cx2,ex1,ex2,tx1,tx2)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
+      real(8), intent(in), target :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
+      
+      eddy%cx1 => cx1
+      eddy%cx2 => cx2
+      eddy%ex1 => ex1
+      eddy%ex2 => ex2
+      eddy%tx1 => tx1
+      eddy%tx2 => tx2
+      
+    end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(eddy,grd)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
+      real(8), intent(in), target :: grd(eddy%ngrd)
+      
+      eddy%grd => grd
+    
+    end subroutine setgrd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(eddy,pv)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
+      real(8), intent(in), target :: pv(7,eddy%npv)
+      
+      eddy%pv => pv
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(eddy,dv)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
+      real(8), intent(in), target :: dv(eddy%ndv)
+      
+      eddy%dv => dv
+    
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(eddy,tv)
+      implicit none
+      class(t_eddy), intent(inout) :: eddy
+      real(8), intent(in), target :: tv(eddy%ntv)
+      
+      eddy%tv => tv
+    
+    end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function kepsilon(eddy) result(emut)
       class(t_eddy_ke), intent(in) :: eddy

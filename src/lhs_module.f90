@@ -1,5 +1,6 @@
 module lhs_module
   use config_module
+  use grid_module
   use variable_module
   implicit none
   private
@@ -7,11 +8,11 @@ module lhs_module
   
   type, abstract :: t_lhs
     private
-    integer :: nsteady
+    integer :: npv,ndv,ntv,ngrd,nsteady
     real(8) :: uref,str,dt_phy
-    real(8), pointer, public :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
-    real(8), pointer, public :: pv(:),tv(:),dv(:),grd(:),dt
-    real(8), pointer, public :: c(:),t(:)
+    real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
+    real(8), pointer :: pv(:),tv(:),dv(:),grd(:),dt
+    real(8), pointer :: c(:),t(:)
     real(8), pointer :: c0(:),t0(:)
     real(8), dimension(:,:), allocatable :: x
     procedure(p_getsndp2), pointer :: getsndp2
@@ -20,6 +21,14 @@ module lhs_module
     contains
       procedure :: construct
       procedure :: destruct
+      procedure :: setnorm ! (cx1,cx2,ex1,ex2,tx1,tx2)
+      procedure :: setgrd  ! vol,xcen,ycen,zcen,ydns
+      procedure :: setpv   ! p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv   ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: settv   ! vis,cond,emut
+      procedure :: setdt   ! dt
+      procedure :: setc
+      procedure :: sett
       procedure :: getx
       procedure(p_inverse), deferred :: inverse
   end type t_lhs
@@ -69,11 +78,17 @@ module lhs_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(lhs,config,variable)
+    subroutine construct(lhs,config,grid,variable)
       implicit none
       class(t_lhs), intent(out) :: lhs
       type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      
+      lhs%ngrd = grid%getngrd()
+      lhs%npv = variable%getnpv()
+      lhs%ndv = variable%getndv()
+      lhs%ntv = variable%getntv()
 
       lhs%uref = config%geturef()
       lhs%str  = config%getstr()
@@ -106,7 +121,7 @@ module lhs_module
         end select
       end select
       
-      allocate(lhs%x(variable%getnpv(),variable%getnpv()))
+      allocate(lhs%x(lhs%npv,lhs%npv))
       allocate(lhs%c0(4))
       allocate(lhs%t0(4))
       lhs%c0 = 0.d0
@@ -138,6 +153,83 @@ module lhs_module
 
       deallocate(lhs%x,lhs%c0,lhs%t0)
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(lhs,cx1,cx2,ex1,ex2,tx1,tx2)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
+      
+      lhs%cx1 => cx1
+      lhs%cx2 => cx2
+      lhs%ex1 => ex1
+      lhs%ex2 => ex2
+      lhs%tx1 => tx1
+      lhs%tx2 => tx2
+      
+    end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(lhs,grd)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: grd(lhs%ngrd)
+      
+      lhs%grd => grd
+      
+    end subroutine setgrd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(lhs,pv)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: pv(lhs%npv)
+      
+      lhs%pv => pv
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(lhs,dv)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: dv(lhs%ndv)
+      
+      lhs%dv => dv
+      
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(lhs,tv)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: tv(lhs%ntv)
+      
+      lhs%tv => tv
+      
+    end subroutine settv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdt(lhs,dt)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: dt
+      
+      lhs%dt => dt
+      
+    end subroutine setdt
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setc(lhs,c)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: c(4)
+      
+      lhs%c => c
+      
+    end subroutine setc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine sett(lhs,t)
+      implicit none
+      class(t_lhs), intent(inout) :: lhs
+      real(8), intent(in), target :: t(4)
+      
+      lhs%t => t
+      
+    end subroutine sett
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine flowonly(lhs)
       implicit none

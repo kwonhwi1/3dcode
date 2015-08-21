@@ -10,12 +10,16 @@ module flux_module
     private
     integer :: npv,ndv
     real(8) :: uref,str,pref
-    real(8), pointer, public :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
-    real(8), pointer, public :: nx(:)
+    real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
+    real(8), pointer :: nx(:)
     procedure(p_getsndp2), pointer :: getsndp2
     contains
       procedure :: construct       
       procedure :: destruct
+      procedure :: setnorm         ! (nx)
+      procedure :: setpv           ! (pvl,pvr) p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv           ! (dvl,dvr) rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: setsdst         ! (sdst)
       procedure(p_calflux), deferred :: calflux
   end type t_flux
 
@@ -99,6 +103,44 @@ module flux_module
       if(associated(flux%sdst))     nullify(flux%sdst) 
       if(associated(flux%getsndp2)) nullify(flux%getsndp2)    
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(flux,nx)
+      implicit none
+      class(t_flux), intent(inout) :: flux
+      real(8), intent(in), target :: nx(3)
+      
+      flux%nx => nx
+
+    end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setpv(flux,pvl,pvr)
+      implicit none
+      class(t_flux), intent(inout) :: flux
+      real(8), intent(in), target :: pvl(flux%npv),pvr(flux%npv)
+      
+      flux%pvl => pvl
+      flux%pvr => pvr
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(flux,dvl,dvr)
+      implicit none
+      class(t_flux), intent(inout) :: flux
+      real(8), intent(in), target :: dvl(flux%ndv),dvr(flux%ndv)
+      
+      flux%dvl => dvl
+      flux%dvr => dvr
+      
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setsdst(flux,sdst)
+      implicit none
+      class(t_flux), intent(inout) :: flux
+      real(8), intent(in), target :: sdst(18)
+      
+      flux%sdst => sdst
+      
+    end subroutine setsdst
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine roe(flux,eos,fx)
       implicit none

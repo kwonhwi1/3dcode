@@ -141,12 +141,12 @@ module update_module
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,variable)
+        call update%lhs%construct(config,grid,variable)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct()
+        call update%eddy%construct(grid,variable)
         update%l_eddy = .true.
       end if
       
@@ -227,12 +227,12 @@ module update_module
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,variable)
+        call update%lhs%construct(config,grid,variable)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct()
+        call update%eddy%construct(grid,variable)
         update%l_eddy = .true.
       end if
       
@@ -322,17 +322,17 @@ module update_module
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,variable)
+        call update%lhs%construct(config,grid,variable)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct()
+        call update%eddy%construct(grid,variable)
         update%l_eddy = .true.
       end if
       
       if(allocated(update%jac)) then
-        call update%jac%construct(config,variable)
+        call update%jac%construct(config,grid,variable)
         update%l_jac = .true.
       end if
       
@@ -454,10 +454,10 @@ module update_module
       type(t_prop), intent(in) :: prop
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
-      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
-      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
-      real(8), target :: grd(update%ngrd),dt
-      real(8), target :: x(7,update%npv)
+      real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8) :: grd(update%ngrd),dt
+      real(8) :: x(7,update%npv)
       real(8) :: dpv(update%npv)
 
       
@@ -481,18 +481,12 @@ module update_module
             tv = variable%gettv(i,j,k)
             dt = update%timestep%getdt(i,j,k)
 
-            
-            update%lhs%cx1 => nx1
-            update%lhs%cx2 => nx2
-            update%lhs%ex1 => nx3
-            update%lhs%ex2 => nx4
-            update%lhs%tx1 => nx5
-            update%lhs%tx2 => nx6
-            update%lhs%grd => grd
-            update%lhs%pv => pv
-            update%lhs%dv => dv
-            update%lhs%tv => tv
-            update%lhs%dt => dt
+            call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+            call update%lhs%setgrd(grd)
+            call update%lhs%setpv(pv)
+            call update%lhs%setdv(dv)
+            call update%lhs%settv(tv)
+            call update%lhs%setdt(dt)
             call update%lhs%inverse()
             
             dpv = 0.d0
@@ -551,16 +545,12 @@ module update_module
               x(5,:) = variable%getpv(i,j+1,k)
               x(6,:) = variable%getpv(i,j,k-1)
               x(7,:) = variable%getpv(i,j,k+1)
-              update%eddy%cx1 => nx1
-              update%eddy%cx2 => nx2
-              update%eddy%ex1 => nx3
-              update%eddy%ex2 => nx4
-              update%eddy%tx1 => nx5
-              update%eddy%tx2 => nx6
-              update%eddy%grd => grd
-              update%eddy%pv => x
-              update%eddy%dv => dv
-              update%eddy%tv => tv
+
+              call update%eddy%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+              call update%eddy%setgrd(grd)
+              call update%eddy%setpv(x)
+              call update%eddy%setdv(dv)
+              call update%eddy%settv(tv)
               tv(3) = update%eddy%caleddy()
               call variable%settv(3,i,j,k,tv(3))
             end do
@@ -578,10 +568,10 @@ module update_module
       type(t_prop), intent(in) :: prop
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l,m
-      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
-      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
-      real(8), target :: grd(update%ngrd),dt
-      real(8), target :: x(7,update%npv)
+      real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8) :: grd(update%ngrd),dt
+      real(8) :: x(7,update%npv)
       real(8) :: dpv(update%npv)
 
       
@@ -606,17 +596,12 @@ module update_module
               tv = variable%gettv(i,j,k)
               dt = update%timestep%getdt(i,j,k)
             
-              update%lhs%cx1 => nx1
-              update%lhs%cx2 => nx2
-              update%lhs%ex1 => nx3
-              update%lhs%ex2 => nx4
-              update%lhs%tx1 => nx5
-              update%lhs%tx2 => nx6
-              update%lhs%grd => grd
-              update%lhs%pv => pv
-              update%lhs%dv => dv
-              update%lhs%tv => tv
-              update%lhs%dt => dt
+              call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+              call update%lhs%setgrd(grd)
+              call update%lhs%setpv(pv)
+              call update%lhs%setdv(dv)
+              call update%lhs%settv(tv)
+              call update%lhs%setdt(dt)
               call update%lhs%inverse()
             
               dpv = 0.d0
@@ -676,16 +661,12 @@ module update_module
                 x(5,:) = variable%getpv(i,j+1,k)
                 x(6,:) = variable%getpv(i,j,k-1)
                 x(7,:) = variable%getpv(i,j,k+1)
-                update%eddy%cx1 => nx1
-                update%eddy%cx2 => nx2
-                update%eddy%ex1 => nx3
-                update%eddy%ex2 => nx4
-                update%eddy%tx1 => nx5
-                update%eddy%tx2 => nx6
-                update%eddy%grd => grd
-                update%eddy%pv => x
-                update%eddy%dv => dv
-                update%eddy%tv => tv
+
+                call update%eddy%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+                call update%eddy%setgrd(grd)
+                call update%eddy%setpv(x)
+                call update%eddy%setdv(dv)
+                call update%eddy%settv(tv)
                 tv(3) = update%eddy%caleddy()
                 call variable%settv(3,i,j,k,tv(3))
               end do
@@ -705,10 +686,10 @@ module update_module
       type(t_prop), intent(in) :: prop
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
-      real(8), target :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
-      real(8), target :: pv(update%npv),dv(update%ndv),tv(update%ntv)
-      real(8), target :: grd(update%ngrd),dt,c(4),t(4)
-      real(8), target :: x(7,update%npv)
+      real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
+      real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
+      real(8) :: grd(update%ngrd),dt,c(4),t(4)
+      real(8) :: x(7,update%npv)
             
       call update%bc%setbc(grid,variable,eos,prop)
       call update%timestep%caltimestep(grid,variable,nt_phy,nt)
@@ -731,27 +712,21 @@ module update_module
             tv = variable%gettv(i,j,k)
             dt = update%timestep%getdt(i,j,k)
             
-            update%lhs%cx1 => nx1
-            update%lhs%cx2 => nx2
-            update%lhs%ex1 => nx3
-            update%lhs%ex2 => nx4
-            update%lhs%tx1 => nx5
-            update%lhs%tx2 => nx6
-            update%lhs%grd => grd
-            update%lhs%pv => pv
-            update%lhs%dv => dv
-            update%lhs%tv => tv
-            update%lhs%dt => dt
+            call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+            call update%lhs%setgrd(grd)
+            call update%lhs%setpv(pv)
+            call update%lhs%setdv(dv)
+            call update%lhs%settv(tv)
+            call update%lhs%setdt(dt)
             
             if(update%l_cav) then
               c = update%rhs%geticav(i,j,k)
-              update%lhs%c => c
+              call update%lhs%setc(c)
             end if
             if(update%l_turb) then
               t = update%rhs%getitt(i,j,k)
-              update%lhs%t => t
+              call update%lhs%sett(t)
             end if
-            
             call update%lhs%inverse()
             
             do n=1,update%npv
@@ -765,11 +740,11 @@ module update_module
             pv = variable%getpv(i-1,j,k)
             dv = variable%getdv(i-1,j,k)
             tv = variable%gettv(i-1,j,k)
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(1)
             
             do n=1,update%npv
@@ -784,11 +759,11 @@ module update_module
             pv = variable%getpv(i,j-1,k)
             dv = variable%getdv(i,j-1,k)
             tv = variable%gettv(i,j-1,k)          
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(1)
         
             do n=1,update%npv
@@ -802,11 +777,11 @@ module update_module
             pv = variable%getpv(i,j,k-1)
             dv = variable%getdv(i,j,k-1)
             tv = variable%gettv(i,j,k-1)          
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(1)
         
             do n=1,update%npv
@@ -833,11 +808,11 @@ module update_module
             pv = variable%getpv(i+1,j,k)
             dv = variable%getdv(i+1,j,k)
             tv = variable%gettv(i+1,j,k)
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(-1)
         
             do n=1,update%npv
@@ -851,11 +826,11 @@ module update_module
             pv = variable%getpv(i,j+1,k)
             dv = variable%getdv(i,j+1,k)
             tv = variable%gettv(i,j+1,k)          
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(-1)
             
             do n=1,update%npv
@@ -869,11 +844,11 @@ module update_module
             pv = variable%getpv(i,j,k+1)
             dv = variable%getdv(i,j,k+1)
             tv = variable%gettv(i,j,k+1)          
-            update%jac%nx => nx1
-            update%jac%grd => grd
-            update%jac%pv => pv
-            update%jac%dv => dv
-            update%jac%tv => tv
+            call update%jac%setnorm(nx1)
+            call update%jac%setgrd(grd)
+            call update%jac%setpv(pv)
+            call update%jac%setdv(dv)
+            call update%jac%settv(tv)
             call update%jac%caljac(-1)
             
             do n=1,update%npv
@@ -943,16 +918,12 @@ module update_module
               x(5,:) = variable%getpv(i,j+1,k)
               x(6,:) = variable%getpv(i,j,k-1)
               x(7,:) = variable%getpv(i,j,k+1)
-              update%eddy%cx1 => nx1
-              update%eddy%cx2 => nx2
-              update%eddy%ex1 => nx3
-              update%eddy%ex2 => nx4
-              update%eddy%tx1 => nx5
-              update%eddy%tx2 => nx6
-              update%eddy%grd => grd
-              update%eddy%pv => x
-              update%eddy%dv => dv
-              update%eddy%tv => tv
+
+              call update%eddy%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+              call update%eddy%setgrd(grd)
+              call update%eddy%setpv(x)
+              call update%eddy%setdv(dv)
+              call update%eddy%settv(tv)
               tv(3) = update%eddy%caleddy()
               call variable%settv(3,i,j,k,tv(3))
             end do

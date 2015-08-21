@@ -1,5 +1,6 @@
 module jacobian_module
   use config_module
+  use grid_module
   use variable_module
   implicit none
   private
@@ -7,15 +8,21 @@ module jacobian_module
   
   type, abstract :: t_jac
     private
+    integer :: ngrd,npv,ndv,ntv
     real(8) :: uref,str
-    real(8), pointer, public :: nx(:)
-    real(8), pointer, public :: pv(:),tv(:),dv(:),grd(:)
+    real(8), pointer :: nx(:)
+    real(8), pointer :: pv(:),tv(:),dv(:),grd(:)
     real(8), dimension(:,:), allocatable :: a
     procedure(p_getsndp2), pointer :: getsndp2
     procedure(p_geteigenvis), pointer :: geteigenvis    
     contains
       procedure :: construct
       procedure :: destruct
+      procedure :: setnorm ! (nx)
+      procedure :: setgrd  ! vol,xcen,ycen,zcen,ydns
+      procedure :: setpv   ! p,u,v,w,t,y1,y2,k,o
+      procedure :: setdv   ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      procedure :: settv   ! vis,cond,emut
       procedure :: geta
       procedure(p_caljac), deferred :: caljac 
   end type t_jac
@@ -58,10 +65,11 @@ module jacobian_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(jac,config,variable)
+    subroutine construct(jac,config,grid,variable)
       implicit none
       class(t_jac), intent(out) :: jac
       type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
             
       jac%uref = config%geturef()
@@ -85,7 +93,12 @@ module jacobian_module
         jac%geteigenvis => euler
       end select
 
-      allocate(jac%a(variable%getnpv(),variable%getnpv()))
+      jac%ngrd = grid%getngrd()
+      jac%npv  = variable%getnpv()
+      jac%ntv  = variable%getntv()
+      jac%ndv  = variable%getndv()   
+      allocate(jac%a(jac%npv,jac%npv))
+    
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(jac)
@@ -102,6 +115,51 @@ module jacobian_module
       
       deallocate(jac%a)
     end subroutine destruct
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setnorm(jac,nx)
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      real(8), intent(in), target :: nx(3)
+      
+      jac%nx => nx
+
+    end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(jac,grd)
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      real(8), intent(in), target :: grd(jac%ngrd)
+      
+      jac%grd => grd
+      
+    end subroutine setgrd
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+   subroutine setpv(jac,pv)
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      real(8), intent(in), target :: pv(jac%npv)
+      
+      jac%pv => pv
+      
+    end subroutine setpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(jac,dv)
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      real(8), intent(in), target :: dv(jac%ndv)
+      
+      jac%dv => dv
+      
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine settv(jac,tv)
+      implicit none
+      class(t_jac), intent(inout) :: jac
+      real(8), intent(in), target :: tv(jac%ntv)
+      
+      jac%tv => tv
+      
+    end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine flowonly(jac,sign)
       implicit none
