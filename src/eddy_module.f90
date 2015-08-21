@@ -166,13 +166,13 @@ module eddy_module
       vol = 1.d0/eddy%grd(1)
       dudx = (u2*eddy%cx2(1)+u4*eddy%ex2(1)+u6*eddy%tx2(1)-u1*eddy%cx1(1)-u3*eddy%ex1(1)-u5*eddy%tx1(1))*vol
       dudy = (u2*eddy%cx2(2)+u4*eddy%ex2(2)+u6*eddy%tx2(2)-u1*eddy%cx1(2)-u3*eddy%ex1(2)-u5*eddy%tx1(2))*vol
-      dudy = (u2*eddy%cx2(3)+u4*eddy%ex2(3)+u6*eddy%tx2(3)-u1*eddy%cx1(3)-u3*eddy%ex1(3)-u5*eddy%tx1(3))*vol
+      dudz = (u2*eddy%cx2(3)+u4*eddy%ex2(3)+u6*eddy%tx2(3)-u1*eddy%cx1(3)-u3*eddy%ex1(3)-u5*eddy%tx1(3))*vol
       dvdx = (v2*eddy%cx2(1)+v4*eddy%ex2(1)+v6*eddy%tx2(1)-v1*eddy%cx1(1)-v3*eddy%ex1(1)-v5*eddy%tx1(1))*vol
       dvdy = (v2*eddy%cx2(2)+v4*eddy%ex2(2)+v6*eddy%tx2(2)-v1*eddy%cx1(2)-v3*eddy%ex1(2)-v5*eddy%tx1(2))*vol
-      dvdy = (v2*eddy%cx2(3)+v4*eddy%ex2(3)+v6*eddy%tx2(3)-v1*eddy%cx1(3)-v3*eddy%ex1(3)-v5*eddy%tx1(3))*vol
+      dvdz = (v2*eddy%cx2(3)+v4*eddy%ex2(3)+v6*eddy%tx2(3)-v1*eddy%cx1(3)-v3*eddy%ex1(3)-v5*eddy%tx1(3))*vol
       dwdx = (w2*eddy%cx2(1)+w4*eddy%ex2(1)+w6*eddy%tx2(1)-w1*eddy%cx1(1)-w3*eddy%ex1(1)-w5*eddy%tx1(1))*vol
       dwdy = (w2*eddy%cx2(2)+w4*eddy%ex2(2)+w6*eddy%tx2(2)-w1*eddy%cx1(2)-w3*eddy%ex1(2)-w5*eddy%tx1(2))*vol
-      dwdy = (w2*eddy%cx2(3)+w4*eddy%ex2(3)+w6*eddy%tx2(3)-w1*eddy%cx1(3)-w3*eddy%ex1(3)-w5*eddy%tx1(3))*vol
+      dwdz = (w2*eddy%cx2(3)+w4*eddy%ex2(3)+w6*eddy%tx2(3)-w1*eddy%cx1(3)-w3*eddy%ex1(3)-w5*eddy%tx1(3))*vol
       
       term1 = dsqrt(eddy%pv(2,8))/(0.09d0*eddy%pv(2,9)*eddy%grd(5))
       term2 = 500.d0*eddy%tv(1)/eddy%dv(1)/(eddy%pv(2,9)*eddy%grd(5)**2)

@@ -65,11 +65,16 @@ module postvariable_module
 
       variable%nsolution = nsolution
       
-      if(mod((iend-istart)/config%getnexport()+1,variable%nsolution).ne.0) then
+      if(variable%nsolution.eq.1) then
+        if(iend.eq.istart) then
+          iter = 0
+        else 
+          write(*,*) 'invalid nsolution'
+        end if
+      else if(mod((iend-istart)/config%getnexport(),variable%nsolution-1).ne.0) then
         write(*,*) 'invalid nsolution'
-        pause
       else
-        iter = ((iend-istart)/config%getnexport()+1)/variable%nsolution
+        iter = (iend-istart)/config%getnexport()/(variable%nsolution-1)
       end if
       
       allocate(variable%solution(variable%nsolution))
@@ -147,7 +152,7 @@ module postvariable_module
       getnts = variable%solution(l)%nts
     end function getnts
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnpv(variable)
+    pure function getnpv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getnpv
@@ -156,7 +161,7 @@ module postvariable_module
       
     end function getnpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getntv(variable)
+    pure function getntv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getntv
@@ -165,7 +170,7 @@ module postvariable_module
       
     end function getntv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getndv(variable)
+    pure function getndv(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getndv
@@ -174,7 +179,7 @@ module postvariable_module
       
     end function getndv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnsolution(variable)
+    pure function getnsolution(variable)
       implicit none
       class(t_variable), intent(in) :: variable
       integer :: getnsolution
@@ -210,7 +215,7 @@ module postvariable_module
       getdv = variable%solution(l)%domain(m)%dv(n,i,j,k)
     end function getdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getsize(variable,l)
+    pure function getsize(variable,l)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: l
@@ -218,7 +223,7 @@ module postvariable_module
       getsize = variable%solution(l)%size
     end function getsize
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getrank(variable,l,m)
+    pure function getrank(variable,l,m)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: l,m
@@ -227,7 +232,7 @@ module postvariable_module
       getrank = variable%solution(l)%domain(m)%rank
     end function getrank
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getimax(variable,l,m)
+    pure function getimax(variable,l,m)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: l,m
@@ -236,7 +241,7 @@ module postvariable_module
       getimax = variable%solution(l)%domain(m)%imax
     end function getimax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getjmax(variable,l,m)
+    pure function getjmax(variable,l,m)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: l,m
@@ -245,7 +250,7 @@ module postvariable_module
       getjmax = variable%solution(l)%domain(m)%jmax
     end function getjmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getkmax(variable,l,m)
+    pure function getkmax(variable,l,m)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: l,m

@@ -511,12 +511,14 @@ module bc_module
           end do
         end if
       end do
-
-      call mpi_waitall(bc%ncon,request_s ,status,ier)
-      call mpi_waitall(bc%ncon,request_sa,status,ier)
-      call mpi_waitall(bc%ncon,request_r ,status,ier)
-      call mpi_waitall(bc%ncon,request_ra,status,ier)
       
+      if(bc%size.gt.1) then
+        call mpi_waitall(bc%ncon,request_s ,status,ier)
+        call mpi_waitall(bc%ncon,request_sa,status,ier)
+        call mpi_waitall(bc%ncon,request_r ,status,ier)
+        call mpi_waitall(bc%ncon,request_ra,status,ier)
+      end if
+
       do n=1,bc%ncon
         if(bc%rank.ne.bc%connectinfo(n)%donor) then 
           l = 0

@@ -3,8 +3,8 @@ module datawriting_module
   use postgrid_module
   use postvariable_module
   implicit none
-#include 'cgnslib_f.h'
-#include 'cgnstypes_f.h'
+#include <cgnslib_f.h>
+#include <cgnstypes_f.h>
   private
   public :: t_datawriting
   

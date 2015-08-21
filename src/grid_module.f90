@@ -315,7 +315,7 @@ module grid_module
       
       call grid%calnormal() !! must be called before calvolume !!
       call grid%calvolume() 
-      if(config%getiturb().gt.-2) call grid%calydns(config) ! in case of turbulent, ydns must be calculated !!
+      if(config%getiturb().gt.-2) call grid%calydns() ! in case of turbulent, ydns must be calculated !!
       
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -334,11 +334,10 @@ module grid_module
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine calydns(grid,config)
+    subroutine calydns(grid)
       implicit none
       include 'mpif.h'
       class(t_grid), intent(inout) :: grid
-      type(t_config), intent(in) :: config
       integer :: m,n,i,j,k,l,ii,jj,kk
       integer :: sendnum,recvnum
       integer :: ier
@@ -457,9 +456,9 @@ module grid_module
       do k=2,grid%kmax
         do j=2,grid%jmax
           do i=2,grid%imax
-            xc = 0.125d0*(grid%x(1,i,j,k)+grid%x(1,i+1,j,k)+grid%x(1,i,j+1,k)+grid%x(1,i,j,k+1)+grid%x(1,i+1,j+1,k)+grid%x(1,i,j+1,k+1)++grid%x(1,i+1,j,k+1)+grid%x(1,i+1,j+1,k+1))
-            yc = 0.125d0*(grid%x(2,i,j,k)+grid%x(2,i+1,j,k)+grid%x(2,i,j+1,k)+grid%x(2,i,j,k+1)+grid%x(2,i+1,j+1,k)+grid%x(2,i,j+1,k+1)++grid%x(2,i+1,j,k+1)+grid%x(2,i+1,j+1,k+1))
-            zc = 0.125d0*(grid%x(3,i,j,k)+grid%x(3,i+1,j,k)+grid%x(3,i,j+1,k)+grid%x(3,i,j,k+1)+grid%x(3,i+1,j+1,k)+grid%x(3,i,j+1,k+1)++grid%x(3,i+1,j,k+1)+grid%x(3,i+1,j+1,k+1))
+            xc = 0.125d0*(grid%x(1,i,j,k)+grid%x(1,i+1,j,k)+grid%x(1,i,j+1,k)+grid%x(1,i,j,k+1)+grid%x(1,i+1,j+1,k)+grid%x(1,i,j+1,k+1)+grid%x(1,i+1,j,k+1)+grid%x(1,i+1,j+1,k+1))
+            yc = 0.125d0*(grid%x(2,i,j,k)+grid%x(2,i+1,j,k)+grid%x(2,i,j+1,k)+grid%x(2,i,j,k+1)+grid%x(2,i+1,j+1,k)+grid%x(2,i,j+1,k+1)+grid%x(2,i+1,j,k+1)+grid%x(2,i+1,j+1,k+1))
+            zc = 0.125d0*(grid%x(3,i,j,k)+grid%x(3,i+1,j,k)+grid%x(3,i,j+1,k)+grid%x(3,i,j,k+1)+grid%x(3,i+1,j+1,k)+grid%x(3,i,j+1,k+1)+grid%x(3,i+1,j,k+1)+grid%x(3,i+1,j+1,k+1))
             ymin = 1.d6
             do m =1,recvnum
               ytemp = dsqrt((xc-recvxb(m))**2+(yc-recvyb(m))**2+(zc-recvzb(m))**2)

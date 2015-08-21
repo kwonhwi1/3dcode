@@ -1,8 +1,8 @@
 module postgrid_module
   use config_module
   implicit none
-#include 'cgnslib_f.h'
-#include 'cgnstypes_f.h'
+#include <cgnslib_f.h>
+#include <cgnstypes_f.h>
   private
   public :: t_grid,t_bcinfo,t_connectinfo,t_zone
 
@@ -648,7 +648,7 @@ module postgrid_module
       pyramid = dabs( volpx + volpy + volpz )
     end function pyramid
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getnzone(grid)
+    pure function getnzone(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getnzone
@@ -656,7 +656,7 @@ module postgrid_module
       getnzone = grid%nzone
     end function getnzone
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getimax(grid,i)
+    pure function getimax(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -665,7 +665,7 @@ module postgrid_module
       getimax = grid%zone(i)%imax
     end function getimax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getjmax(grid,i)
+    pure function getjmax(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -674,7 +674,7 @@ module postgrid_module
       getjmax = grid%zone(i)%jmax
     end function getjmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getkmax(grid,i)
+    pure function getkmax(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -683,7 +683,7 @@ module postgrid_module
       getkmax = grid%zone(i)%kmax
     end function getkmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getnbc(grid,i)
+    pure function getnbc(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -692,7 +692,7 @@ module postgrid_module
       getnbc = grid%zone(i)%nbc
     end function getnbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     
-    function getncon(grid,i)
+    pure function getncon(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
@@ -737,7 +737,7 @@ module postgrid_module
       gettx = grid%zone(n)%tx(:,i,j,k)
     end function gettx
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getngrd(grid)
+    pure function getngrd(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getngrd
@@ -763,7 +763,7 @@ module postgrid_module
       getbcname = grid%zone(n)%bcinfo(i)%bcname
     end function getbcname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getbcistart(grid,n,i,j)
+    pure function getbcistart(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
@@ -772,7 +772,7 @@ module postgrid_module
       getbcistart = grid%zone(n)%bcinfo(i)%istart(j)
     end function getbcistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getbciend(grid,n,i,j)
+    pure function getbciend(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
@@ -781,7 +781,7 @@ module postgrid_module
       getbciend = grid%zone(n)%bcinfo(i)%iend(j)
     end function getbciend
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    function getconnectdonor(grid,n,i)
+    pure function getconnectdonor(grid,n,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getconnectdonor
@@ -790,7 +790,7 @@ module postgrid_module
       getconnectdonor = grid%zone(n)%connectinfo(i)%donor
     end function getconnectdonor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnecttransmat(grid,n,i,j,k)
+    pure function getconnecttransmat(grid,n,i,j,k)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getconnecttransmat
@@ -799,7 +799,7 @@ module postgrid_module
       getconnecttransmat = grid%zone(n)%connectinfo(i)%transmat(j,k)
     end function getconnecttransmat
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectistart(grid,n,i,j)
+    pure function getconnectistart(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
@@ -808,7 +808,7 @@ module postgrid_module
       getconnectistart = grid%zone(n)%connectinfo(i)%istart(j)
     end function getconnectistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectiend(grid,n,i,j)
+    pure function getconnectiend(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
@@ -817,7 +817,7 @@ module postgrid_module
       getconnectiend = grid%zone(n)%connectinfo(i)%iend(j)
     end function getconnectiend
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectistart_donor(grid,n,i,j)
+    pure function getconnectistart_donor(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
@@ -826,7 +826,7 @@ module postgrid_module
       getconnectistart_donor = grid%zone(n)%connectinfo(i)%istart_donor(j)
     end function getconnectistart_donor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getconnectiend_donor(grid,n,i,j)
+    pure function getconnectiend_donor(grid,n,i,j)
       implicit none
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: n,i,j
