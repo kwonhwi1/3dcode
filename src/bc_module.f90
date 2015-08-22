@@ -363,7 +363,12 @@ module bc_module
       bc%edge(11)%istart(3) = grid%getkmax()+1; bc%edge(11)%iend(3) = grid%getkmax()+3
       bc%edge(12)%istart(1) =                2; bc%edge(12)%iend(1) = grid%getimax()
       bc%edge(12)%istart(2) = grid%getjmax()+1; bc%edge(12)%iend(2) = grid%getjmax()+3
-      bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3          
+      bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3      
+
+      do n=1,12
+        bc%edge(n)%bctype => edgegeneral
+      end do
+
       bc%corner(1)%istart(1) =               -1; bc%corner(1)%iend(1) = 1
       bc%corner(1)%istart(2) =               -1; bc%corner(1)%iend(2) = 1
       bc%corner(1)%istart(3) =               -1; bc%corner(1)%iend(3) = 1
