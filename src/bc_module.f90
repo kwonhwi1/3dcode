@@ -831,43 +831,22 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-            case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-            end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            call variable%setpv(1,i,j,k,pv(1))
-            do m=2,variable%getnpv()
-              call variable%setpv(m,i,j,k,ref%pv(m))
+            pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
+            pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
+            do m=1,variable%getnpv()
+              call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
             do m=1,variable%getntv()
               call variable%settv(m,i,j,k,tv(m))
             end do
@@ -885,53 +864,31 @@ module bc_module
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
-      real(8) :: tv(variable%getntv())
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       integer :: i,j,k,ii,jj,kk,m
       
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-            case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-            end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            call variable%setpv(1,i,j,k,0.d0)
-            do m=2,variable%getnpv()
-              call variable%setpv(m,i,j,k,ref%pv(m))
+            pv(1) = -pv(1)
+            pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
+            pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
+            do m=1,variable%getnpv()
+              call variable%setpv(m,i,j,k,pv(m))
             end do
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
-              call variable%setdv(m,i,j,k,ref%dv(m))
+              call variable%setdv(m,i,j,k,dv(m))
             end do
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
             do m=1,variable%getntv()
-              select case(m)
-              case(3)
-                call variable%settv(m,i,j,k,tv(m))
-              case default
-                call variable%settv(m,i,j,k,ref%tv(m))
-              end select
+              call variable%settv(m,i,j,k,tv(m))
             end do
           end do
         end do
@@ -973,39 +930,16 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-            case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-            end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            call variable%setpv(1,i,j,k,0.d0)
-            do m=2,variable%getnpv()
+            pv(1) = -pv(1)
+            do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1029,35 +963,13 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-            case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-            end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
@@ -1122,67 +1034,40 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
             end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
-            dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             if(vel/dsqrt(dv(6)).ge.0.d0) then !out
               if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
-                do m=1,variable%getnpv()
-                  call variable%setpv(m,i,j,k,pv(m))
-                end do
-                do m=1,variable%getndv()
-                  call variable%setdv(m,i,j,k,dv(m))
-                end do
-                do m=1,variable%getntv()
-                  call variable%settv(m,i,j,k,tv(m))
-                end do
               else !sub
-                call variable%setpv(1,i,j,k,0.d0)
-                do m=2,variable%getnpv()
-                  call variable%setpv(m,i,j,k,pv(m))
-                end do
-                call eos%deteos(ref%pv(1),pv(5),pv(6),pv(7),dv)
-                do m=1,variable%getndv()
-                  call variable%setdv(m,i,j,k,dv(m))
-                end do
-                if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
-                do m=1,variable%getntv()
-                  call variable%settv(m,i,j,k,tv(m))
-                end do
+                pv(1) = -pv(1)
               end if
             else ! in
               if(vel/dsqrt(dv(6)).le.-1.d0) then !super
-                call variable%setpv(1,i,j,k,0.d0)
-                do m=2,variable%getnpv()
-                  call variable%setpv(m,i,j,k,ref%pv(m))
-                end do
-                do m=1,variable%getndv()
-                  call variable%setdv(m,i,j,k,ref%dv(m))
-                end do
-                do m=1,variable%getntv()
-                  select case(m)
-                  case(3)
-                    call variable%settv(m,i,j,k,tv(m))
-                  case default
-                    call variable%settv(m,i,j,k,ref%tv(m))
-                  end select
-                end do
+                pv(1) = -pv(1)
+                pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
+                pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                call variable%setpv(1,i,j,k,pv(1))
-                do m=2,variable%getnpv()
-                  call variable%setpv(m,i,j,k,ref%pv(m))
-                end do
-                call eos%deteos(pv(1)+ref%pv(1),ref%pv(5),ref%pv(6),ref%pv(7),dv)
-                do m=1,variable%getndv()
-                  call variable%setdv(m,i,j,k,dv(m))
-                end do
-                if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),ref%pv(5),ref%pv(6),ref%pv(7),tv(1:2))
-                do m=1,variable%getntv()
-                  call variable%settv(m,i,j,k,tv(m))
-                end do
+                pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
+                pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               end if
             end if
+            do m=1,variable%getnpv()
+              call variable%setpv(m,i,j,k,pv(m))
+            end do
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
           end do
         end do
       end do
@@ -1203,32 +1088,9 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-            case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-            end select
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
