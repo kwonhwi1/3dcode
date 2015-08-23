@@ -366,8 +366,45 @@ module bc_module
       bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3      
 
       do n=1,12
-        bc%edge(n)%bctype => edgegeneral
+        bc%edge(n)%bctype => edgesweep
       end do
+
+      bc%edge(1)%origin(1) = 2                ; bc%edge(1)%dir(1) = -1
+      bc%edge(1)%origin(2) = 2                ; bc%edge(1)%dir(2) = -1
+      bc%edge(1)%origin(3) = 0                ; bc%edge(1)%dir(3) =  1
+      bc%edge(2)%origin(1) = grid%getimax()   ; bc%edge(2)%dir(1) =  1
+      bc%edge(2)%origin(2) = 2                ; bc%edge(2)%dir(2) = -1
+      bc%edge(2)%origin(3) = 0                ; bc%edge(2)%dir(3) =  1
+      bc%edge(3)%origin(1) = 2                ; bc%edge(3)%dir(1) = -1
+      bc%edge(3)%origin(2) = grid%getjmax()   ; bc%edge(3)%dir(2) =  1
+      bc%edge(3)%origin(3) = 0                ; bc%edge(3)%dir(3) =  1
+      bc%edge(4)%origin(1) = grid%getimax()   ; bc%edge(4)%dir(1) =  1
+      bc%edge(4)%origin(2) = grid%getjmax()   ; bc%edge(4)%dir(2) =  1
+      bc%edge(4)%origin(3) = 0                ; bc%edge(4)%dir(3) =  1
+      bc%edge(5)%origin(1) = 2                ; bc%edge(5)%dir(1) = -1
+      bc%edge(5)%origin(2) = 0                ; bc%edge(5)%dir(2) =  1
+      bc%edge(5)%origin(3) = 2                ; bc%edge(5)%dir(3) = -1
+      bc%edge(6)%origin(1) = grid%getimax()   ; bc%edge(6)%dir(1) =  1
+      bc%edge(6)%origin(2) = 0                ; bc%edge(6)%dir(2) =  1
+      bc%edge(6)%origin(3) = 2                ; bc%edge(6)%dir(3) = -1
+      bc%edge(7)%origin(1) = 2                ; bc%edge(7)%dir(1) = -1
+      bc%edge(7)%origin(2) = 0                ; bc%edge(7)%dir(2) =  1
+      bc%edge(7)%origin(3) = grid%getkmax()   ; bc%edge(7)%dir(3) =  1
+      bc%edge(8)%origin(1) = grid%getimax()   ; bc%edge(8)%dir(1) =  1
+      bc%edge(8)%origin(2) = 0                ; bc%edge(8)%dir(2) =  1
+      bc%edge(8)%origin(3) = grid%getkmax()   ; bc%edge(8)%dir(3) =  1
+      bc%edge(9)%origin(1) = 0                ; bc%edge(9)%dir(1) =  1
+      bc%edge(9)%origin(2) = 2                ; bc%edge(9)%dir(2) = -1
+      bc%edge(9)%origin(3) = 2                ; bc%edge(9)%dir(3) = -1
+      bc%edge(10)%origin(1) = 0               ; bc%edge(10)%dir(1) =  1
+      bc%edge(10)%origin(2) = grid%getjmax()  ; bc%edge(10)%dir(2) =  1
+      bc%edge(10)%origin(3) = 2               ; bc%edge(10)%dir(3) = -1
+      bc%edge(11)%origin(1) = 0               ; bc%edge(11)%dir(1) =  1
+      bc%edge(11)%origin(2) = 2               ; bc%edge(11)%dir(2) = -1
+      bc%edge(11)%origin(3) = grid%getkmax()  ; bc%edge(11)%dir(3) =  1
+      bc%edge(12)%origin(1) = 0               ; bc%edge(12)%dir(1) =  1
+      bc%edge(12)%origin(2) = grid%getjmax()  ; bc%edge(12)%dir(2) =  1
+      bc%edge(12)%origin(3) = grid%getkmax()  ; bc%edge(12)%dir(3) =  1
 
       bc%corner(1)%istart(1) =               -1; bc%corner(1)%iend(1) = 1
       bc%corner(1)%istart(2) =               -1; bc%corner(1)%iend(2) = 1
@@ -559,6 +596,17 @@ module bc_module
       
       
     end subroutine setbc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine edgesweep(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+
+    end subroutine edgesweep
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcwallinviscid(bcinfo,ref,grid,variable,eos,prop)
       implicit none
