@@ -30,9 +30,9 @@ FFLAGS = -O3 -cpp -ffpe-trap=invalid -ffree-line-length-none -J $(OBJ_DIR)
 endif
 else
 ifeq ($(mode),debug)
-FFLAGS = -O0 -fpp -debug full -warn all -ftrapuv -fp-model strict -traceback -check all -fpe0 -module $(OBJ_DIR)
+FFLAGS = -O0 -fpp -debug full -warn all -ftrapuv -fp-model precise -traceback -check all -fpe0 -module $(OBJ_DIR)
 else
-FFLAGS = -O3 -fpp -fpe0 -fp-model strict -module $(OBJ_DIR)
+FFLAGS = -O3 -fpp -fpe0 -fp-model precise -module $(OBJ_DIR)
 endif
 endif
 

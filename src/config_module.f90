@@ -1,4 +1,5 @@
 module config_module
+  use mpi
   use eos_module
   use prop_module
   implicit none
@@ -77,7 +78,6 @@ module config_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(config,eos,prop)
       implicit none
-      include 'mpif.h'
       class(t_config), intent(out) :: config
       type(t_eos), intent(out) :: eos
       type(t_prop), intent(out) :: prop

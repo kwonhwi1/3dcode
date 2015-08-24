@@ -1,4 +1,5 @@
 module bc_module
+  use mpi
   use config_module
   use grid_module
   use variable_module
@@ -461,7 +462,6 @@ module bc_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setbc(bc,grid,variable,eos,prop)
       implicit none
-      include 'mpif.h'
       class(t_bc), intent(inout) :: bc
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
@@ -605,6 +605,32 @@ module bc_module
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      integer :: i,j,k,ii,jj,kk,m
+      real(8) :: pv(variable%getnpv()),pv1(variable%getnpv()),pv2(variable%getnpv())
+      real(8) :: dv(variable%getndv()),tv(variable%getntv())
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            if(bcinfo%origin(1).eq.0) then
+              pv  = variable%getpv(i,bcinfo%origin(2),bcinfo%origin(3))
+              pv1 = variable%getpv(i,bcinfo%origin(2)+bcinfo%dir(2),bcinfo%origin(3))
+              pv2 = variable%getpv(i,bcinfo%origin(2),bcinfo%origin(3)+bcinfo%dir(3))
+            else if(bcinfo%origin(2).eq.0) then
+              pv  = variable%getpv(bcinfo%origin(1),j,bcinfo%origin(3))
+              pv1 = variable%getpv(bcinfo%origin(1)+bcinfo%dir(2),j,bcinfo%origin(3))
+              pv2 = variable%getpv(bcinfo%origin(1),j,bcinfo%origin(3)+bcinfo%dir(3))
+            else if(bcinfo%origin(3).eq.0) then
+              pv  = variable%getpv(bcinfo%origin(1),bcinfo%origin(2),k)
+              pv1 = variable%getpv(bcinfo%origin(1)+bcinfo%dir(1),bcinfo%origin(2),k)
+              pv2 = variable%getpv(bcinfo%origin(1),bcinfo%origin(2)+bcinfo%dir(2),k)
+            end if
+
+            if(pv(2)
+
+          end do
+        end do
+      end do
 
     end subroutine edgesweep
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

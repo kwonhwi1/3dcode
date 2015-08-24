@@ -1,4 +1,5 @@
 module grid_module
+  use mpi
   use config_module
   implicit none
 #include <cgnslib_f.h>
@@ -63,7 +64,6 @@ module grid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(grid,config)
       implicit none
-      include 'mpif.h'
       class(t_grid), intent(out) :: grid
       type(t_config), intent(in) :: config
       character(32) :: nodename,connectname,donorname
@@ -336,7 +336,6 @@ module grid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calydns(grid)
       implicit none
-      include 'mpif.h'
       class(t_grid), intent(inout) :: grid
       integer :: m,n,i,j,k,l,ii,jj,kk
       integer :: sendnum,recvnum
@@ -594,7 +593,6 @@ module grid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calnormal(grid)
       implicit none
-      include 'mpif.h'
       class(t_grid), intent(inout) :: grid
       integer :: i,j,k,n,m,l,ii,jj,kk
       integer :: sign1,sign2
@@ -928,7 +926,6 @@ module grid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calvolume(grid)
       implicit none
-      include 'mpif.h'
       class(t_grid), intent(inout) :: grid
       integer :: i,j,k,n,l,ii,jj,kk
       real(8) :: pa(3),pb(3),pc(3),pd(3)
