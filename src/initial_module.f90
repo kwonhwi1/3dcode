@@ -184,11 +184,12 @@ module initial_module
       if(ini%nsteady.eq.1) then
         nts = 1
       end if
+
       if(nqq.eq.0) then
-        if(ini%nsteady.eq.1) then
+        nps = 1
+      else
+        if(ini%nsteady.eq.0) then
           write(*,*) 'invalid restart option : unsteady -> steady'
-        else
-          nps = 1
         end if
       end if
       
