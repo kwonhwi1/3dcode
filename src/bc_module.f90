@@ -11,6 +11,7 @@ module bc_module
   
   type, extends(t_bcinfo) :: t_bcinfo2
     integer :: origin(3),dir(3)
+    integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     character(4) :: face
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -24,8 +25,7 @@ module bc_module
     integer :: rank,size,iturb,nbc,ncon
     integer :: npv,ntv,ndv,ngrd
     type(t_ref) :: ref
-    type(t_bcinfo2), dimension(:), allocatable :: bcinfo
-    type(t_bcinfo2) :: corner(8),edge(12)
+    type(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
     type(t_connectinfo), dimension(:), allocatable :: connectinfo
     type(t_mpitemp), dimension(:), allocatable :: mpitemp
     contains
@@ -204,6 +204,9 @@ module bc_module
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
         end if
+        bc%bcinfo(n)%neighbor1 = 0 ! meaningless
+        bc%bcinfo(n)%neighbor2 = 0 ! meaningless
+        bc%bcinfo(n)%neighbor3 = 0 ! meaningless
       end do
 
       do n=1,bc%ncon
@@ -327,45 +330,141 @@ module bc_module
         allocate(bc%mpitemp(n)%sendbuf(bc%mpitemp(n)%num),bc%mpitemp(n)%recvbuf(bc%mpitemp(n)%num))
       end do
       
-      bc%edge(1)%istart(1)  =               -1; bc%edge(1)%iend(1)  = 1
-      bc%edge(1)%istart(2)  =               -1; bc%edge(1)%iend(2)  = 1
-      bc%edge(1)%istart(3)  =                2; bc%edge(1)%iend(3)  = grid%getkmax()
-      bc%edge(2)%istart(1)  = grid%getimax()+1; bc%edge(2)%iend(1)  = grid%getimax()+3
-      bc%edge(2)%istart(2)  =               -1; bc%edge(2)%iend(2)  = 1
-      bc%edge(2)%istart(3)  =                2; bc%edge(2)%iend(3)  = grid%getkmax()
-      bc%edge(3)%istart(1)  =               -1; bc%edge(3)%iend(1)  = 1
-      bc%edge(3)%istart(2)  = grid%getjmax()+1; bc%edge(3)%iend(2)  = grid%getjmax()+3
-      bc%edge(3)%istart(3)  =                2; bc%edge(3)%iend(3)  = grid%getkmax()
-      bc%edge(4)%istart(1)  = grid%getimax()+1; bc%edge(4)%iend(1)  = grid%getimax()+3
-      bc%edge(4)%istart(2)  = grid%getjmax()+1; bc%edge(4)%iend(2)  = grid%getjmax()+3
-      bc%edge(4)%istart(3)  =                2; bc%edge(4)%iend(3)  = grid%getkmax()
+      allocate(bc%edge(12),bc%corner(8))
+
+      bc%edge(1)%istart(1)  = -1                  ; bc%edge(1)%iend(1)  = 1
+      bc%edge(1)%istart(2)  = -1                  ; bc%edge(1)%iend(2)  = 1
+      bc%edge(1)%istart(3)  =   2                 ; bc%edge(1)%iend(3)  = grid%getkmax()
+      bc%edge(1)%neighbor1(1) = 1                 ; bc%edge(1)%neighbor2(1) = 2
+      bc%edge(1)%neighbor1(2) = 2                 ; bc%edge(1)%neighbor2(2) = 1
+      bc%edge(1)%neighbor1(3) = 0                 ; bc%edge(1)%neighbor2(3) = 0
+      bc%edge(1)%neighbor3(1) = 0                 ; bc%edge(1)%origin(1) = 2
+      bc%edge(1)%neighbor3(2) = 0                 ; bc%edge(1)%origin(2) = 2
+      bc%edge(1)%neighbor3(3) = 0                 ; bc%edge(1)%origin(3) = 0
+
+      bc%edge(2)%istart(1)  = grid%getimax()+1    ; bc%edge(2)%iend(1)  = grid%getimax()+3
+      bc%edge(2)%istart(2)  = -1                  ; bc%edge(2)%iend(2)  = 1
+      bc%edge(2)%istart(3)  =  2                  ; bc%edge(2)%iend(3)  = grid%getkmax()
+      bc%edge(2)%neighbor1(1) = grid%getimax()+1  ; bc%edge(2)%neighbor2(1) = grid%getimax()
+      bc%edge(2)%neighbor1(2) = 2                 ; bc%edge(2)%neighbor2(2) = 1
+      bc%edge(2)%neighbor1(3) = 0                 ; bc%edge(2)%neighbor2(3) = 0
+      bc%edge(2)%neighbor3(1) = 0                 ; bc%edge(2)%origin(1) = grid%getimax() 
+      bc%edge(2)%neighbor3(2) = 0                 ; bc%edge(2)%origin(2) = 2
+      bc%edge(2)%neighbor3(3) = 0                 ; bc%edge(2)%origin(3) = 0
+
+      bc%edge(3)%istart(1)  = -1                  ; bc%edge(3)%iend(1)  = 1
+      bc%edge(3)%istart(2)  = grid%getjmax()+1    ; bc%edge(3)%iend(2)  = grid%getjmax()+3
+      bc%edge(3)%istart(3)  = 2                   ; bc%edge(3)%iend(3)  = grid%getkmax()
+      bc%edge(3)%neighbor1(1) = 1                 ; bc%edge(3)%neighbor2(1) = 2
+      bc%edge(3)%neighbor1(2) = grid%getjmax()    ; bc%edge(3)%neighbor2(2) = grid%getjmax()+1
+      bc%edge(3)%neighbor1(3) = 0                 ; bc%edge(3)%neighbor2(3) = 0
+      bc%edge(3)%neighbor3(1) = 0                 ; bc%edge(3)%origin(1) = 2
+      bc%edge(3)%neighbor3(2) = 0                 ; bc%edge(3)%origin(2) = grid%getjmax()
+      bc%edge(3)%neighbor3(3) = 0                 ; bc%edge(3)%origin(3) = 0
+
+      bc%edge(4)%istart(1)  = grid%getimax()+1    ; bc%edge(4)%iend(1)  = grid%getimax()+3
+      bc%edge(4)%istart(2)  = grid%getjmax()+1    ; bc%edge(4)%iend(2)  = grid%getjmax()+3
+      bc%edge(4)%istart(3)  = 2                   ; bc%edge(4)%iend(3)  = grid%getkmax()
+      bc%edge(4)%neighbor1(1) = grid%getimax()+1  ; bc%edge(4)%neighbor2(1) = grid%getimax()
+      bc%edge(4)%neighbor1(2) = grid%getjmax()    ; bc%edge(4)%neighbor2(2) = grid%getjmax()+1
+      bc%edge(4)%neighbor1(3) = 0                 ; bc%edge(4)%neighbor2(3) = 0
+      bc%edge(4)%neighbor3(1) = 0                 ; bc%edge(4)%origin(1) = grid%getimax()
+      bc%edge(4)%neighbor3(2) = 0                 ; bc%edge(4)%origin(2) = grid%getjmax()
+      bc%edge(4)%neighbor3(3) = 0                 ; bc%edge(4)%origin(3) = 0
       
-      bc%edge(5)%istart(1)  =               -1; bc%edge(5)%iend(1)  = 1
-      bc%edge(5)%istart(2)  =                2; bc%edge(5)%iend(2)  = grid%getjmax()
-      bc%edge(5)%istart(3)  =               -1; bc%edge(5)%iend(3)  = 1
-      bc%edge(6)%istart(1)  = grid%getimax()+1; bc%edge(6)%iend(1)  = grid%getimax()+3
-      bc%edge(6)%istart(2)  =                2; bc%edge(6)%iend(2)  = grid%getjmax()
-      bc%edge(6)%istart(3)  =               -1; bc%edge(6)%iend(3)  = 1
-      bc%edge(7)%istart(1)  =               -1; bc%edge(7)%iend(1)  = 1
-      bc%edge(7)%istart(2)  =                2; bc%edge(7)%iend(2)  = grid%getjmax()
-      bc%edge(7)%istart(3)  = grid%getkmax()+1; bc%edge(7)%iend(3)  = grid%getkmax()+3
-      bc%edge(8)%istart(1)  = grid%getimax()+1; bc%edge(8)%iend(1)  = grid%getimax()+3
-      bc%edge(8)%istart(2)  =                2; bc%edge(8)%iend(2)  = grid%getjmax()
-      bc%edge(8)%istart(3)  = grid%getkmax()+1; bc%edge(8)%iend(3)  = grid%getkmax()+3  
+      bc%edge(5)%istart(1)  = -1                  ; bc%edge(5)%iend(1)  = 1
+      bc%edge(5)%istart(2)  =  2                  ; bc%edge(5)%iend(2)  = grid%getjmax()
+      bc%edge(5)%istart(3)  = -1                  ; bc%edge(5)%iend(3)  = 1
+      bc%edge(5)%neighbor1(1) = 1                 ; bc%edge(5)%neighbor2(1) = 0
+      bc%edge(5)%neighbor1(2) = 0                 ; bc%edge(5)%neighbor2(2) = 0
+      bc%edge(5)%neighbor1(3) = 2                 ; bc%edge(5)%neighbor2(3) = 0
+      bc%edge(5)%neighbor3(1) = 2                 ; bc%edge(5)%origin(1) = 2
+      bc%edge(5)%neighbor3(2) = 0                 ; bc%edge(5)%origin(2) = 0
+      bc%edge(5)%neighbor3(3) = 1                 ; bc%edge(5)%origin(3) = 2
+
+      bc%edge(6)%istart(1)  = grid%getimax()+1    ; bc%edge(6)%iend(1)  = grid%getimax()+3
+      bc%edge(6)%istart(2)  =  2                  ; bc%edge(6)%iend(2)  = grid%getjmax()
+      bc%edge(6)%istart(3)  = -1                  ; bc%edge(6)%iend(3)  = 1
+      bc%edge(6)%neighbor1(1) = grid%getimax()+1  ; bc%edge(6)%neighbor2(1) = 0
+      bc%edge(6)%neighbor1(2) = 0                 ; bc%edge(6)%neighbor2(2) = 0
+      bc%edge(6)%neighbor1(3) = 2                 ; bc%edge(6)%neighbor2(3) = 0
+      bc%edge(6)%neighbor3(1) = grid%getimax()    ; bc%edge(6)%origin(1) = grid%getimax()
+      bc%edge(6)%neighbor3(2) = 0                 ; bc%edge(6)%origin(2) = 0
+      bc%edge(6)%neighbor3(3) = 1                 ; bc%edge(6)%origin(3) = 2
+
+      bc%edge(7)%istart(1)  = -1                  ; bc%edge(7)%iend(1)  = 1
+      bc%edge(7)%istart(2)  =  2                  ; bc%edge(7)%iend(2)  = grid%getjmax()
+      bc%edge(7)%istart(3)  = grid%getkmax()+1    ; bc%edge(7)%iend(3)  = grid%getkmax()+3
+      bc%edge(7)%neighbor1(1) = 1                 ; bc%edge(7)%neighbor2(1) = 0
+      bc%edge(7)%neighbor1(2) = 0                 ; bc%edge(7)%neighbor2(2) = 0
+      bc%edge(7)%neighbor1(3) = gri%getkmax()     ; bc%edge(7)%neighbor2(3) = 0
+      bc%edge(7)%neighbor3(1) = 2                 ; bc%edge(7)%origin(1) = 2
+      bc%edge(7)%neighbor3(2) = 0                 ; bc%edge(7)%origin(2) = 0
+      bc%edge(7)%neighbor3(3) = grid%getkmax()+1  ; bc%edge(7)%origin(3) = grid%getkmax()
+
+      bc%edge(8)%istart(1)  = grid%getimax()+1    ; bc%edge(8)%iend(1)  = grid%getimax()+3
+      bc%edge(8)%istart(2)  = 2                   ; bc%edge(8)%iend(2)  = grid%getjmax()
+      bc%edge(8)%istart(3)  = grid%getkmax()+1    ; bc%edge(8)%iend(3)  = grid%getkmax()+3  
+      bc%edge(8)%neighbor1(1) = grid%getimax()+1  ; bc%edge(8)%neighbor2(1) = 0
+      bc%edge(8)%neighbor1(2) = 0                 ; bc%edge(8)%neighbor2(2) = 0
+      bc%edge(8)%neighbor1(3) = grid%getkmax()    ; bc%edge(8)%neighbor2(3) = 0
+      bc%edge(8)%neighbor3(1) = grid%getimax()    ; bc%edge(8)%origin(1) = grid%getimax()
+      bc%edge(8)%neighbor3(2) = 0                 ; bc%edge(8)%origin(2) = 0
+      bc%edge(8)%neighbor3(3) = grid%getkmax()+1  ; bc%edge(8)%origin(3) = grid%getkmax()
       
-      bc%edge(9)%istart(1)  =                2; bc%edge(9)%iend(1)  = grid%getimax()
-      bc%edge(9)%istart(2)  =               -1; bc%edge(9)%iend(2)  = 1
-      bc%edge(9)%istart(3)  =               -1; bc%edge(9)%iend(3)  = 1
+      bc%edge(9)%istart(1)  =  2                  ; bc%edge(9)%iend(1)  = grid%getimax()
+      bc%edge(9)%istart(2)  = -1                  ; bc%edge(9)%iend(2)  = 1
+      bc%edge(9)%istart(3)  = -1                  ; bc%edge(9)%iend(3)  = 1
+      bc%edge(9)%neighbor1(1) = 1                 ; bc%edge(9)%neighbor2(1) = 2
+      bc%edge(9)%neighbor1(2) = 2                 ; bc%edge(9)%neighbor2(2) = 1
+      bc%edge(9)%neighbor1(3) = 0                 ; bc%edge(9)%neighbor2(3) = 0
+      bc%edge(9)%neighbor3(1) = 0                 ; bc%edge(9)%origin(1) = 0
+      bc%edge(9)%neighbor3(2) = 0                 ; bc%edge(9)%origin(2) = 2
+      bc%edge(9)%neighbor3(3) = 0                 ; bd%edge(9)%origin(3) = 2
+
       bc%edge(10)%istart(1) =                2; bc%edge(10)%iend(1) = grid%getimax()
       bc%edge(10)%istart(2) = grid%getjmax()+1; bc%edge(10)%iend(2) = grid%getjmax()+3
       bc%edge(10)%istart(3) =               -1; bc%edge(10)%iend(3) = 1
+      bc%edge(1)%neighbor1(1) = 1                 ; bc%edge(1)%neighbor2(1) = 2
+      bc%edge(1)%neighbor1(2) = 2                 ; bc%edge(1)%neighbor2(2) = 1
+      bc%edge(1)%neighbor1(3) = 0                 ; bc%edge(1)%neighbor2(3) = 0
+      bc%edge(1)%neighbor3(1) = 0
+      bc%edge(1)%neighbor3(2) = 0
+      bc%edge(1)%neighbor3(3) = 0
       bc%edge(11)%istart(1) =                2; bc%edge(11)%iend(1) = grid%getimax()
       bc%edge(11)%istart(2) =               -1; bc%edge(11)%iend(2) = 1
       bc%edge(11)%istart(3) = grid%getkmax()+1; bc%edge(11)%iend(3) = grid%getkmax()+3
-      bc%edge(12)%istart(1) =                2; bc%edge(12)%iend(1) = grid%getimax()
-      bc%edge(12)%istart(2) = grid%getjmax()+1; bc%edge(12)%iend(2) = grid%getjmax()+3
-      bc%edge(12)%istart(3) = grid%getkmax()+1; bc%edge(12)%iend(3) = grid%getkmax()+3      
+      bc%edge(1)%neighbor1(1) = 1                 ; bc%edge(1)%neighbor2(1) = 2
+      bc%edge(1)%neighbor1(2) = 2                 ; bc%edge(1)%neighbor2(2) = 1
+      bc%edge(1)%neighbor1(3) = 0                 ; bc%edge(1)%neighbor2(3) = 0
+      bc%edge(1)%neighbor3(1) = 0
+      bc%edge(1)%neighbor3(2) = 0
+      bc%edge(1)%neighbor3(3) = 0
+      bc%edge(12)%istart(1) =                2    ; bc%edge(12)%iend(1) = grid%getimax()
+      bc%edge(12)%istart(2) = grid%getjmax()+1    ; bc%edge(12)%iend(2) = grid%getjmax()+3
+      bc%edge(12)%istart(3) = grid%getkmax()+1    ; bc%edge(12)%iend(3) = grid%getkmax()+3      
+      bc%edge(1)%neighbor1(1) = 1                 ; bc%edge(1)%neighbor2(1) = 2
+      bc%edge(1)%neighbor1(2) = 2                 ; bc%edge(1)%neighbor2(2) = 1
+      bc%edge(1)%neighbor1(3) = 0                 ; bc%edge(1)%neighbor2(3) = 0
+      bc%edge(1)%neighbor3(1) = 0
+      bc%edge(1)%neighbor3(2) = 0
+      bc%edge(1)%neighbor3(3) = 0
+      
 
+      do n=1,bc%nbc 
+        if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and.(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
+          do i=2,grid%getimax()
+            do j=2,grid%getjmax()
+              do k=2,grid%getkmax()
+                ii = 
+                jj =
+                kk =
+
+              end do
+            end do
+          end do
+        end if
+      end do
       do n=1,12
         bc%edge(n)%bctype => edgesweep
       end do
@@ -450,13 +549,21 @@ module bc_module
         if(associated(bc%bcinfo(n)%bctype)) nullify(bc%bcinfo(n)%bctype)
       end do
       
+      do n=1,12
+        if(associated(bc%edge(n)%bctype)) nullify(bc%edge(n)%bctype)
+      end do
+      
+      do n=1,8
+        if(associated(bc%corner(n)%bctype)) nullify(bc%corner(n)%bctype)
+      end do
+
       do n=1,bc%ncon
         if(allocated(bc%mpitemp(n)%sendbuf)) deallocate(bc%mpitemp(n)%sendbuf)
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
       end do
-
+      
       deallocate(bc%ref%pv,bc%ref%dv,bc%ref%tv)
-      deallocate(bc%bcinfo,bc%connectinfo)
+      deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
       deallocate(bc%mpitemp)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -469,7 +576,8 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,n,m,l
       integer :: ii,jj,kk
-      integer :: ier,request_s(bc%ncon),request_r(bc%ncon),request_sa(bc%ncon),request_ra(bc%ncon)
+      integer :: ier
+      integer :: request_s(bc%ncon),request_r(bc%ncon),request_sa(bc%ncon),request_ra(bc%ncon)
       integer :: status(mpi_status_size,bc%ncon)
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
       
@@ -512,12 +620,21 @@ module bc_module
           bc%mpitemp(n)%sendadress = (/bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1), &
                                        bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2), &
                                        bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3), &
-                                       bc%connectinfo(n)%istart_donor(1),bc%connectinfo(n)%iend_donor(1), &
-                                       bc%connectinfo(n)%istart_donor(2),bc%connectinfo(n)%iend_donor(2), &
-                                       bc%connectinfo(n)%istart_donor(3),bc%connectinfo(n)%iend_donor(3), &  
-                                       bc%connectinfo(n)%transmat(1,1),bc%connectinfo(n)%transmat(1,2),bc%connectinfo(n)%transmat(1,3), &
-                                       bc%connectinfo(n)%transmat(2,1),bc%connectinfo(n)%transmat(2,2),bc%connectinfo(n)%transmat(2,3), &
-                                       bc%connectinfo(n)%transmat(3,1),bc%connectinfo(n)%transmat(3,2),bc%connectinfo(n)%transmat(3,3)/)
+                                       bc%connectinfo(n)%istart_donor(1), &
+                                       bc%connectinfo(n)%iend_donor(1),   &
+                                       bc%connectinfo(n)%istart_donor(2), &
+                                       bc%connectinfo(n)%iend_donor(2),   &
+                                       bc%connectinfo(n)%istart_donor(3), &
+                                       bc%connectinfo(n)%iend_donor(3),   &  
+                                       bc%connectinfo(n)%transmat(1,1),   &
+                                       bc%connectinfo(n)%transmat(1,2),   &
+                                       bc%connectinfo(n)%transmat(1,3),   &
+                                       bc%connectinfo(n)%transmat(2,1),   &
+                                       bc%connectinfo(n)%transmat(2,2),   &
+                                       bc%connectinfo(n)%transmat(2,3),   &
+                                       bc%connectinfo(n)%transmat(3,1),   &
+                                       bc%connectinfo(n)%transmat(3,2),   &
+                                       bc%connectinfo(n)%transmat(3,3)/)
                      
 
           call mpi_isend(bc%mpitemp(n)%sendadress,21,mpi_integer,bc%connectinfo(n)%donor,bc%rank+bc%size,mpi_comm_world,request_sa(n),ier)
@@ -529,13 +646,16 @@ module bc_module
               do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
                 ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
                    + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
-                   + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(1)
+                   + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                   + bc%connectinfo(n)%istart_donor(1)
                 jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
                    + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
-                   + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(2)
+                   + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                   + bc%connectinfo(n)%istart_donor(2)
                 kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
                    + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
-                   + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) + bc%connectinfo(n)%istart_donor(3)
+                   + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                   + bc%connectinfo(n)%istart_donor(3)
                 do m=1,bc%npv
                   l = l + 1
                   call variable%setpv(m,ii,jj,kk,bc%mpitemp(n)%sendbuf(l))
@@ -569,13 +689,16 @@ module bc_module
               do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
                 ii = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
                    + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                   + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) + bc%mpitemp(n)%recvadress(7)
+                   + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                   + bc%mpitemp(n)%recvadress(7)
                 jj = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
                    + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                   + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) + bc%mpitemp(n)%recvadress(9)
+                   + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                   + bc%mpitemp(n)%recvadress(9)
                 kk = bc%mpitemp(n)%recvadress(19)*(i-bc%mpitemp(n)%recvadress(1)) &
                    + bc%mpitemp(n)%recvadress(20)*(j-bc%mpitemp(n)%recvadress(3)) &
-                   + bc%mpitemp(n)%recvadress(21)*(k-bc%mpitemp(n)%recvadress(5)) + bc%mpitemp(n)%recvadress(11)
+                   + bc%mpitemp(n)%recvadress(21)*(k-bc%mpitemp(n)%recvadress(5)) &
+                   + bc%mpitemp(n)%recvadress(11)
                 do m=1,bc%npv
                   l = l + 1
                   call variable%setpv(m,ii,jj,kk,bc%mpitemp(n)%recvbuf(l))
@@ -594,6 +717,13 @@ module bc_module
         end if
       end do
       
+      do n=1,12
+        call bc%edge(n)%bctype(bc%ref,grid,variable,eos,prop)
+      end do
+
+      do n=1,8
+        call bc%corner(n)%bctype(bc%ref,grid,variable,eos,prop)
+      end do
       
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -626,7 +756,9 @@ module bc_module
               pv2 = variable%getpv(bcinfo%origin(1),bcinfo%origin(2)+bcinfo%dir(2),k)
             end if
 
-            if(pv(2)
+            if((pv(2).eq.-pv1(2)).and.(pv(3).eq.-pv1(3)).and.(pv(4).eq.-pv1(4))) then
+
+
 
           end do
         end do
