@@ -12,6 +12,7 @@ module bc_module
   type, extends(t_bcinfo) :: t_bcinfo2
     integer :: origin(3),dir(3)
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
+    integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     character(4) :: face
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -207,6 +208,9 @@ module bc_module
         bc%bcinfo(n)%neighbor1 = 0 ! meaningless
         bc%bcinfo(n)%neighbor2 = 0 ! meaningless
         bc%bcinfo(n)%neighbor3 = 0 ! meaningless
+        bc%bcinfo(n)%neighbor4 = 0 ! meaningless
+        bc%bcinfo(n)%neighbor5 = 0 ! meaningless
+        bc%bcinfo(n)%neighbor6 = 0 ! meaningless
       end do
 
       do n=1,bc%ncon
@@ -518,11 +522,7 @@ module bc_module
 
       do m=1,4
         if(isurf_edge(m).and.jsurf_edge(m)) then
-          if(bc%iturb.eq.0) then
-            bc%edge(m)%bctype => edgewallwallkw
-          else
-            bc%edge(m)%bctype => edgewallwall
-          end if
+          bc%edge(m)%bctype => wallwall
         else if(isurf_edge(m).and.(.not.jsurf_edge(m))) then
           select case(m)
           case(1,3)
@@ -570,11 +570,7 @@ module bc_module
       
       do m=5,8
         if(isurf_edge(m).and.ksurf_edge(m)) then
-          if(bc%iturb.eq.0) then
-            bc%edge(m)%bctype => edgewallwallkw
-          else
-            bc%edge(m)%bctype => edgewallwall
-          end if
+          bc%edge(m)%bctype => wallwall
         else if(isurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(5,7)
@@ -622,11 +618,7 @@ module bc_module
 
       do m=9,12
         if(jsurf_edge(m).and.ksurf_edge(m)) then
-          if(bc%iturb.eq.0) then
-            bc%edge(m)%bctype => edgewallwallkw
-          else
-            bc%edge(m)%bctype => edgewallwall
-          end if
+          bc%edge(m)%bctype => wallwall
         else if(jsurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(9,11)
@@ -672,35 +664,254 @@ module bc_module
         bc%edge(m)%dir(1) = 1
       end do
       
-      bc%corner(1)%istart(1) =               -1; bc%corner(1)%iend(1) = 1
-      bc%corner(1)%istart(2) =               -1; bc%corner(1)%iend(2) = 1
-      bc%corner(1)%istart(3) =               -1; bc%corner(1)%iend(3) = 1
-      bc%corner(2)%istart(1) = grid%getimax()+1; bc%corner(2)%iend(1) = grid%getimax()+3
-      bc%corner(2)%istart(2) =               -1; bc%corner(2)%iend(2) = 1
-      bc%corner(2)%istart(3) =               -1; bc%corner(2)%iend(3) = 1
-      bc%corner(3)%istart(1) =               -1; bc%corner(3)%iend(1) = 1
-      bc%corner(3)%istart(2) = grid%getjmax()+1; bc%corner(3)%iend(2) = grid%getjmax()+3
-      bc%corner(3)%istart(3) =               -1; bc%corner(3)%iend(3) = 1
-      bc%corner(4)%istart(1) = grid%getimax()+1; bc%corner(4)%iend(1) = grid%getimax()+3
-      bc%corner(4)%istart(2) = grid%getjmax()+1; bc%corner(4)%iend(2) = grid%getjmax()+3
-      bc%corner(4)%istart(3) =               -1; bc%corner(4)%iend(3) = 1
-      bc%corner(5)%istart(1) =               -1; bc%corner(5)%iend(1) = 1
-      bc%corner(5)%istart(2) =               -1; bc%corner(5)%iend(2) = 1
-      bc%corner(5)%istart(3) = grid%getkmax()+1; bc%corner(5)%iend(3) = grid%getkmax()+3
-      bc%corner(6)%istart(1) = grid%getimax()+1; bc%corner(6)%iend(1) = grid%getimax()+3
-      bc%corner(6)%istart(2) =               -1; bc%corner(6)%iend(2) = 1
-      bc%corner(6)%istart(3) = grid%getkmax()+1; bc%corner(6)%iend(3) = grid%getkmax()+3
-      bc%corner(7)%istart(1) =               -1; bc%corner(7)%iend(1) = 1
-      bc%corner(7)%istart(2) = grid%getjmax()+1; bc%corner(7)%iend(2) = grid%getjmax()+3
-      bc%corner(7)%istart(3) = grid%getkmax()+1; bc%corner(7)%iend(3) = grid%getkmax()+3
-      bc%corner(8)%istart(1) = grid%getimax()+1; bc%corner(8)%iend(1) = grid%getimax()+3
-      bc%corner(8)%istart(2) = grid%getjmax()+1; bc%corner(8)%iend(2) = grid%getjmax()+3
-      bc%corner(8)%istart(3) = grid%getkmax()+1; bc%corner(8)%iend(3) = grid%getkmax()+3
+      bc%corner(1)%istart(1) = -1                   ; bc%corner(1)%iend(1) = 1
+      bc%corner(1)%istart(2) = -1                   ; bc%corner(1)%iend(2) = 1
+      bc%corner(1)%istart(3) = -1                   ; bc%corner(1)%iend(3) = 1
+      bc%corner(1)%neighbor1(1) = 1                 ; bc%corner(1)%neighbor2(1) = 2 
+      bc%corner(1)%neighbor1(2) = 2                 ; bc%corner(1)%neighbor2(2) = 1
+      bc%corner(1)%neighbor1(3) = 2                 ; bc%corner(1)%neighbor2(3) = 2
+      bc%corner(1)%neighbor3(1) = 2                 ; bc%corner(1)%origin(1) = 2
+      bc%corner(1)%neighbor3(2) = 2                 ; bc%corner(1)%origin(2) = 2
+      bc%corner(1)%neighbor3(3) = 1                 ; bc%corner(1)%origin(3) = 2
+      bc%corner(1)%neighbor4(1) = 2                 ; bc%corner(1)%neighbor5(1) = 1 
+      bc%corner(1)%neighbor4(2) = 1                 ; bc%corner(1)%neighbor5(2) = 2
+      bc%corner(1)%neighbor4(3) = 1                 ; bc%corner(1)%neighbor5(3) = 1
+      bc%corner(1)%neighbor6(1) = 1                 
+      bc%corner(1)%neighbor6(2) = 1                 
+      bc%corner(1)%neighbor6(3) = 2                
+
+      bc%corner(2)%istart(1) = grid%getimax()+1     ; bc%corner(2)%iend(1) = grid%getimax()+3
+      bc%corner(2)%istart(2) = -1                   ; bc%corner(2)%iend(2) = 1
+      bc%corner(2)%istart(3) = -1                   ; bc%corner(2)%iend(3) = 1
+      bc%corner(2)%neighbor1(1) = grid%getimax()+1  ; bc%corner(2)%neighbor2(1) = grid%getimax() 
+      bc%corner(2)%neighbor1(2) = 2                 ; bc%corner(2)%neighbor2(2) = 1
+      bc%corner(2)%neighbor1(3) = 2                 ; bc%corner(2)%neighbor2(3) = 2
+      bc%corner(2)%neighbor3(1) = grid%getimax()    ; bc%corner(2)%origin(1) = grid%getimax()
+      bc%corner(2)%neighbor3(2) = 2                 ; bc%corner(2)%origin(2) = 2
+      bc%corner(2)%neighbor3(3) = 1                 ; bc%corner(2)%origin(3) = 2
+      bc%corner(2)%neighbor4(1) = grid%getimax()    ; bc%corner(2)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(2)%neighbor4(2) = 1                 ; bc%corner(2)%neighbor5(2) = 2
+      bc%corner(2)%neighbor4(3) = 1                 ; bc%corner(2)%neighbor5(3) = 1
+      bc%corner(2)%neighbor6(1) = grid%getimax()+1    
+      bc%corner(2)%neighbor6(2) = 1              
+      bc%corner(2)%neighbor6(3) = 2            
       
+      bc%corner(3)%istart(1) = -1                   ; bc%corner(3)%iend(1) = 1
+      bc%corner(3)%istart(2) = grid%getjmax()+1     ; bc%corner(3)%iend(2) = grid%getjmax()+3
+      bc%corner(3)%istart(3) = -1                   ; bc%corner(3)%iend(3) = 1
+      bc%corner(3)%neighbor1(1) = 1                 ; bc%corner(3)%neighbor2(1) = 2 
+      bc%corner(3)%neighbor1(2) = grid%getjmax()    ; bc%corner(3)%neighbor2(2) = grid%getjmax()+1
+      bc%corner(3)%neighbor1(3) = 2                 ; bc%corner(3)%neighbor2(3) = 2
+      bc%corner(3)%neighbor3(1) = 2                 ; bc%corner(3)%origin(1) = 2
+      bc%corner(3)%neighbor3(2) = grid%getjmax()    ; bc%corner(3)%origin(2) = grid%getjmax()
+      bc%corner(3)%neighbor3(3) = 1                 ; bc%corner(3)%origin(3) = 2
+      bc%corner(3)%neighbor4(1) = 2                 ; bc%corner(3)%neighbor5(1) = 1 
+      bc%corner(3)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(3)%neighbor5(2) = grid%getjmax()
+      bc%corner(3)%neighbor4(3) = 1                 ; bc%corner(3)%neighbor5(3) = 1
+      bc%corner(3)%neighbor6(1) = 1                
+      bc%corner(3)%neighbor6(2) = grid%getjmax()+1  
+      bc%corner(3)%neighbor6(3) = 2               
+      
+      bc%corner(4)%istart(1) = grid%getimax()+1     ; bc%corner(4)%iend(1) = grid%getimax()+3
+      bc%corner(4)%istart(2) = grid%getjmax()+1     ; bc%corner(4)%iend(2) = grid%getjmax()+3
+      bc%corner(4)%istart(3) = -1                   ; bc%corner(4)%iend(3) = 1
+      bc%corner(4)%neighbor1(1) = grid%getimax()+1  ; bc%corner(4)%neighbor2(1) = grid%getimax() 
+      bc%corner(4)%neighbor1(2) = grid%getjmax()    ; bc%corner(4)%neighbor2(2) = grid%getjmax()+1
+      bc%corner(4)%neighbor1(3) = 2                 ; bc%corner(4)%neighbor2(3) = 2
+      bc%corner(4)%neighbor3(1) = grid%getimax()    ; bc%corner(4)%origin(1) = grid%getimax()
+      bc%corner(4)%neighbor3(2) = grid%getjmax()    ; bc%corner(4)%origin(2) = grid%getjmax()
+      bc%corner(4)%neighbor3(3) = 1                 ; bc%corner(4)%origin(3) = 2
+      bc%corner(4)%neighbor4(1) = grid%getimax()    ; bc%corner(4)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(4)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(4)%neighbor5(2) = grid%getjmax()
+      bc%corner(4)%neighbor4(3) = 1                 ; bc%corner(4)%neighbor5(3) = 1
+      bc%corner(4)%neighbor6(1) = grid%getimax()+1   
+      bc%corner(4)%neighbor6(2) = grid%getjmax()+1   
+      bc%corner(4)%neighbor6(3) = 2             
+      
+      bc%corner(5)%istart(1) = -1                   ; bc%corner(5)%iend(1) = 1
+      bc%corner(5)%istart(2) = -1                   ; bc%corner(5)%iend(2) = 1
+      bc%corner(5)%istart(3) = grid%getkmax()+1     ; bc%corner(5)%iend(3) = grid%getkmax()+3
+      bc%corner(5)%neighbor1(1) = 1                 ; bc%corner(5)%neighbor2(1) = 2 
+      bc%corner(5)%neighbor1(2) = 2                 ; bc%corner(5)%neighbor2(2) = 1
+      bc%corner(5)%neighbor1(3) = grid%getkmax()    ; bc%corner(5)%neighbor2(3) = grid%getkmax()
+      bc%corner(5)%neighbor3(1) = 2                 ; bc%corner(5)%origin(1) = 2
+      bc%corner(5)%neighbor3(2) = 2                 ; bc%corner(5)%origin(2) = 2
+      bc%corner(5)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(5)%origin(3) = grid%getkmax()
+      bc%corner(5)%neighbor4(1) = 2                 ; bc%corner(5)%neighbor5(1) = 1 
+      bc%corner(5)%neighbor4(2) = 1                 ; bc%corner(5)%neighbor5(2) = 2
+      bc%corner(5)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(5)%neighbor5(3) = grid%getkmax()+1
+      bc%corner(5)%neighbor6(1) = 1                
+      bc%corner(5)%neighbor6(2) = 1                
+      bc%corner(5)%neighbor6(3) = grid%getkmax() 
+      
+      bc%corner(6)%istart(1) = grid%getimax()+1     ; bc%corner(6)%iend(1) = grid%getimax()+3
+      bc%corner(6)%istart(2) = -1                   ; bc%corner(6)%iend(2) = 1
+      bc%corner(6)%istart(3) = grid%getkmax()+1     ; bc%corner(6)%iend(3) = grid%getkmax()+3
+      bc%corner(6)%neighbor1(1) = grid%getimax()+1  ; bc%corner(6)%neighbor2(1) = grid%getimax() 
+      bc%corner(6)%neighbor1(2) = 2                 ; bc%corner(6)%neighbor2(2) = 1
+      bc%corner(6)%neighbor1(3) = grid%getkmax()    ; bc%corner(6)%neighbor2(3) = grid%getkmax()
+      bc%corner(6)%neighbor3(1) = grid%getimax()    ; bc%corner(6)%origin(1) = grid%getimax()
+      bc%corner(6)%neighbor3(2) = 1                 ; bc%corner(6)%origin(2) = 2
+      bc%corner(6)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(6)%origin(3) = grid%getkmax()
+      bc%corner(6)%neighbor4(1) = grid%getimax()    ; bc%corner(6)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(6)%neighbor4(2) = 1                 ; bc%corner(6)%neighbor5(2) = 2
+      bc%corner(6)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(6)%neighbor5(3) = grid%getkmax()+1
+      bc%corner(6)%neighbor6(1) = grid%getimax()+1   
+      bc%corner(6)%neighbor6(2) = 1                
+      bc%corner(6)%neighbor6(3) = grid%getkmax() 
+      
+      bc%corner(7)%istart(1) = -1                   ; bc%corner(7)%iend(1) = 1
+      bc%corner(7)%istart(2) = grid%getjmax()+1     ; bc%corner(7)%iend(2) = grid%getjmax()+3
+      bc%corner(7)%istart(3) = grid%getkmax()+1     ; bc%corner(7)%iend(3) = grid%getkmax()+3
+      bc%corner(7)%neighbor1(1) = 1                 ; bc%corner(7)%neighbor2(1) = 2 
+      bc%corner(7)%neighbor1(2) = grid%getjmax()    ; bc%corner(7)%neighbor2(2) = grid%getjmax()+1
+      bc%corner(7)%neighbor1(3) = grid%getkmax()    ; bc%corner(7)%neighbor2(3) = grid%getkmax()
+      bc%corner(7)%neighbor3(1) = 2                 ; bc%corner(7)%origin(1) = 2
+      bc%corner(7)%neighbor3(2) = grid%getjmax()    ; bc%corner(7)%origin(2) = grid%getjmax()
+      bc%corner(7)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(7)%origin(3) = grid%getkmax()
+      bc%corner(7)%neighbor4(1) = 2                 ; bc%corner(7)%neighbor5(1) = 1 
+      bc%corner(7)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(7)%neighbor5(2) = grid%getjmax()
+      bc%corner(7)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(7)%neighbor5(3) = grid%getkmax()+1
+      bc%corner(7)%neighbor6(1) = 1                
+      bc%corner(7)%neighbor6(2) = grid%getjmax()+1   
+      bc%corner(7)%neighbor6(3) = grid%getkmax() 
+      
+      bc%corner(8)%istart(1) = grid%getimax()+1     ; bc%corner(8)%iend(1) = grid%getimax()+3
+      bc%corner(8)%istart(2) = grid%getjmax()+1     ; bc%corner(8)%iend(2) = grid%getjmax()+3
+      bc%corner(8)%istart(3) = grid%getkmax()+1     ; bc%corner(8)%iend(3) = grid%getkmax()+3
+      bc%corner(8)%neighbor1(1) = grid%getimax()+1  ; bc%corner(8)%neighbor2(1) = grid%getimax() 
+      bc%corner(8)%neighbor1(2) = grid%getjmax()    ; bc%corner(8)%neighbor2(2) = grid%getjmax()+1
+      bc%corner(8)%neighbor1(3) = grid%getkmax()    ; bc%corner(8)%neighbor2(3) = grid%getkmax()
+      bc%corner(8)%neighbor3(1) = grid%getimax()    ; bc%corner(8)%origin(1) = grid%getimax()
+      bc%corner(8)%neighbor3(2) = grid%getjmax()    ; bc%corner(8)%origin(2) = grid%getjmax()
+      bc%corner(8)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(8)%origin(3) = grid%getkmax()
+      bc%corner(8)%neighbor4(1) = grid%getimax()    ; bc%corner(8)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(8)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(8)%neighbor5(2) = grid%getjmax()
+      bc%corner(8)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(8)%neighbor5(3) = grid%getkmax()+1
+      bc%corner(8)%neighbor6(1) = grid%getimax()+1   
+      bc%corner(8)%neighbor6(2) = grid%getjmax()+1   
+      bc%corner(8)%neighbor6(3) = grid%getkmax()
+      
+      do m=1,8
+        bc%corner(m)%dir = 0
+      end do
+
       isurf_corner = .false.; jsurf_corner = .false.; ksurf_corner = .false.
+      
+      do m=1,8
+        do n=1,bc%nbc 
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
+             (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
+            if((bc%bcinfo(n)%istart(1).le.bc%corner(m)%neighbor1(1)).and. &
+               (bc%bcinfo(n)%iend(1).ge.bc%corner(m)%neighbor1(1)).and.   &
+               (bc%bcinfo(n)%istart(2).le.bc%corner(m)%neighbor1(2)).and. &
+               (bc%bcinfo(n)%iend(2).ge.bc%corner(m)%neighbor1(2)).and.   &
+               (bc%bcinfo(n)%istart(3).le.bc%corner(m)%neighbor1(3)).and. &
+               (bc%bcinfo(n)%iend(3).ge.bc%corner(m)%neighbor1(3)) ) then
+              isurf_corner(m) = .true.
+            end if
+            if((bc%bcinfo(n)%istart(1).le.bc%corner(m)%neighbor2(1)).and. &
+               (bc%bcinfo(n)%iend(1).ge.bc%corner(m)%neighbor2(1)).and.   &
+               (bc%bcinfo(n)%istart(2).le.bc%corner(m)%neighbor2(2)).and. &
+               (bc%bcinfo(n)%iend(2).ge.bc%corner(m)%neighbor2(2)).and.   &
+               (bc%bcinfo(n)%istart(3).le.bc%corner(m)%neighbor2(3)).and. &
+               (bc%bcinfo(n)%iend(3).ge.bc%corner(m)%neighbor2(3)) ) then
+              jsurf_corner(m) = .true.
+            end if
+            if((bc%bcinfo(n)%istart(1).le.bc%corner(m)%neighbor3(1)).and. &
+               (bc%bcinfo(n)%iend(1).ge.bc%corner(m)%neighbor3(1)).and.   &
+               (bc%bcinfo(n)%istart(2).le.bc%corner(m)%neighbor3(2)).and. &
+               (bc%bcinfo(n)%iend(2).ge.bc%corner(m)%neighbor3(2)).and.   &
+               (bc%bcinfo(n)%istart(3).le.bc%corner(m)%neighbor3(3)).and. &
+               (bc%bcinfo(n)%iend(3).ge.bc%corner(m)%neighbor3(3)) ) then
+              ksurf_corner(m) = .true.
+            end if
+          end if
+        end do
+      end do
+      
 
-      do n=1,bc%nbc
-
+      do m =1,8
+        if(isurf_corner(m).and.jsurf_corner(m).and.ksurf_corner(m)) then
+          bc%corner(m)%bctype => wallwall
+        else if((.not.isurf_corner(m)).and.jsurf_corner(m).and.ksurf_corner(m)) then
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor1(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor1(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor1(3)
+          bc%corner(m)%bctype => wallwall
+        else if(isurf_corner(m).and.(.not.jsurf_corner(m)).and.ksurf_corner(m)) then
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor2(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor2(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor2(3)
+          bc%corner(m)%bctype => wallwall
+        else if(isurf_corner(m).and.jsurf_corner(m).and.(.not.ksurf_corner(m))) then
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor3(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor3(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor3(3)
+          bc%corner(m)%bctype => wallwall
+        else if((.not.isurf_corner(m)).and.(.not.jsurf_corner(m)).and.ksurf_corner(m)) then
+          select case(m)
+          case(1,2,3,4)
+            bc%corner(m)%face = 'Kmin'
+          case(5,6,7,8)
+            bc%corner(m)%face = 'Kmax'
+          end select
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor6(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor6(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor6(3)
+          select case(bc%iturb)
+          case(-1)
+            bc%corner(m)%bctype => bcwallviscouske
+          case(0)
+            bc%corner(m)%bctype => bcwallviscouskw
+          case(-2)
+            bc%corner(m)%bctype => bcwallviscous
+          case default
+            bc%corner(m)%bctype => bcwallinviscid
+          end select
+        else if(isurf_corner(m).and.(.not.jsurf_corner(m)).and.(.not.ksurf_corner(m))) then
+          select case(m)
+          case(1,3,5,7)
+            bc%corner(m)%face = 'imin'
+          case(2,4,6,8)
+            bc%corner(m)%face = 'imax'
+          end select
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor4(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor4(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor4(3)
+          select case(bc%iturb)
+          case(-1)
+            bc%corner(m)%bctype => bcwallviscouske
+          case(0)
+            bc%corner(m)%bctype => bcwallviscouskw
+          case(-2)
+            bc%corner(m)%bctype => bcwallviscous
+          case default
+            bc%corner(m)%bctype => bcwallinviscid
+          end select
+        else if((.not.isurf_corner(m)).and.jsurf_corner(m).and.(.not.ksurf_corner(m))) then
+          select case(m)
+          case(1,2,5,6)
+            bc%corner(m)%face = 'jmin'
+          case(3,4,7,8)
+            bc%corner(m)%face = 'jmax'
+          end select
+          bc%corner(m)%origin(1) = bc%corner(m)%neighbor5(1)
+          bc%corner(m)%origin(2) = bc%corner(m)%neighbor5(2)
+          bc%corner(m)%origin(3) = bc%corner(m)%neighbor5(3)
+          select case(bc%iturb)
+          case(-1)
+            bc%corner(m)%bctype => bcwallviscouske
+          case(0)
+            bc%corner(m)%bctype => bcwallviscouskw
+          case(-2)
+            bc%corner(m)%bctype => bcwallviscous
+          case default
+            bc%corner(m)%bctype => bcwallinviscid
+          end select
+        else
+          bc%corner(m)%bctype => cornernowall
+        end if 
       end do
 
     end subroutine construct
@@ -892,7 +1103,7 @@ module bc_module
       
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine wallwall(bcinfo,ref,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_ref), intent(in) :: ref
@@ -902,7 +1113,6 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv())
       
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -913,32 +1123,8 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            ppv = -variable%getpv(ii,jj,kk)
-            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
-              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
-            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
-              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
-            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
-              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
             do m=1,variable%getnpv()
-              select case(m)
-              case(2,3,4,8,9)
-                call variable%setpv(m,i,j,k,ppv(m))
-              case default
-                call variable%setpv(m,i,j,k,pv(m))
-              end select
+              call variable%setpv(m,i,j,k,pv(m))
             end do
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
@@ -949,72 +1135,7 @@ module bc_module
           end do
         end do
       end do
-    end subroutine edgewallwall
-    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwallkw(bcinfo,ref,grid,variable,eos,prop)
-      implicit none
-      class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
-      type(t_grid), intent(in) :: grid
-      type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
-      integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
-      real(8) :: var
-
-      do k=bcinfo%istart(3),bcinfo%iend(3)
-        do j=bcinfo%istart(2),bcinfo%iend(2)
-          do i=bcinfo%istart(1),bcinfo%iend(1)
-            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-            pv = variable%getpv(ii,jj,kk)
-            dv = variable%getdv(ii,jj,kk)
-            tv = variable%gettv(ii,jj,kk)
-            var = 800.d0*tv(1)/dv(1)/grd(4)**2
-            ppv = -variable%getpv(ii,jj,kk)
-            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
-              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
-            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
-              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
-            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
-              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
-              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
-              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
-              ppv = ppv - variable%getpv(ii,jj,kk)
-            end if
-            opv = 4.d0*var + ppv
-            do m=1,variable%getnpv()
-              select case(m)
-              case(2,3,4,8)
-                call variable%setpv(m,i,j,k,ppv(m))
-              case(9)
-                call variable%setpv(m,i,j,k,opv(m))
-              case default
-                call variable%setpv(m,i,j,k,pv(m))
-              end select
-            end do
-            do m=1,variable%getndv()
-              call variable%setdv(m,i,j,k,dv(m))
-            end do
-            do m=1,variable%getntv()
-              call variable%settv(m,i,j,k,tv(m))
-            end do
-          end do
-        end do
-      end do
-
-    end subroutine edgewallwallkw
+    end subroutine wallwall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine edgenowall(bcinfo,ref,grid,variable,eos,prop)
       implicit none
@@ -1074,6 +1195,54 @@ module bc_module
       end do
 
     end subroutine edgenowall
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cornernowall(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+ 
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
+            ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
+            pv = 1.d0/3.d0*pv
+            tv = 1.d0/3.d0*tv
+            do m=1,variable%getnpv()
+              call variable%setpv(m,i,j,k,pv(m))
+            end do
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv) 
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
+          end do
+        end do
+      end do
+
+    end subroutine cornernowall
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcwallinviscid(bcinfo,ref,grid,variable,eos,prop)
       implicit none
