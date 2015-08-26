@@ -151,7 +151,7 @@ module turbsource_module
       real(8) :: w1,w2,w3,w4,w5,w6
       real(8) :: dkdx,dkdy,dkdz,dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
       real(8) :: kkyy,prod,re_t,fe1,fe2,mt2,ec,pd,dpdk,dpdo
-      real(8) :: lam1,lam2,t,d
+      real(8) :: lam1,lam2,t,d,ki,oi,ei
       real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0
       
       k1 = 0.5d0*(ts%pv(1,8)+ts%pv(2,8))
@@ -222,19 +222,23 @@ module turbsource_module
         pd = 0.d0      
       end if
       
+      ki = 1.d0/ts%pv(2,8)
+      oi = 1.d0/ts%pv(2,9)
+      ei = 1.d0/ts%tv(3)
+      
       turb_result%omega_cut = 0.d0
       turb_result%source(1) = (prod - ts%dv(1)*(ts%pv(2,9)+ec) + pd - 2.d0*ts%tv(1)*kkyy)*ts%grd(1)
       turb_result%source(2) = (1.5d0*fe1*prod*ts%pv(2,9) - 1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 &
-                            + 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy)/ts%pv(2,8)*ts%grd(1)
+                            + 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy)*ki*ts%grd(1)
      
       
-      dpdk = 2.d0*(prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,8)-c23*ts%dv(1)*(dudx+dvdy+dwdz)
-      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,9)
+      dpdk = 2.d0*prod*ki + c23*ts%dv(1)*(dudx+dvdy+dwdz)
+      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))*oi
       
       turb_result%itt(1) = dpdk
       turb_result%itt(2) = dpdo - ts%dv(1)
-      turb_result%itt(3) = (1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )/ts%pv(2,8)**2
-      turb_result%itt(4) = (1.5d0*fe1*dpdo*ts%pv(2,9) + 1.5d0*fe1*prod - 3.8d0*fe2*ts%dv(1)*ts%pv(2,9) + 2.9556d0*ts%tv(1)*kkyy)/ts%pv(2,8)
+      turb_result%itt(3) = (1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )*ki**2
+      turb_result%itt(4) = (1.5d0*fe1*dpdo*ts%pv(2,9) + 1.5d0*fe1*prod - 3.8d0*fe2*ts%dv(1)*ts%pv(2,9) + 2.9556d0*ts%tv(1)*kkyy)*ki
       
       if(ts%tcomp) then
         turb_result%itt(1) = turb_result%itt(1) + (- 1.6d0*ts%dv(1)*ts%pv(2,9) - 0.8d0*dpdk*ts%pv(2,8)- 0.8d0*prod)/ts%dv(6)
@@ -264,7 +268,7 @@ module turbsource_module
       real(8) :: dkdx,dkdy,dkdz,dodx,dody,dodz
       real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
       real(8) :: prod,bigf,talpha,tbeta,mt2,pd,dpdk,dpdo
-      real(8) :: lam1,lam2,t,d
+      real(8) :: lam1,lam2,t,d,ki,oi,ei
       real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0, c59 = 5.d0/9.d0
 
       k1 = 0.5d0*(ts%pv(1,8)+ts%pv(2,8))
@@ -344,29 +348,33 @@ module turbsource_module
         pd = 0.d0      
       end if
       
+      ki = 1.d0/ts%pv(2,8)
+      oi = 1.d0/ts%pv(2,9)
+      ei = 1.d0/ts%tv(3)
+
       turb_result%source(1) = (prod - 0.09d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)*(1.d0+c59*mt2*(1.d0-bigf)) &
                             + (1.d0-bigf)*pd)*ts%grd(1)
-      turb_result%source(2) = (talpha*ts%dv(1)/ts%tv(3)*prod - tbeta*ts%dv(1)*ts%pv(2,9)**2 &
-                            + 1.712d0*(1.d0-bigf)*ts%dv(1)/ts%pv(2,9)*(dkdx*dodx+dkdy*dody+dkdz*dodz) &
+      turb_result%source(2) = (talpha*ts%dv(1)*ei*prod - tbeta*ts%dv(1)*ts%pv(2,9)**2 &
+                            + 1.712d0*(1.d0-bigf)*ts%dv(1)*oi*(dkdx*dodx+dkdy*dody+dkdz*dodz) &
                             + (1.d0-bigf)*0.05d0*mt2*ts%dv(1)*ts%pv(2,9)**2 &
-                            - (1.d0-bigf)*ts%dv(1)/ts%tv(3)*pd )*ts%grd(1)
+                            - (1.d0-bigf)*ts%dv(1)*ei*pd )*ts%grd(1)
 
-      dpdk = prod/ts%pv(2,8)   
-      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))/ts%pv(2,9)
+      dpdk = prod*ki
+      dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))*oi
 
       turb_result%itt(1) = dpdk - 0.09d0*ts%dv(1)*ts%pv(2,8)
       turb_result%itt(2) = dpdo - 0.09d0*ts%dv(1)*ts%pv(2,9)
       turb_result%itt(3) = 0.d0
-      turb_result%itt(4) = talpha*ts%dv(1)/ts%tv(3)*dpdo + talpha*ts%dv(1)/ts%tv(3)*prod/ts%pv(2,9) - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
-                         - 1.712d0*(1.d0-bigf)*ts%dv(1)/ts%pv(2,9)**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
+      turb_result%itt(4) = talpha*ts%dv(1)*ei*dpdo + talpha*ts%dv(1)*ei*prod*oi - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
+                         - 1.712d0*(1.d0-bigf)*ts%dv(1)*oi**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
                  
       if(ts%tcomp) then
         turb_result%itt(1) = turb_result%itt(1) + (- 0.128d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6) - 0.4d0*dpdk*mt2 - 0.8d0*prod/ts%dv(6) )*(1.d0-bigf)
         turb_result%itt(2) = turb_result%itt(2) + (- 0.032d0*ts%dv(1)*ts%pv(2,8)*mt2 - 0.4d0*dpdo*mt2 )*(1.d0-bigf)
-        turb_result%itt(3) = turb_result%itt(3) + (0.1d0*ts%dv(1)*ts%pv(2,9)**2/ts%dv(6) + ts%dv(1)/ts%tv(3)*pd/ts%pv(2,8) &
-                                                - ts%dv(1)/ts%tv(3)*(-0.4d0*dpdk*mt2-0.8d0*prod/ts%dv(6)+0.072d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6)))*(1.d0-bigf)
-        turb_result%itt(4) = turb_result%itt(4) + (0.2d0*ts%dv(1)*ts%pv(2,9)*ts%pv(2,8)/ts%dv(6) - ts%dv(1)/ts%tv(3)*pd/ts%pv(2,9) &
-                                                - ts%dv(1)/ts%tv(3)*(-0.4d0*dpdo*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*mt2))*(1.d0-bigf)
+        turb_result%itt(3) = turb_result%itt(3) + (0.1d0*ts%dv(1)*ts%pv(2,9)**2/ts%dv(6) + ts%dv(1)*ei*pd*ki &
+                                                - ts%dv(1)*ei*(-0.4d0*dpdk*mt2-0.8d0*prod/ts%dv(6)+0.072d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6)))*(1.d0-bigf)
+        turb_result%itt(4) = turb_result%itt(4) + (0.2d0*ts%dv(1)*ts%pv(2,9)*ts%pv(2,8)/ts%dv(6) - ts%dv(1)*ei*pd*oi &
+                                                - ts%dv(1)*ei*(-0.4d0*dpdo*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*mt2))*(1.d0-bigf)
       end if
                  
       t = turb_result%itt(1)+turb_result%itt(4)

@@ -90,8 +90,8 @@ module update_module
       type(t_prop), intent(in) :: prop   
       
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-12
+      update%oref = 1.d-12
       
       update%l_timestep = .false.
       update%l_lhs = .false.
@@ -176,8 +176,8 @@ module update_module
       type(t_prop), intent(in) :: prop 
       
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-12
+      update%oref = 1.d-12
       
       update%l_timestep = .false.
       update%l_lhs = .false.
@@ -267,8 +267,8 @@ module update_module
       type(t_prop), intent(in) :: prop   
       
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-12
+      update%oref = 1.d-12
       
       update%l_timestep = .false.
       update%l_lhs = .false.
