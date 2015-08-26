@@ -397,7 +397,7 @@ module bc_module
       bc%edge(7)%istart(3)  = grid%getkmax()+1    ; bc%edge(7)%iend(3)  = grid%getkmax()+3
       bc%edge(7)%neighbor1(1) = 1                 ; bc%edge(7)%neighbor2(1) = 0
       bc%edge(7)%neighbor1(2) = 0                 ; bc%edge(7)%neighbor2(2) = 0
-      bc%edge(7)%neighbor1(3) = gri%getkmax()     ; bc%edge(7)%neighbor2(3) = 0
+      bc%edge(7)%neighbor1(3) = grid%getkmax()    ; bc%edge(7)%neighbor2(3) = 0
       bc%edge(7)%neighbor3(1) = 2                 ; bc%edge(7)%origin(1) = 2
       bc%edge(7)%neighbor3(2) = 0                 ; bc%edge(7)%origin(2) = 0
       bc%edge(7)%neighbor3(3) = grid%getkmax()+1  ; bc%edge(7)%origin(3) = grid%getkmax()
@@ -420,7 +420,7 @@ module bc_module
       bc%edge(9)%neighbor1(3) = 0                 ; bc%edge(9)%neighbor2(3) = 2
       bc%edge(9)%neighbor3(1) = 0                 ; bc%edge(9)%origin(1) = 0
       bc%edge(9)%neighbor3(2) = 2                 ; bc%edge(9)%origin(2) = 2
-      bc%edge(9)%neighbor3(3) = 1                 ; bd%edge(9)%origin(3) = 2
+      bc%edge(9)%neighbor3(3) = 1                 ; bc%edge(9)%origin(3) = 2
 
       bc%edge(10)%istart(1) =  2                  ; bc%edge(10)%iend(1) = grid%getimax()
       bc%edge(10)%istart(2) = grid%getjmax()+1    ; bc%edge(10)%iend(2) = grid%getjmax()+3
@@ -517,13 +517,13 @@ module bc_module
       end do
 
       do m=1,4
-        if(isurf(m).and.jsurf(m)) then
+        if(isurf_edge(m).and.jsurf_edge(m)) then
           if(bc%iturb.eq.0) then
             bc%edge(m)%bctype => edgewallwallkw
           else
             bc%edge(m)%bctype => edgewallwall
           end if
-        else if(isurf(m).and.(.not.jsurf(m))) then
+        else if(isurf_edge(m).and.(.not.jsurf_edge(m))) then
           select case(m)
           case(1,3)
             bc%edge(m)%face = 'imin'
@@ -543,7 +543,7 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
 
-        else if((.not.isurf(m)).and.jsurf(m)) then
+        else if((.not.isurf_edge(m)).and.jsurf_edge(m)) then
           select case(m)
           case(1,2)
             bc%edge(m)%face = 'jmin'
@@ -569,13 +569,13 @@ module bc_module
       end do
       
       do m=5,8
-        if(isurf(m).and.ksurf(m)) then
+        if(isurf_edge(m).and.ksurf_edge(m)) then
           if(bc%iturb.eq.0) then
             bc%edge(m)%bctype => edgewallwallkw
           else
             bc%edge(m)%bctype => edgewallwall
           end if
-        else if(isurf(m).and.(.not.ksurf(m))) then
+        else if(isurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(5,7)
             bc%edge(m)%face = 'imin'
@@ -595,7 +595,7 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
 
-        else if((.not.isurf(m)).and.ksurf(m)) then
+        else if((.not.isurf_edge(m)).and.ksurf_edge(m)) then
           select case(m)
           case(5,6)
             bc%edge(m)%face = 'kmin'
@@ -621,13 +621,13 @@ module bc_module
       end do
 
       do m=9,12
-        if(jsurf(m).and.ksurf(m)) then
+        if(jsurf_edge(m).and.ksurf_edge(m)) then
           if(bc%iturb.eq.0) then
             bc%edge(m)%bctype => edgewallwallkw
           else
             bc%edge(m)%bctype => edgewallwall
           end if
-        else if(jsurf(m).and.(.not.ksurf(m))) then
+        else if(jsurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(9,11)
             bc%edge(m)%face = 'jmin'
@@ -647,7 +647,7 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
 
-        else if((.not.jsurf(m)).and.ksurf(m)) then
+        else if((.not.jsurf_edge(m)).and.ksurf_edge(m)) then
           select case(m)
           case(9,10)
             bc%edge(m)%face = 'kmin'
@@ -913,21 +913,38 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            ppv = -variable%getpv(ii,jj,kk)-variable%getpv(bcinfo%neighbor1(1),bcinfo%neighbor1(2)) &
-                   -variable%getpv(bcinfo%neighbor2(1),bcinfo%neighbor2(2))
+            ppv = -variable%getpv(ii,jj,kk)
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
             do m=1,variable%getnpv()
               select case(m)
-              case(2,3,7,8)
-                call variable%setpv(m,i,j,ppv(m))
+              case(2,3,4,8,9)
+                call variable%setpv(m,i,j,k,ppv(m))
               case default
-                call variable%setpv(m,i,j,pv(m))
+                call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
             do m=1,variable%getndv()
-              call variable%setdv(m,i,j,dv(m))
+              call variable%setdv(m,i,j,k,dv(m))
             end do
             do m=1,variable%getntv()
-              call variable%settv(m,i,j,tv(m))
+              call variable%settv(m,i,j,k,tv(m))
             end do
           end do
         end do
@@ -942,37 +959,57 @@ module bc_module
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
-      integer :: i,j,m,ii,jj
+      integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
       real(8) :: var
 
-      do j=bcinfo%istart(2),bcinfo%iend(2)
-        do i=bcinfo%istart(1),bcinfo%iend(1)
-          ii = bcinfo%origin(1)
-          jj = bcinfo%origin(2)
-          pv = variable%getpv(ii,jj)
-          dv = variable%getdv(ii,jj)
-          tv = variable%gettv(ii,jj)
-          var = 800.d0*tv(1)/dv(1)/grd(4)**2
-          ppv = -variable%getpv(ii,jj)-variable%getpv(bcinfo%neighbor1(1),bcinfo%neighbor1(2)) &
-                   -variable%getpv(bcinfo%neighbor2(1),bcinfo%neighbor2(2))
-          opv = 4.d0*var + ppv
-          do m=1,variable%getnpv()
-            select case(m)
-            case(2,3,7)
-              call variable%setpv(m,i,j,ppv(m))
-            case(8)
-              call variable%setpv(m,i,j,opv(m))
-            case default
-              call variable%setpv(m,i,j,pv(m))
-            end select
-          end do
-          do m=1,variable%getndv()
-            call variable%setdv(m,i,j,dv(m))
-          end do
-          do m=1,variable%getntv()
-            call variable%settv(m,i,j,tv(m))
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            var = 800.d0*tv(1)/dv(1)/grd(4)**2
+            ppv = -variable%getpv(ii,jj,kk)
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            opv = 4.d0*var + ppv
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4,8)
+                call variable%setpv(m,i,j,k,ppv(m))
+              case(9)
+                call variable%setpv(m,i,j,k,opv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
           end do
         end do
       end do
@@ -987,27 +1024,51 @@ module bc_module
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
-      integer :: i,j,m
+      integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-
-      do j=bcinfo%istart(2),bcinfo%iend(2)
-        do i=bcinfo%istart(1),bcinfo%iend(1)
-          pv = 1.d0/3.d0*(variable%getpv(bcinfo%origin(1),bcinfo%origin(2)) &
-                         +variable%getpv(bcinfo%neighbor1(1),bcinfo%neighbor1(2)) &
-                         +variable%getpv(bcinfo%neighbor2(1),bcinfo%neighbor2(2)) )
-          tv = 1.d0/3.d0*(variable%gettv(bcinfo%origin(1),bcinfo%origin(2)) &
-                         +variable%gettv(bcinfo%neighbor1(1),bcinfo%neighbor1(2)) &
-                         +variable%gettv(bcinfo%neighbor2(1),bcinfo%neighbor2(2)) )
-          do m=1,variable%getnpv()
-            call variable%setpv(m,i,j,pv(m))
-          end do
-          call eos%deteos(pv(1)+ref%pv(1),pv(4),pv(5),pv(6),dv) 
-          do m=1,variable%getndv()
-            call variable%setdv(m,i,j,dv(m))
-          end do
-          if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(4),pv(5),pv(6),tv(1:2))
-          do m=1,variable%getntv()
-            call variable%settv(m,i,j,tv(m))
+ 
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+              pv = pv + variable%getpv(ii,jj,kk)
+              tv = tv + variable%gettv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+              pv = pv + variable%getpv(ii,jj,kk)
+              tv = tv + variable%gettv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+              pv = pv + variable%getpv(ii,jj,kk)
+              tv = tv + variable%gettv(ii,jj,kk)
+            end if
+            pv = 1.d0/3.d0*pv
+            tv = 1.d0/3.d0*tv
+            do m=1,variable%getnpv()
+              call variable%setpv(m,i,j,k,pv(m))
+            end do
+            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv) 
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
           end do
         end do
       end do

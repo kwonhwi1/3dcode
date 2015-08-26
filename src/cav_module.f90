@@ -208,16 +208,21 @@ module cav_module
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
       
       if(r_c.ne.0.d0 ) then
-        cav_result%icav(1) = - cav%c_c*cav%t_ref*(cav%dv(7)*cav%pv(2,6)*(1.d0-cav%pv(2,7))*av1+2.d0*av**2*cav%dv(15)*(al+ag))
-        cav_result%icav(2) = - cav%c_c*cav%t_ref*(cav%dv(8)*cav%pv(2,6)*(1.d0-cav%pv(2,7))*av1+2.d0*av**2*cav%dv(16)*(al+ag))
-        cav_result%icav(3) = - cav%c_c*cav%t_ref*(cav%dv(9)*cav%pv(2,6)+cav%dv(1))*av1*(1.d0-cav%pv(2,6))
-        cav_result%icav(4) = - cav%c_c*cav%t_ref*(cav%dv(10)*(1.d0-cav%pv(2,7))-cav%dv(1))*cav%pv(2,5)*av1
+        cav_result%icav(1) = - r_c*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1)-0.5d0*cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*rho1)*cav%pv(2,6)*(1.d0-cav%pv(2,7))*(cav%pv(2,1)+cav%pref-pww)**(-0.5d0)
+        cav_result%icav(2) = - r_c*(cav%dv(16)*rho2+0.5d0*cav%dv(18)*rho1)
+        cav_result%icav(3) = - cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*rho1)*(1.d0-cav%pv(2,7))
+        cav_result%icav(4) = + cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*rho1)*cav%pv(2,6)
       end if
-      if(r_v.ne.0.d0) then
-        cav_result%icav(1) = r_v*cav%dv(7)*rho1 - cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6))*cav%dp_ref*cav%t_ref
-        cav_result%icav(2) = r_v*cav%dv(8)*rho1
-        cav_result%icav(3) = r_v*cav%dv(9)*rho1 - cav%c_v*cav%dv(1)*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
-        cav_result%icav(4) = r_v*cav%dv(10)*rho1
+      if(r_v.ne.0.d0 ) then
+        cav_result%icav(1) = r_v*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1)-0.5d0*cav%c_v*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*rho1)*(1.d0-cav%pv(2,6))*(pww-cav%pv(2,1)-cav%pref)**(-0.5d0)
+        cav_result%icav(2) = r_v*(cav%dv(16)*rho2+0.5d0*cav%dv(18)*rho1)
+        cav_result%icav(3) = - cav%c_v*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
+          *dsqrt(2.d0/3.d0*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*rho1)
+        cav_result%icav(4) = 0.d0
       end if
       lam = dsign(1.d0,cav_result%icav(3))
       cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
