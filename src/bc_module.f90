@@ -1685,9 +1685,10 @@ module bc_module
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: nx(3),vel
+      real(8) :: nx(3),vel,mach
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      
+      real(8) :: pv_b(variable%getnpv()),dv_b(variable%getndv())
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -1697,45 +1698,58 @@ module bc_module
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getcx(ii-1,jj,kk)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii,jj,kk)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getex(ii,jj-1,kk)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj,kk)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = - grid%gettx(ii,jj,kk-1)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
+              pv_b = variable%getpv(ii,jj,kk)
+              dv_b = variable%getdv(ii,jj,kk)
             end select
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            vel = (pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-            if(vel/dsqrt(dv(6)).ge.0.d0) then !out
-              if(vel/dsqrt(dv(6)).ge.1.d0) then !super                
+            vel = (pv_b(2)*nx(1)+pv_b(3)*nx(2)+pv_b(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+            mach = vel/dsqrt(dv_b(6))
+            if(mach.ge.0.d0) then !out
+              if(mach.ge.1.d0) then !super                
               else !sub
                 pv(1) = -pv(1)
               end if
             else ! in
-              if(vel/dsqrt(dv(6)).le.-1.d0) then !super
+              if(mach.le.-1.d0) then !super
                 pv(1) = -pv(1)
                 pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
