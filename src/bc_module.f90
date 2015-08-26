@@ -1459,6 +1459,7 @@ module bc_module
             end select
             dv_b = variable%getdv(ii,jj,kk)
             tv_b = variable%gettv(ii,jj,kk)
+            grd = grid%getgrd(ii,jj,kk)
             do m=1,variable%getnpv()
               select case(m)
               case(2,3,4,8)
