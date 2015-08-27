@@ -362,8 +362,8 @@ module turbsource_module
       dpdk = prod*ki
       dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))*oi
 
-      turb_result%itt(1) = dpdk - 0.09d0*ts%dv(1)*ts%pv(2,8)
-      turb_result%itt(2) = dpdo - 0.09d0*ts%dv(1)*ts%pv(2,9)
+      turb_result%itt(1) = dpdk - 0.09d0*ts%dv(1)*ts%pv(2,9)
+      turb_result%itt(2) = dpdo - 0.09d0*ts%dv(1)*ts%pv(2,8)
       turb_result%itt(3) = 0.d0
       turb_result%itt(4) = talpha*ts%dv(1)*ei*dpdo + talpha*ts%dv(1)*ei*prod*oi - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
                          - 1.712d0*(1.d0-bigf)*ts%dv(1)*oi**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
