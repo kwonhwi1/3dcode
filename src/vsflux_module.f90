@@ -410,12 +410,11 @@ module vsflux_module
       rho = 0.5d0*(vsflux%dvl(1)+vsflux%dvr(1))
       ydns = 0.5d0*(vsflux%grdl(5)+vsflux%grdr(5))
       vis = 0.5d0*(vsflux%tvl(1)+vsflux%tvr(1))
-      k = 0.5d0*(vsflux%pv(4,8)+vsflux%pv(3,8)) 
-      o = 0.5d0*(vsflux%pv(4,9)+vsflux%pv(3,9))
+      k = 0.5d0*(vsflux%pv(9,8)+vsflux%pv(10,8)) 
+      o = 0.5d0*(vsflux%pv(9,9)+vsflux%pv(10,9))
       
       term0 = 1.712d0*rho/o*pkw
       cdkw = dmax1(term0,1.d-10)
-      
       term1 = dsqrt(k)/(0.09d0*o*ydns)
       term2 = 500.d0*vis/rho/(o*ydns**2)
       term3 = (3.424d0*rho*k)/(cdkw*ydns**2)

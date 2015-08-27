@@ -50,6 +50,7 @@ module rhs_module
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       
+      rhs%stencil = config%getstencil()
       rhs%pref = config%getpref()
       
       select case(config%getiturb())

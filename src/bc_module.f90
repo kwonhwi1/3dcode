@@ -522,7 +522,11 @@ module bc_module
 
       do m=1,4
         if(isurf_edge(m).and.jsurf_edge(m)) then
-          bc%edge(m)%bctype => wallwall
+          if(bc%iturb.eq.0) then
+            bc%edge(m)%bctype => edgewallwallkw
+          else
+            bc%edge(m)%bctype => edgewallwall
+          end if
         else if(isurf_edge(m).and.(.not.jsurf_edge(m))) then
           select case(m)
           case(1,3)
@@ -570,7 +574,11 @@ module bc_module
       
       do m=5,8
         if(isurf_edge(m).and.ksurf_edge(m)) then
-          bc%edge(m)%bctype => wallwall
+          if(bc%iturb.eq.0) then
+            bc%edge(m)%bctype => edgewallwallkw
+          else
+            bc%edge(m)%bctype => edgewallwall
+          end if
         else if(isurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(5,7)
@@ -618,7 +626,11 @@ module bc_module
 
       do m=9,12
         if(jsurf_edge(m).and.ksurf_edge(m)) then
-          bc%edge(m)%bctype => wallwall
+          if(bc%iturb.eq.0) then
+            bc%edge(m)%bctype => edgewallwallkw
+          else
+            bc%edge(m)%bctype => edgewallwall
+          end if
         else if(jsurf_edge(m).and.(.not.ksurf_edge(m))) then
           select case(m)
           case(9,11)
@@ -833,22 +845,65 @@ module bc_module
 
       do m =1,8
         if(isurf_corner(m).and.jsurf_corner(m).and.ksurf_corner(m)) then
-          bc%corner(m)%bctype => wallwall
+          if(bc%iturb.eq.0) then
+            bc%corner(m)%bctype => cornerwallwallkw
+          else
+            bc%corner(m)%bctype => cornerwallwall
+          end if
         else if((.not.isurf_corner(m)).and.jsurf_corner(m).and.ksurf_corner(m)) then
           bc%corner(m)%origin(1) = bc%corner(m)%neighbor1(1)
           bc%corner(m)%origin(2) = bc%corner(m)%neighbor1(2)
           bc%corner(m)%origin(3) = bc%corner(m)%neighbor1(3)
-          bc%corner(m)%bctype => wallwall
+          bc%corner(m)%neighbor1(1) = 0
+          bc%corner(m)%neighbor1(2) = 0
+          bc%corner(m)%neighbor1(3) = 0
+          bc%corner(m)%neighbor2(1) = bc%corner(m)%neighbor5(1)
+          bc%corner(m)%neighbor2(2) = bc%corner(m)%neighbor5(2)
+          bc%corner(m)%neighbor2(3) = bc%corner(m)%neighbor5(3)
+          bc%corner(m)%neighbor3(1) = bc%corner(m)%neighbor6(1)
+          bc%corner(m)%neighbor3(2) = bc%corner(m)%neighbor6(2)
+          bc%corner(m)%neighbor3(3) = bc%corner(m)%neighbor6(3)
+          if(bc%iturb.eq.0) then
+            bc%corner(m)%bctype => edgewallwallkw
+          else
+            bc%corner(m)%bctype => edgewallwall
+          end if
         else if(isurf_corner(m).and.(.not.jsurf_corner(m)).and.ksurf_corner(m)) then
           bc%corner(m)%origin(1) = bc%corner(m)%neighbor2(1)
           bc%corner(m)%origin(2) = bc%corner(m)%neighbor2(2)
           bc%corner(m)%origin(3) = bc%corner(m)%neighbor2(3)
-          bc%corner(m)%bctype => wallwall
+          bc%corner(m)%neighbor1(1) = bc%corner(m)%neighbor4(1)
+          bc%corner(m)%neighbor1(2) = bc%corner(m)%neighbor4(2)
+          bc%corner(m)%neighbor1(3) = bc%corner(m)%neighbor4(3)
+          bc%corner(m)%neighbor2(1) = 0
+          bc%corner(m)%neighbor2(2) = 0
+          bc%corner(m)%neighbor2(3) = 0
+          bc%corner(m)%neighbor3(1) = bc%corner(m)%neighbor6(1)
+          bc%corner(m)%neighbor3(2) = bc%corner(m)%neighbor6(2)
+          bc%corner(m)%neighbor3(3) = bc%corner(m)%neighbor6(3)
+          if(bc%iturb.eq.0) then
+            bc%corner(m)%bctype => edgewallwallkw
+          else
+            bc%corner(m)%bctype => edgewallwall
+          end if
         else if(isurf_corner(m).and.jsurf_corner(m).and.(.not.ksurf_corner(m))) then
           bc%corner(m)%origin(1) = bc%corner(m)%neighbor3(1)
           bc%corner(m)%origin(2) = bc%corner(m)%neighbor3(2)
           bc%corner(m)%origin(3) = bc%corner(m)%neighbor3(3)
-          bc%corner(m)%bctype => wallwall
+          bc%corner(m)%neighbor1(1) = bc%corner(m)%neighbor4(1)
+          bc%corner(m)%neighbor1(2) = bc%corner(m)%neighbor4(2)
+          bc%corner(m)%neighbor1(3) = bc%corner(m)%neighbor4(3)
+          bc%corner(m)%neighbor2(1) = bc%corner(m)%neighbor5(1)
+          bc%corner(m)%neighbor2(2) = bc%corner(m)%neighbor5(2)
+          bc%corner(m)%neighbor2(3) = bc%corner(m)%neighbor5(3)
+          bc%corner(m)%neighbor3(1) = 0
+          bc%corner(m)%neighbor3(2) = 0
+          bc%corner(m)%neighbor3(3) = 0
+          if(bc%iturb.eq.0) then
+            bc%corner(m)%bctype => edgewallwallkw
+          else
+            bc%corner(m)%bctype => edgewallwall
+          end if
         else if((.not.isurf_corner(m)).and.(.not.jsurf_corner(m)).and.ksurf_corner(m)) then
           select case(m)
           case(1,2,3,4)
@@ -1103,7 +1158,7 @@ module bc_module
       
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine wallwall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine edgewallwall(bcinfo,ref,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_ref), intent(in) :: ref
@@ -1113,7 +1168,8 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      
+      real(8) :: ppv(variable%getnpv())
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -1123,8 +1179,32 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
+            ppv = -variable%getpv(ii,jj,kk)
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
             do m=1,variable%getnpv()
-              call variable%setpv(m,i,j,k,pv(m))
+              select case(m)
+              case(2,3,4,8,9)
+                call variable%setpv(m,i,j,k,ppv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
             end do
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
@@ -1135,7 +1215,222 @@ module bc_module
           end do
         end do
       end do
-    end subroutine wallwall
+    end subroutine edgewallwall
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine edgewallwallkw(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
+      real(8) :: var
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            grd = grid%getgrd(ii,jj,kk)
+            var = 800.d0*tv(1)/dv(1)/grd(5)**2
+            ppv = -variable%getpv(ii,jj,kk)
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+              ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+              ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+              ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+              jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+              kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+              ppv = ppv - variable%getpv(ii,jj,kk)
+            end if
+            opv = 4.d0*var + ppv
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4,8)
+                call variable%setpv(m,i,j,k,ppv(m))
+              case(9)
+                call variable%setpv(m,i,j,k,opv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
+          end do
+        end do
+      end do
+    end subroutine edgewallwallkw
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cornerwallwall(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: ppv(variable%getnpv())
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            ppv = -variable%getpv(ii,jj,kk)
+            
+            ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+            
+            ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k          
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor4(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor4(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor5(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor5(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor5(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor6(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor6(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor6(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4,8,9)
+                call variable%setpv(m,i,j,k,ppv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
+          end do
+        end do
+      end do
+    end subroutine cornerwallwall
+    !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cornerwallwallkw(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
+      real(8) :: var
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            grd = grid%getgrd(ii,jj,kk)
+            var = 800.d0*tv(1)/dv(1)/grd(5)**2
+            ppv = -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+            
+            ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k          
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor4(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor4(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor5(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor5(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor5(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            ii = bcinfo%neighbor6(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor6(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor6(3)+bcinfo%dir(3)*k
+            ppv = ppv -variable%getpv(ii,jj,kk)
+
+            opv = 8.d0*var + ppv
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4,8)
+                call variable%setpv(m,i,j,k,ppv(m))
+              case(9)
+                call variable%setpv(m,i,j,k,opv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
+          end do
+        end do
+      end do
+    end subroutine cornerwallwallkw
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine edgenowall(bcinfo,ref,grid,variable,eos,prop)
       implicit none
@@ -1210,19 +1505,19 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
-            jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
-            kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+            ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor4(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor4(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
-            jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
-            kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+            ii = bcinfo%neighbor5(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor5(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor5(3)+bcinfo%dir(3)*k
             pv = pv + variable%getpv(ii,jj,kk)
             tv = tv + variable%gettv(ii,jj,kk)
-            ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
-            jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
-            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+            ii = bcinfo%neighbor6(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor6(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor6(3)+bcinfo%dir(3)*k
             pv = pv + variable%getpv(ii,jj,kk)
             tv = tv + variable%gettv(ii,jj,kk)
             pv = 1.d0/3.d0*pv
