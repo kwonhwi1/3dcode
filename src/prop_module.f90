@@ -201,7 +201,7 @@ module prop_module
       real(8), intent(in) :: rho,t
       type(t_prop2), intent(out) :: gas
       
-      gas%vis  = 1.716d-5*(t/273.d0)**1.5d0*384.d0/(t+111.d0)
+      gas%vis  = 1.716d-5*(t/273.11d0)**1.5d0*383.67d0/(t+110.56d0)
       !gas%cond = 0.0241d0*(t/273.d0)**1.5d0*467.d0/(t+194.d0)
       gas%cond = 1004.64d0/0.72d0*gas%vis
       
