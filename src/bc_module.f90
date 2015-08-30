@@ -1505,11 +1505,31 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
+            ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
+            ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
+            jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
             ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor4(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor4(3)+bcinfo%dir(3)*k
-            pv = variable%getpv(ii,jj,kk)
-            tv = variable%gettv(ii,jj,kk)
+            pv = pv + variable%getpv(ii,jj,kk)
+            tv = tv + variable%gettv(ii,jj,kk)
             ii = bcinfo%neighbor5(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor5(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor5(3)+bcinfo%dir(3)*k
@@ -1520,8 +1540,8 @@ module bc_module
             kk = bcinfo%neighbor6(3)+bcinfo%dir(3)*k
             pv = pv + variable%getpv(ii,jj,kk)
             tv = tv + variable%gettv(ii,jj,kk)
-            pv = 1.d0/3.d0*pv
-            tv = 1.d0/3.d0*tv
+            pv = 1.d0/7.d0*pv
+            tv = 1.d0/7.d0*tv
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
