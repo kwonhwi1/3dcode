@@ -1,61 +1,61 @@
 name
 ttt
-iread			  rstnum
-0				    0
-nsteady			npmax			ntmax			  bond			dt_phy
-0	          0			    0000000			0				  0.d0
-nexport			nprt 
-0      			0
-iturb			  tcomp
-0	 			    0
-nscheme			precd			    nmuscl		nlim
-0				    0			  	    0				  0
-timemethod	local			    prec			cfl
-0				    0				      0				  0.d0
-fluid       fluid_eostype	ngas			gas_eostype	mixingrule
-0           0             0				  0				    0
-ncav			  c_v				    c_c
-0           0.d0          0.d0
-pref			  uref			    aoa				tref			  y1ref			y2ref
-0.d0     		0.d0		   	  0.d0			0.d0	 	  	0.d0			0.d0
-l_chord			l_character		scale
-0.d0	      0.d0	        0.d0
+iread         rstnum
+0             0
+nsteady       npmax          ntmax          bond           dt_phy
+0             0              0000000        0              0.d0
+nexport       nprt
+0             0
+iturb         tcomp
+0             0
+nscheme       precd          nmuscl         nlim
+0             0              0              0
+timemethod    local          prec           cfl
+0             0              0              0.d0
+fluid         fluid_eostype  ngas           gas_eostype    mixingrule
+0             0              0              0              0
+ncav          c_v            c_c
+0             0.d0           0.d0
+pref          uref           aoa            tref           y1ref          y2ref
+0.d0          0.d0           0.d0           0.d0           0.d0           0.d0
+l_chord       l_character    scale
+0.d0          0.d0           0.d0
 
 ==========================================================================================
-name		      : project name = geometry name
-iread			    : 0 = new start, 1 = restart
-rstnum			  : steady = 7count, unsteady = 4count
-nsteady	  		: 0 = steady, 1 = unsteady 
-npmax			    : maximum unsteady iteration
-ntmax			    : sub-iteration max
-bond			    : convergence criteria
-dt_phy			  : physical time step
-npost		    	: iteration/post
-nprt		  	  : iteration/print
-iturb			    : -3 = euler, -2 = rans, -1 = low reynolds k-e model, 0 = k-w sst
-tcomp			    : turbulent compressibility effect, 0 = off, 1 = on
-nscheme	  		: 1 = roe, 2 = roem, 3 = ausmpw+, 4 = ausm+up
-precd			    : scaling of numerical dissipation, 0 = off, 1 = steady, 2 = unsteady
-nmuscl		  	: 0 = 1st order, 1 = tvd, 2 = mlp
-nlim		  	  : 0 = no_limiter, 1 = minmod, 2 = superbee, 3 = v.l., 4 = m.c., 5 = v.a., 6 = beta, 7 = 3rd_order, 8 = 5th_order
-timemethod	  : 1 = euler_explicit, 2 = 3rd-rk, 3 = lu-sgs
-local			    : -1 = fixed time, 0 = min time, 1 = local time
-prec			    : system prec. 0 = no, 1 = steady, 2 = unsteady
-cfl				    : cfl number
-fluid			    : 1 = water, 2 = nitrogen, 3 = oxygen, 4 = hydrogen
-fluid_eostype	: 1 = fitting, 2 = srk (2 = iapws97, 3 = stiffend for water)
-ngas			    : 1 = ideal gas, 2 = nitrogen, 3 = oxygen, 4 = hydrogen, 5 = helium
-gas_eostype		: 1 = fitting (1 = ideal gas law for ideal gas), 2 = srk 
-mixingrule		: 1 = amagat's law, 2 = dalton's law
-ncav	    		: 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
-c_v			    	: vaporization coefficient
-c_c				    : condensation coefficient
-pref			    : reference pressure
-uref			    : reference speed
-aoa				    : angle of attack
-tref			    : reference temperature
-y1ref			    : mass fraction of vapor phase
-y2ref			    : mass fraction of gas phase (mass fraction of liquid phase = 1-y1-y2)
-l_chord			  : reference length
-l_character		: characteristic length for strouhal number
-scale			    : grid scale
+name          : project name = geometry name
+iread         : 0 = new start, 1 = restart
+rstnum        : steady = 7count, unsteady = 4count
+nsteady       : 0 = steady, 1 = unsteady 
+npmax         : maximum unsteady iteration
+ntmax         : sub-iteration max
+bond          : convergence criteria
+dt_phy        : physical time step
+npost         : iteration/post
+nprt          : iteration/print
+iturb         : -3 = euler, -2 = rans, -1 = low reynolds k-e model, 0 = k-w sst
+tcomp         : turbulent compressibility effect, 0 = off, 1 = on
+nscheme       : 1 = roe, 2 = roem, 3 = ausmpw+, 4 = ausm+up
+precd         : scaling of numerical dissipation, 0 = off, 1 = steady, 2 = unsteady
+nmuscl        : 0 = 1st order, 1 = tvd, 2 = mlp
+nlim          : 0 = no_limiter, 1 = minmod, 2 = superbee, 3 = v.l., 4 = m.c., 5 = v.a., 6 = beta, 7 = 3rd_order, 8 = 5th_order
+timemethod    : 1 = euler_explicit, 2 = 3rd-rk, 3 = lu-sgs
+local         : -1 = fixed time, 0 = min time, 1 = local time
+prec          : system prec. 0 = no, 1 = steady, 2 = unsteady
+cfl           : cfl number
+fluid         : 1 = water, 2 = nitrogen, 3 = oxygen, 4 = hydrogen
+fluid_eostype : 1 = fitting, 2 = srk (2 = iapws97, 3 = stiffend for water)
+ngas          : 1 = ideal gas, 2 = nitrogen, 3 = oxygen, 4 = hydrogen, 5 = helium
+gas_eostype   : 1 = fitting (1 = ideal gas law for ideal gas), 2 = srk 
+mixingrule    : 1 = amagat's law, 2 = dalton's law
+ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
+c_v           : vaporization coefficient
+c_c           : condensation coefficient
+pref          : reference pressure
+uref          : reference speed
+aoa           : angle of attack
+tref          : reference temperature
+y1ref         : mass fraction of vapor phase
+y2ref         : relative mass fraction of gas phase
+l_chord       : reference length
+l_character   : characteristic length for strouhal number
+scale         : grid scale
