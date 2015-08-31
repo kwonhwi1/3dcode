@@ -332,8 +332,9 @@ module prop_module
       class(t_prop), intent(in) :: prop
       real(8), intent(in) :: rho,t
       type(t_prop2), intent(out) :: liquid
-      
-      liquid%vis  = 1.788d-3*dexp(-1.704d0 - 5.306d0*273.d0/t + 7.003*(273.d0/t)**2)
+      real(8) :: temp
+      temp = -1.704d0 - 5.306d0*273.d0/t + 7.003*(273.d0/t)**2
+      liquid%vis  = 1.788d-3*dexp(temp)
       liquid%cond = -0.000009438d0*t**2 + 0.007294d0*t - 0.7284d0
       
     end subroutine stiffened
