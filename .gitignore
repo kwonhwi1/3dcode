@@ -9,6 +9,7 @@
 *.plt
 *.cgns
 *.inp
+*.pw
 post
 main
 !input_templet.inp
