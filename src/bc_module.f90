@@ -199,6 +199,8 @@ module bc_module
           bc%bcinfo(n)%bctype => bcfarfield
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegeneratePoint') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegenerateLine') then
+          bc%bcinfo(n)%bctype => bcdegeneratepoint
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
         else
