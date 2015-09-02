@@ -13,6 +13,7 @@ module datawriting_module
     contains
       procedure :: cgnswriting
       procedure :: clcd_writing
+      procedure :: cp_writing
   end type t_datawriting
   
   contains
@@ -23,10 +24,10 @@ module datawriting_module
       type(t_config), intent(in) :: config
       type(t_variable), intent(in) :: variable
       integer :: ifile,ier,index_flow,index_field
-      integer :: n,m,l,i,j,k
+      integer :: n,m,i,j,k
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:,:), allocatable :: pv,dv,tv
-      real(8), dimension(:,:,:), allocatable :: a
+      real(8), dimension(:,:,:), allocatable :: a,vof
       character(7), dimension(:), allocatable :: solname
  
       allocate(solname(variable%getnsolution()),time(variable%getnsolution()))
@@ -60,24 +61,21 @@ module datawriting_module
           allocate(dv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getndv()))
           allocate(tv(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1,variable%getntv()))
           allocate(a(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1))
+          allocate(vof(variable%getimax(n,m)-1,variable%getjmax(n,m)-1,variable%getkmax(n,m)-1))
           
           do k=2,variable%getkmax(n,m)
             do j=2,variable%getjmax(n,m)
               do i=2,variable%getimax(n,m)
-                do l=1,variable%getnpv()
-                  pv(i-1,j-1,k-1,l) = variable%getpv(n,m,l,i,j,k)
-                end do
-                do l=1,variable%getndv()
-                  dv(i-1,j-1,k-1,l) = variable%getdv(n,m,l,i,j,k)
-                end do
-                do l=1,variable%getntv()
-                  tv(i-1,j-1,k-1,l) = variable%gettv(n,m,l,i,j,k)
+                pv(i-1,j-1,k-1,:) = variable%getpv(n,m,i,j,k)
+                dv(i-1,j-1,k-1,:) = variable%getdv(n,m,i,j,k)
+                tv(i-1,j-1,k-1,:) = variable%gettv(n,m,i,j,k)
                 end do
               end do
             end do
           end do
           
           a = dsqrt(dv(:,:,:,6))
+          vof = dv(:,:,:,1)*pv(:,:,:,6)/dv(:,:,:,4)
           call cg_sol_write_f(ifile,1,variable%getrank(n,m)+1,solname(n),cellcenter,index_flow,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'pressure',pv(:,:,:,1),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'uvelocity',pv(:,:,:,2),index_field,ier)
@@ -89,12 +87,13 @@ module datawriting_module
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'density',dv(:,:,:,1),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'enthalpy',dv(:,:,:,2),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'sos',a,index_field,ier)
+          call cg_field_write_f(ifire,1,variable%getrank(n,m)+1,index_flow,realdouble,'volumefraction',vof,index_field,ier)
           if(config%getiturb().ge.-1) then
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'k',pv(:,:,:,8),index_field,ier)
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'omega',pv(:,:,:,9),index_field,ier)
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'emut',tv(:,:,:,3),index_field,ier)
           end if
-          deallocate(pv,dv,tv,a)
+          deallocate(pv,dv,tv,a,vof)
         end do
         write(*,*) '-----------------------------------------------------------'
       end do
@@ -113,63 +112,190 @@ module datawriting_module
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
-      integer :: io,n,m,i,j
-      real(8) :: cx(2),cl1,cl2,cl
+      integer :: io,n,m,l,i,j,k
+      real(8) :: cx(3),x(3)
+      real(8) :: pv(variable%getnpv()),tv(variable%getntv()),grd(grid%getngrd())
+      real(8) :: cl,cd
+      real(8) :: ref,ut,dl,vel,vis
+      real(8) :: fx_p,fy_p,fz_p,fx_v,fy_v,fz_v,dfx_p,dfy_p,dfz_p,dfx_v,dfy_v,dfz_v
+      real(8), parameter :: pi=4.d0*datan(1.d0)
       
-      !open(newunit=io,file='./cl_'//trim(config%getname())//'.dat',status='unknown',action='write',form='formatted')
-      !write(io,*) 'variables = "time", "cl"'
-      !write(io,*) 'zone t = " ",i=',variable%getnsolution()
-      !do n=1,variable%getnsolution()
-      !  do m=1,grid%getnbc()
-      !    if((trim(grid%getbcname(m)).eq.'bcwallinviscid').or.(trim(grid%getbcname(m)).eq.'bcwallviscous')) then
-      !      cl1 = 0.d0
-      !      cl2 = 0.d0
-      !      if(grid%getbcistart(m,2).eq.grid%getbciend(m,2)) then
-      !        if(grid%getbcistart(m,2).eq.1) then !jmin
-      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
-      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
-      !              cx = grid%getex(i,j)
-      !              cl1 = cl1 + variable%getpv(n,0,1,i,j+1)*cx(1)
-      !              cl2 = cl2 + variable%getpv(n,0,1,i,j+1)*cx(2)
-      !            end do
-      !          end do
-      !        else                                !jmax
-      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
-      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
-      !              cx = - grid%getex(i,j-1)
-      !              cl1 = cl1 + variable%getpv(n,0,1,i,j-1)*cx(1)
-      !              cl2 = cl2 + variable%getpv(n,0,1,i,j-1)*cx(2)
-      !            end do
-      !          end do
-      !        end if
-      !      else if(grid%getbcistart(m,1).eq.grid%getbciend(m,1)) then
-      !        if(grid%getbcistart(m,1).eq.1) then !imin
-      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
-      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
-      !              cx = grid%getcx(i,j)
-      !              cl1 = cl1 + variable%getpv(n,0,1,i+1,j)*cx(1)
-      !              cl2 = cl2 + variable%getpv(n,0,1,i+1,j)*cx(2)
-      !            end do
-      !          end do
-      !        else                                !imax
-      !          do j=grid%getbcistart(m,2),grid%getbciend(m,2)
-      !            do i=grid%getbcistart(m,1),grid%getbciend(m,1)
-      !              cx = - grid%getcx(i-1,j)
-      !              cl1 = cl1 + variable%getpv(n,0,1,i-1,j)*cx(1)
-      !              cl2 = cl2 + variable%getpv(n,0,1,i-1,j)*cx(2)
-      !            end do
-      !          end do
-      !        end if
-      !      end if
-      !    end if
-      !  end do
-      !  cl1 = cl1/(0.5d0*config%getrhoref()*config%geturef()**2)/config%getl_chord()
-      !  cl2 = cl2/(0.5d0*config%getrhoref()*config%geturef()**2)/config%getl_chord()
-      !  cl = dsin(config%getaoa())*cl1+dcos(config%getaoa())*cl2
-      !  write(io,*) n,cl
-      !end do
-      !close(io)
-      
+      open(newunit=io,file='./clcd_'//trim(config%getname())//'.plt',status='unknown',action='write',form='formatted')
+      write(io,*) 'variables = "time", "cl","cd"'
+      write(io,*) 'zone t = " ",i=',variable%getnsolution()
+
+      ref = 2.d0/config%getrhoref()/config%geturef()**2/config%getl_chord()
+
+      do n=1,variable%getnsolution()
+        fx_p = 0.d0
+        fy_p = 0.d0
+        fz_p = 0.d0
+        fx_v = 0.d0
+        fy_v = 0.d0
+        fz_v = 0.d0
+        do l=1,grid%getnzone()
+          do m=1,grid%getnbc(l)
+            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
+              do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                  do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
+                    if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+                      if(grid%getbcistart(l,m,1).eq.1) then !imin
+                        cx   = grid%getcx(l,i,j,k)
+                        x    = 0.25d0*(grid%getx(l,i+1,j,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        grd = grid%getgrd(l,i+1,j,k)
+                        pv = variable%getpv(n,l,i+1,j,k)
+                        tv = variable%gettv(n,l,i+1,j,k)
+                      else ! imax
+                        cx   = grid%getcx(l,i-1,j,k)
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i,j+1,k+1))
+                        grd = grid%getgrd(l,i-1,j,k)
+                        pv = variable%getpv(n,l,i-1,j,k)
+                        tv = variable%gettv(n,l,i-1,j,k)
+                      end if
+                    else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                      if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                        cx   = grid%getex(l,i,j,k)
+                        x    = 0.25d0*(grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        grd = grid%getgrd(l,i,j+1,k)
+                        pv = variable%getpv(n,l,i,j+1,k)
+                        tv = variable%gettv(n,l,i,j+1,k)
+                      else ! jmax
+                        cx   = grid%getex(l,i,j-1,k)
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1))
+                        grd = grid%getgrd(l,i,j-1,k)
+                        pv = variable%getpv(n,l,i,j-1,k)
+                        tv = variable%gettv(n,l,i,j-1,k)
+                      end if
+                    else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
+                      if(grid%getbcistart(l,m,3).eq.1) then !kmin
+                        cx   = grid%gettx(l,i,j,k)
+                        x    = 0.25d0*(grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        grd = grid%getgrd(l,i,j,k+1)
+                        pv = variable%getpv(n,l,i,j,k+1)
+                        tv = variable%gettv(n,l,i,j,k+1)
+                      else ! kmax
+                        cx   = grid%gettx(l,i,j,k-1)
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k))
+                        grd = grid%getgrd(l,i,j,k-1)
+                        pv = variable%getpv(n,l,i,j,k-1)
+                        tv = variable%gettv(n,l,i,j,k-1)
+                      end if
+                    end if
+
+                    dfx_p = -pv(1)*cx(1)
+                    dfy_p = -pv(1)*cx(2)
+                    dfz_p = -pv(1)*cx(3)
+                    dl = cx(1)**2+cx(2)**2+cx(3)**2
+                    vel = cx(1)*pv(2)+cx(2)*pv(3)+cx(3)*pv(4)
+                    select case(config%getiturb())
+                    case(-1,0)
+                      vis = tv(1)+tv(3)
+                    case(-2)
+                      vis = tv(1)
+                    case default
+                      vis = 0.d0
+                    end select
+                    ut = pv(2) - cx(1)*vel/dl
+                    dfx_v = vis*ut/dsqrt((grd(2)-x(1))**2+(grd(3)-x(2))**2+(grd(4)-x(3))**2)
+                    ut = pv(3) - cx(2)*vel/dl
+                    dfy_v = vis*ut/dsqrt((grd(2)-x(1))**2+(grd(3)-x(2))**2+(grd(4)-x(3))**2)
+                    ut = pv(4) - cx(3)*vel/dl
+                    dfz_v = vis*ut/dsqrt((grd(2)-x(1))**2+(grd(3)-x(2))**2+(grd(4)-x(3))**2)
+                  
+                    dfx_v = dfx_v*dsqrt(dl)
+                    dfy_v = dfy_v*dsqrt(dl)
+                    dfz_v = dfz_v*dsqrt(dl)
+                      
+                    fx_p = fx_p + dfx_p
+                    fy_p = fy_p + dfy_p
+                    fz_p = fz_p + dfz_p
+                    fx_v = fx_v + dfx_v
+                    fy_v = fy_v + dfy_v
+                    fz_v = fz_v + dfz_v
+                  end do
+                end do
+              end do
+            end if
+          end do
+        end do
+        
+        fx_p = fx_p*ref
+        fy_p = fy_p*ref
+        fz_p = fz_p*ref
+        fx_v = fx_v*ref
+        fy_v = fy_v*ref
+        fz_v = fz_v*ref
+        cl = (fx_p+fx_v)*dcos(config%getaoa()) - (fy_p+fy_v)*dsin(config%getaoa())
+        cd = (fx_p+fx_v)*dsin(config%getaoa()) + (fy_p+fy_v)*dcos(config%getaoa())
+          
+        write(io,*) config%getdt_phy()*variable%getnps(n), cl, cd
+      end do
+      close(io)
     end subroutine clcd_writing
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine cp_writing(datawriting,config,grid,variable)
+      implicit none
+      class(t_datawriting), intent(inout) :: datawriting
+      type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(in) :: variable
+      integer :: io,n,m,l,i,j,k,num
+      real(8) :: pv(variable%getnpv())
+      real(8) :: x(3)
+      real(8) :: cp,ref
+      
+      num = 0
+      do l=1,grid%getnzone()
+        do n=1,grid%getnbc(l)
+          if(trim(grid%getbcname(l,n)).eq.'BCWall') then
+            if(grid%getbcistart(l,n,1).eq.grid%getbciend(l,n,1)) then
+              num = num + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
+            end if
+            if(grid%getbcistart(l,n,2).eq.grid%getbciend(l,n,2)) then
+              num = num + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
+            end if
+          end if
+        end do
+      end do
+      
+      ref = 2.d0/config%getrhoref()/config%geturef()**2
+
+      open(newunit=io,file='./cp_'//trim(config%getname())//'.plt',status='unknown',action='write',form='formatted')
+      write(io,*) 'variables = "x/c","-cp"'
+      do n=1,variable%getnsolution()
+        write(io,*) 'zone t = "',n,'",i=',num
+        do l=1,grid%getnzone()
+          do m=1,grid%getnbc(l)
+            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
+              do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
+                  if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+                    if(grid%getbcistart(l,m,1).eq.1) then !imin
+                        x    = 0.25d0*(grid%getx(l,i+1,j,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i+1,j+1,k+1))
+                      pv   = variable%getpv(n,l,i+1,j)
+                    else ! imax
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i,j+1,k+1))
+                      pv   = variable%getpv(n,l,i-1,j)
+                    end if
+                  else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                    if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                        x    = 0.25d0*(grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
+                      pv   = variable%getpv(n,l,i,j+1)
+                    else ! jmax
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1))
+                      pv   = variable%getpv(n,l,i,j-1)
+                    end if
+                  end if
+                  cp = (pv(1)-config%getpref())*ref
+                  write(io,*) 0.5d0*(x(1)+xr(1)),cp
+                end do
+              end do
+            end if
+          end do
+        end do  
+      end do
+      close(io)
+    end subroutine cp_writing
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module datawriting_module

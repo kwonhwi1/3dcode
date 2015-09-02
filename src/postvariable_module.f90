@@ -188,31 +188,31 @@ module postvariable_module
       
     end function getnsolution
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getpv(variable,l,m,n,i,j,k)
+    function getpv(variable,l,m,i,j,k)
       implicit none
       class(t_variable), intent(in) :: variable
-      integer, intent(in) :: l,m,n,i,j,k
-      real(8) :: getpv
+      integer, intent(in) :: l,m,i,j,k
+      real(8) :: getpv(variable%npv)
       
-      getpv = variable%solution(l)%domain(m)%pv(n,i,j,k)
+      getpv = variable%solution(l)%domain(m)%pv(:,i,j,k)
     end function getpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function gettv(variable,l,m,n,i,j,k)
+    function gettv(variable,l,m,i,j,k)
       implicit none
       class(t_variable), intent(in) :: variable
-      integer, intent(in) :: l,m,n,i,j,k
-      real(8) :: gettv
+      integer, intent(in) :: l,m,i,j,k
+      real(8) :: gettv(variable%ntv)
       
-      gettv = variable%solution(l)%domain(m)%tv(n,i,j,k)
+      gettv = variable%solution(l)%domain(m)%tv(:,i,j,k)
     end function gettv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function getdv(variable,l,m,n,i,j,k)
+    function getdv(variable,l,m,i,j,k)
       implicit none
       class(t_variable), intent(in) :: variable
-      integer, intent(in) :: l,m,n,i,j,k
-      real(8) :: getdv
+      integer, intent(in) :: l,m,i,j,k
+      real(8) :: getdv(variable%ndv)
       
-      getdv = variable%solution(l)%domain(m)%dv(n,i,j,k)
+      getdv = variable%solution(l)%domain(m)%dv(:,i,j,k)
     end function getdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getsize(variable,l)

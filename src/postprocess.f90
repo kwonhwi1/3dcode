@@ -20,14 +20,22 @@ program postprocess
   read(io,*); read(io,*) istart
   read(io,*); read(io,*) iend
   read(io,*); read(io,*) nsolution
+  read(io,*); read(io,*) mode
   close(io)
       
   call config%construct(eos,prop) !eos & prop are also constructed
   call grid%construct(config)
   call variable%construct(config,eos,istart,iend,nsolution)
-      
-  call datawriting%cgnswriting(config,variable)
-  call datawriting%clcd_writing(config,grid,variable)
+  
+  select case(mode)
+  case(1)
+    call datawriting%cgnswriting(config,variable)
+  case(2)
+    call datawriting%cp_writing(config,grid,variable)
+  case(3)
+    call datawriting%clcd_writing(config,grid,variable)
+  case default
+  end select
   
   call variable%destruct()
   call grid%destruct()

@@ -59,7 +59,7 @@ module variable_module
       allocate(variable%pv(variable%npv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
       allocate(variable%dv(variable%ndv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
       allocate(variable%tv(variable%ntv,-1:grid%getimax()+3,-1:grid%getjmax()+3,-1:grid%getkmax()+3))
-      allocate(variable%qq(variable%nqq,variable%npv,2:grid%getimax(),2:grid%getjmax(),2:grid%getkmax()))
+      allocate(variable%qq(variable%npv,variable%nqq,2:grid%getimax(),2:grid%getjmax(),2:grid%getkmax()))
 
       
     end subroutine construct
@@ -147,7 +147,7 @@ module variable_module
       integer, intent(in) :: i,j,k,n
       real(8) :: getqq(variable%npv)
       
-      getqq = variable%qq(n,:,i,j,k)
+      getqq = variable%qq(:,n,i,j,k)
       
     end function getqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -187,7 +187,7 @@ module variable_module
       integer, intent(in) :: n,i,j,k
       real(8), intent(in) :: var(variable%npv)
       
-      variable%qq(n,:,i,j,k) = var
+      variable%qq(:,n,i,j,k) = var
       
     end subroutine setqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
