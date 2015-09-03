@@ -22,7 +22,7 @@ module config_module
     integer :: fluid,fluid_eostype,ngas,gas_eostype,mixingrule
     integer :: ncav
     real(8) :: c_v,c_c
-    real(8) :: pref,uref,aoa,tref,y1ref,y2ref
+    real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref
     real(8) :: l_chord,l_character,scale,l_domain
     real(8) :: str,pi
     real(8) :: dvref(18),tvref(2)
@@ -59,6 +59,7 @@ module config_module
       procedure :: getpref
       procedure :: geturef
       procedure :: getaoa
+      procedure :: getaos
       procedure :: gettref
       procedure :: gety1ref
       procedure :: gety2ref
@@ -101,7 +102,7 @@ module config_module
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
           read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
-          read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%tref,config%y1ref,config%y2ref
+          read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%aos,config%tref,config%y1ref,config%y2ref
           read(io,*); read(io,*) config%l_chord,config%l_character,config%scale,config%l_domain
           close(io)
         endif
@@ -114,6 +115,7 @@ module config_module
       
       config%pi  = datan(1.d0)*4.d0
       config%aoa = config%aoa*config%pi/180.d0
+      config%aos = config%aos*config%pi/180.d0
       config%str = config%l_character/config%pi/config%dt_phy/config%uref
       
       call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref)
@@ -411,6 +413,15 @@ module config_module
       getaoa = config%aoa
       
     end function getaoa
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    pure function getaos(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getaos
+      
+      getaos = config%aos
+      
+    end function getaos
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
     pure function gettref(config)
       implicit none

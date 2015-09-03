@@ -4,6 +4,8 @@ end
 0
 n
 0
-
+area          zposition
+0.d0          0.d0
 ! name, nsteady, nexport, iturb, fluid, fluid_eostype, ngas, gas_eostype, mixingrule must check in  input.inp for postprocessing
-! uref, rhoref, l_chord, aoa for clcd caculation
+! uref, rhoref, area, aoa for clcd calculation
+! uref, rhoref, zposition for cp calculation

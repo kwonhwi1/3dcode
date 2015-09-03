@@ -13,7 +13,7 @@ module initial_module
     logical :: l_ini
     integer :: size,rank,imax,jmax,kmax
     integer :: iturb,nsteady,rstnum
-    real(8) :: pref,uref,aoa,tref,y1ref,y2ref,kref,oref,emutref
+    real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref,kref,oref,emutref
     contains
       procedure :: construct
       procedure :: destruct
@@ -58,6 +58,7 @@ module initial_module
       ini%pref = config%getpref()
       ini%uref = config%geturef()
       ini%aoa = config%getaoa()
+      ini%aos = config%getaos()
       ini%tref = config%gettref()
       ini%y1ref = config%gety1ref()
       ini%y2ref = config%gety2ref()
@@ -313,9 +314,9 @@ module initial_module
         do j=2,ini%jmax
           do i=2,ini%imax
             call variable%setpv(1,i,j,k,0.d0)
-            call variable%setpv(2,i,j,k,ini%uref*dcos(ini%aoa))
-            call variable%setpv(3,i,j,k,ini%uref*dsin(ini%aoa))
-            call variable%setpv(4,i,j,k,0.d0)
+            call variable%setpv(2,i,j,k,ini%uref*dcos(ini%aos)*dcos(ini%aoa))
+            call variable%setpv(3,i,j,k,ini%uref*dcos(ini%aos)*dsin(ini%aoa))
+            call variable%setpv(4,i,j,k,ini%uref*dsin(ini%aos))
             call variable%setpv(5,i,j,k,ini%tref)
             call variable%setpv(6,i,j,k,ini%y1ref)
             call variable%setpv(7,i,j,k,ini%y2ref)

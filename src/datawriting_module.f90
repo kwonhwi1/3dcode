@@ -106,12 +106,13 @@ module datawriting_module
       deallocate(solname,time)
     end subroutine cgnswriting
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine clcd_writing(datawriting,config,grid,variable)
+    subroutine clcd_writing(datawriting,config,grid,variable,area)
       implicit none
       class(t_datawriting), intent(inout) :: datawriting
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      real(8), intent(in) :: area
       integer :: io,n,m,l,i,j,k
       real(8) :: cx(3),x(3)
       real(8) :: pv(variable%getnpv()),tv(variable%getntv()),grd(grid%getngrd())
@@ -124,7 +125,7 @@ module datawriting_module
       write(io,*) 'variables = "time", "cl","cd"'
       write(io,*) 'zone t = " ",i=',variable%getnsolution()
 
-      ref = 2.d0/config%getrhoref()/config%geturef()**2/config%getl_chord()
+      ref = 2.d0/config%getrhoref()/config%geturef()**2/area
 
       do n=1,variable%getnsolution()
         fx_p = 0.d0
@@ -234,12 +235,13 @@ module datawriting_module
       close(io)
     end subroutine clcd_writing
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cp_writing(datawriting,config,grid,variable)
+    subroutine cp_writing(datawriting,config,grid,variable,zposition)
       implicit none
       class(t_datawriting), intent(inout) :: datawriting
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
+      real(8), intent(in) :: zposition
       integer :: io,n,m,l,i,j,k,num
       real(8) :: pv(variable%getnpv())
       real(8) :: x(3)

@@ -81,9 +81,9 @@ module bc_module
       allocate(bc%ref%pv(bc%npv),bc%ref%dv(bc%ndv),bc%ref%tv(bc%ntv))
       
       bc%ref%pv(1) = config%getpref()
-      bc%ref%pv(2) = config%geturef()*dcos(config%getaoa())
-      bc%ref%pv(3) = config%geturef()*dsin(config%getaoa())
-      bc%ref%pv(4) = 0.d0
+      bc%ref%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+      bc%ref%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+      bc%ref%pv(4) = config%geturef()*dsin(config%getaos())
       bc%ref%pv(5) = config%gettref()
       bc%ref%pv(6) = config%gety1ref()
       bc%ref%pv(7) = config%gety2ref()

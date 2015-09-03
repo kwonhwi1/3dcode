@@ -16,8 +16,8 @@ fluid         fluid_eostype  ngas           gas_eostype    mixingrule
 0             0              0              0              0
 ncav          c_v            c_c
 0             0.d0           0.d0
-pref          uref           aoa            tref           y1ref          y2ref
-0.d0          0.d0           0.d0           0.d0           0.d0           0.d0
+pref          uref           aoa            aos            tref           y1ref          y2ref
+0.d0          0.d0           0.d0           0.d0           0.d0           0.d0           0.d0
 l_chord       l_character    scale          l_domain
 0.d0          0.d0           0.d0           0.d0
 
@@ -53,6 +53,7 @@ c_c           : condensation coefficient
 pref          : reference pressure
 uref          : reference speed
 aoa           : angle of attack
+aos           : angle of sideslip
 tref          : reference temperature
 y1ref         : mass fraction of vapor phase
 y2ref         : relative mass fraction of gas phase
