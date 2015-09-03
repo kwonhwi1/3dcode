@@ -196,6 +196,8 @@ module initial_module
     end subroutine restart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
+
+#elif problem1
     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
@@ -294,8 +296,6 @@ module initial_module
       nps = 1
       nts = 1
     end subroutine initial
-!#elif test
-
 #else
     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
       implicit none
