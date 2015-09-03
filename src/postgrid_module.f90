@@ -69,7 +69,7 @@ module postgrid_module
       character(32), dimension(:), allocatable :: famname,fambcname
       integer :: i,j,n,m
       integer :: ifile,ier
-      integer :: nzone,nfam
+      integer :: nfam
       cgsize_t :: nmax(3),nstart(3)
       cgsize_t :: isize(9),ipnts(6),ipntsdonor(6)
       integer :: transvec(3) 
@@ -81,11 +81,11 @@ module postgrid_module
       grid%ngrd=4
       call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
       if(ier.ne.cg_ok) call cg_error_exit_f  
-      call cg_nzones_f(ifile,1,nzone,ier)
+      call cg_nzones_f(ifile,1,grid%nzone,ier)
       allocate(grid%zone(grid%nzone)) 
       
       do n=1,grid%nzone
-        do i= 1,nzone
+        do i= 1,grid%nzone
           call cg_zone_read_f(ifile,1,i,grid%zone(i)%zonename,isize,ier)
           if(i.eq.n) then
             grid%zone(n)%imax = isize(1)
