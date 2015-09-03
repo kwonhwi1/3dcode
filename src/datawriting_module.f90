@@ -69,7 +69,6 @@ module datawriting_module
                 pv(i-1,j-1,k-1,:) = variable%getpv(n,m,i,j,k)
                 dv(i-1,j-1,k-1,:) = variable%getdv(n,m,i,j,k)
                 tv(i-1,j-1,k-1,:) = variable%gettv(n,m,i,j,k)
-                end do
               end do
             end do
           end do
@@ -87,7 +86,7 @@ module datawriting_module
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'density',dv(:,:,:,1),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'enthalpy',dv(:,:,:,2),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'sos',a,index_field,ier)
-          call cg_field_write_f(ifire,1,variable%getrank(n,m)+1,index_flow,realdouble,'volumefraction',vof,index_field,ier)
+          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'volumefraction',vof,index_field,ier)
           if(config%getiturb().ge.-1) then
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'k',pv(:,:,:,8),index_field,ier)
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'omega',pv(:,:,:,9),index_field,ier)
@@ -302,8 +301,9 @@ module datawriting_module
                         x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k))
                         pv   = variable%getpv(n,l,i,j,k-1)
                       end if
-                  end if
-                  write(io,*) x(1),x(2),x(3),pv(1)
+                    end if
+                    write(io,*) x(1),x(2),x(3),pv(1)
+                  end do
                 end do
               end do
             end if

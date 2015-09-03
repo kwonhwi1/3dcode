@@ -14,8 +14,8 @@ program postprocess
   type(t_variable) :: variable
   type(t_datawriting) :: datawriting
   
-  integer :: io,istart,iend,nsolution
-  real(8) :: area,zposition
+  integer :: io,istart,iend,nsolution,mode
+  real(8) :: area
 
   open(newunit=io,file='./input_post.inp',status='old',action='read')
   read(io,*); read(io,*) istart
