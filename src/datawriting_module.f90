@@ -13,7 +13,7 @@ module datawriting_module
     contains
       procedure :: cgnswriting
       procedure :: clcd_writing
-      procedure :: cp_writing
+      procedure :: surface_writing
   end type t_datawriting
   
   contains
@@ -235,69 +235,82 @@ module datawriting_module
       close(io)
     end subroutine clcd_writing
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cp_writing(datawriting,config,grid,variable,zposition)
+    subroutine surface_writing(datawriting,config,grid,variable)
       implicit none
       class(t_datawriting), intent(inout) :: datawriting
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
-      real(8), intent(in) :: zposition
-      integer :: io,n,m,l,i,j,k,num
+      integer :: io,n,m,l,i,j,k,num1,num2
       real(8) :: pv(variable%getnpv())
       real(8) :: x(3)
-      real(8) :: cp,ref
       
-!      num = 0
-!      do l=1,grid%getnzone()
-!        do n=1,grid%getnbc(l)
-!          if(trim(grid%getbcname(l,n)).eq.'BCWall') then
-!            if(grid%getbcistart(l,n,1).eq.grid%getbciend(l,n,1)) then
-!              num = num + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
-!            end if
-!            if(grid%getbcistart(l,n,2).eq.grid%getbciend(l,n,2)) then
-!              num = num + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
-!            end if
-!          end if
-!        end do
-!      end do
-!      
-!      ref = 2.d0/config%getrhoref()/config%geturef()**2
-!
-!      open(newunit=io,file='./cp_'//trim(config%getname())//'.plt',status='unknown',action='write',form='formatted')
-!      write(io,*) 'variables = "x/c","-cp"'
-!      do n=1,variable%getnsolution()
-!        write(io,*) 'zone t = "',n,'",i=',num
-!        do l=1,grid%getnzone()
-!          do m=1,grid%getnbc(l)
-!            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
-!              do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
-!                do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
-!                  if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
-!                    if(grid%getbcistart(l,m,1).eq.1) then !imin
-!                        x    = 0.25d0*(grid%getx(l,i+1,j,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i+1,j+1,k+1))
-!                      pv   = variable%getpv(n,l,i+1,j)
-!                    else ! imax
-!                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i,j+1,k+1))
-!                      pv   = variable%getpv(n,l,i-1,j)
-!                    end if
-!                  else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
-!                    if(grid%getbcistart(l,m,2).eq.1) then !jmin
-!                        x    = 0.25d0*(grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
-!                      pv   = variable%getpv(n,l,i,j+1)
-!                    else ! jmax
-!                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1))
-!                      pv   = variable%getpv(n,l,i,j-1)
-!                    end if
-!                  end if
-!                  cp = (pv(1)-config%getpref())*ref
-!                  write(io,*) 0.5d0*(x(1)+xr(1)),cp
-!                end do
-!              end do
-!            end if
-!          end do
-!        end do  
-!      end do
-!      close(io)
-    end subroutine cp_writing
+      num1 = 0
+      num2 = 0
+      do l=1,grid%getnzone()
+        do n=1,grid%getnbc(l)
+          if(trim(grid%getbcname(l,n)).eq.'BCWall') then
+            if(grid%getbcistart(l,n,1).eq.grid%getbciend(l,n,1)) then
+              num1 = num1 + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
+              num2 = num2 + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)
+            end if
+            if(grid%getbcistart(l,n,2).eq.grid%getbciend(l,n,2)) then
+              num1 = num1 + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)
+              num2 = num2 + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
+            end if
+            if(grid%getbcistart(l,n,3).eq.grid%getbciend(l,n,3)) then
+              num1 = num1 + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
+              num2 = num2 + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
+            end if
+          end if
+        end do
+      end do
+      
+
+      open(newunit=io,file='./surface_'//trim(config%getname())//'.plt',status='unknown',action='write',form='formatted')
+      write(io,*) 'variables = x,y,z,p'
+      write(io,*) 'zone t = "surface",i=',num1,',j=',num2
+      do n=1,variable%getnsolution()
+        write(io,*) 'solutiontime=',n
+        do l=1,grid%getnzone()
+          do m=1,grid%getnbc(l)
+            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
+              do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                  do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
+                    if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+                      if(grid%getbcistart(l,m,1).eq.1) then !imin
+                        x    = 0.25d0*(grid%getx(l,i+1,j,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        pv   = variable%getpv(n,l,i+1,j,k)
+                      else ! imax
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i,j+1,k+1))
+                        pv   = variable%getpv(n,l,i-1,j,k)
+                      end if
+                    else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                      if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                        x    = 0.25d0*(grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        pv   = variable%getpv(n,l,i,j+1,k)
+                      else ! jmax
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1))
+                        pv   = variable%getpv(n,l,i,j-1,k)
+                      end if
+                    else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
+                      if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                        x    = 0.25d0*(grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1)+grid%getx(l,i,j+1,k+1)+grid%getx(l,i+1,j+1,k+1))
+                        pv   = variable%getpv(n,l,i,j,k+1)
+                      else ! jmax
+                        x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k))
+                        pv   = variable%getpv(n,l,i,j,k-1)
+                      end if
+                  end if
+                  write(io,*) x(1),x(2),x(3),pv(1)
+                end do
+              end do
+            end if
+          end do
+        end do  
+      end do
+      close(io)
+    end subroutine surface_writing
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module datawriting_module

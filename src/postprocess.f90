@@ -22,7 +22,7 @@ program postprocess
   read(io,*); read(io,*) iend
   read(io,*); read(io,*) nsolution
   read(io,*); read(io,*) mode
-  read(io,*); read(io,*) area,zposition
+  read(io,*); read(io,*) area
   close(io)
       
   call config%construct(eos,prop) !eos & prop are also constructed
@@ -33,9 +33,9 @@ program postprocess
   case(1)
     call datawriting%cgnswriting(config,variable)
   case(2)
-    call datawriting%cp_writing(config,grid,variable,area)
+    call datawriting%surface_writing(config,grid,variable)
   case(3)
-    call datawriting%clcd_writing(config,grid,variable,zposition)
+    call datawriting%clcd_writing(config,grid,variable,area)
   case default
   end select
   

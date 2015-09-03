@@ -174,8 +174,8 @@ module jacobian_module
       u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
       h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
-      up = (1.d0+sndp2/jac%dv(6))*u
-      d  = dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
+      up = 0.5d0*(1.d0+sndp2/jac%dv(6))*u
+      d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
       lamda = dble(sign)*cappa*(dabs(up)+d)
       vis = dble(sign)*2.d0*jac%geteigenvis()*ds/jac%grd(1)
       beta = 1.d0/sndp2-1.d0/jac%dv(6)+jac%dv(7)
@@ -270,8 +270,8 @@ module jacobian_module
       u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
       h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
-      up = (1.d0+sndp2/jac%dv(6))*u
-      d  = dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
+      up = 0.5d0*(1.d0+sndp2/jac%dv(6))*u
+      d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
       lamda = dble(sign)*cappa*(dabs(up)+d)
       vis = dble(sign)*2.d0*jac%geteigenvis()*ds/jac%grd(1)
       beta = 1.d0/sndp2-1.d0/jac%dv(6)+jac%dv(7)

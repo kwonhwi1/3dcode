@@ -490,8 +490,8 @@ module lhs_module
       oz = 0.5d0*(lhs%cx1(3)+lhs%cx2(3))
       ds = ox**2+oy**2+oz**2
       u  = ox*lhs%pv(2)+oy*lhs%pv(3)+oz*lhs%pv(4)
-      up = (1.d0+sndp2/lhs%dv(6))*u
-      d  = dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
+      up = 0.5d0*(1.d0+sndp2/lhs%dv(6))*u
+      d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
       lamda = cappa*(dabs(up)+d)
 
       ox = 0.5d0*(lhs%ex1(1)+lhs%ex2(1))
@@ -499,8 +499,8 @@ module lhs_module
       oz = 0.5d0*(lhs%ex1(3)+lhs%ex2(3))
       ds = ox**2+oy**2+oz**2
       u  = ox*lhs%pv(2)+oy*lhs%pv(3)+oz*lhs%pv(4)
-      up = (1.d0+sndp2/lhs%dv(6))*u
-      d  = dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
+      up = 0.5d0*(1.d0+sndp2/lhs%dv(6))*u
+      d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
       lamda = lamda+cappa*(dabs(up)+d)
       
       ox = 0.5d0*(lhs%tx1(1)+lhs%tx2(1))
@@ -508,8 +508,8 @@ module lhs_module
       oz = 0.5d0*(lhs%tx1(3)+lhs%tx2(3))
       ds = ox**2+oy**2+oz**2
       u  = ox*lhs%pv(2)+oy*lhs%pv(3)+oz*lhs%pv(4)
-      up = (1.d0+sndp2/lhs%dv(6))*u
-      d  = dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
+      up = 0.5d0*(1.d0+sndp2/lhs%dv(6))*u
+      d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
       lamda = lamda+cappa*(dabs(up)+d)
       
     end function eigen_implicit
