@@ -10,6 +10,7 @@
 *.cgns
 *.inp
 *.pw
+*.h
 post
 main
 !input_templet.inp
