@@ -1182,19 +1182,19 @@ module bc_module
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             ppv = -variable%getpv(ii,jj,kk)
-            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).ne.0)) then
               ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).ne.0)) then
               ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).ne.0)) then
               ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
@@ -1244,19 +1244,19 @@ module bc_module
             grd = grid%getgrd(ii,jj,kk)
             var = 800.d0*tv(1)/dv(1)/grd(5)**2
             ppv = -variable%getpv(ii,jj,kk)
-            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).ne.0)) then
               ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).ne.0)) then
               ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).ne.0)) then
               ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
@@ -1453,21 +1453,21 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).or.0)) then
+            if((bcinfo%neighbor1(1).ne.0).or.(bcinfo%neighbor1(2).ne.0).or.(bcinfo%neighbor1(3).ne.0)) then
               ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
               pv = pv + variable%getpv(ii,jj,kk)
               tv = tv + variable%gettv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).or.0)) then
+            if((bcinfo%neighbor2(1).ne.0).or.(bcinfo%neighbor2(2).ne.0).or.(bcinfo%neighbor2(3).ne.0)) then
               ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
               pv = pv + variable%getpv(ii,jj,kk)
               tv = tv + variable%gettv(ii,jj,kk)
             end if
-            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).or.0)) then
+            if((bcinfo%neighbor3(1).ne.0).or.(bcinfo%neighbor3(2).ne.0).or.(bcinfo%neighbor3(3).ne.0)) then
               ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
               jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
               kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k

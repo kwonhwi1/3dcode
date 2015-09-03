@@ -23,7 +23,7 @@ module config_module
     integer :: ncav
     real(8) :: c_v,c_c
     real(8) :: pref,uref,aoa,tref,y1ref,y2ref
-    real(8) :: l_chord,l_character,scale
+    real(8) :: l_chord,l_character,scale,l_domain
     real(8) :: str,pi
     real(8) :: dvref(18),tvref(2)
     real(8) :: kref,oref,emutref
@@ -70,6 +70,7 @@ module config_module
       procedure :: getl_chord
       procedure :: getl_character
       procedure :: getscale
+      procedure :: getl_domain
       procedure :: getstr
       procedure :: getpi
   end type t_config
@@ -101,7 +102,7 @@ module config_module
           read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
           read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%tref,config%y1ref,config%y2ref
-          read(io,*); read(io,*) config%l_chord,config%l_character,config%scale
+          read(io,*); read(io,*) config%l_chord,config%l_character,config%scale,config%l_domain
           close(io)
         endif
         call mpi_barrier(mpi_comm_world,ierr)
@@ -120,7 +121,7 @@ module config_module
       
       
       if(config%iturb.eq.0) then
-        config%oref = 10.d0*config%uref/config%l_character
+        config%oref = 10.d0*config%uref/config%l_domain
         config%emutref = 10.d0**(-5)*config%tvref(1)
         config%kref = config%emutref/config%dvref(1)*config%oref
       else if(config%iturb.eq.-1) then
@@ -509,6 +510,15 @@ module config_module
       getscale = config%scale
       
     end function getscale
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getl_domain(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getl_domain
+
+      getl_domain = config%l_domain
+
+    end function getl_domain
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getstr(config)
       implicit none

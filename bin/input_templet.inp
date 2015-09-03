@@ -18,8 +18,8 @@ ncav          c_v            c_c
 0             0.d0           0.d0
 pref          uref           aoa            tref           y1ref          y2ref
 0.d0          0.d0           0.d0           0.d0           0.d0           0.d0
-l_chord       l_character    scale
-0.d0          0.d0           0.d0
+l_chord       l_character    scale          l_domain
+0.d0          0.d0           0.d0           0.d0
 
 ==========================================================================================
 name          : project name = geometry name
@@ -59,3 +59,4 @@ y2ref         : relative mass fraction of gas phase
 l_chord       : reference length
 l_character   : characteristic length for strouhal number
 scale         : grid scale
+l_domain      : for omega initial value
