@@ -240,7 +240,7 @@ module datawriting_module
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
-      integer :: io,n,m,l,i,j,k,n1,n2,n3,n4
+      integer :: io,n,m,l,i,j,k,n1,n2,n3,n4,ii,jj,kk
       integer :: num1(grid%getnzone()),num2(grid%getnzone()),num11(grid%getnzone()),num22(grid%getnzone())
       real(8), dimension(:,:,:), allocatable :: pv,x
       
@@ -289,90 +289,116 @@ module datawriting_module
           do m=1,grid%getnbc(l)
             if(trim(grid%getbcname(l,m)).eq.'BCWall') then
               if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+                kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)+1
-                  n2 = n2 + 1
+                  kk = kk + 1
+                  jj = 0
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)+1
-                    n1 = n1 + 1
+                    jj = jj + 1
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
                       if(grid%getbcistart(l,m,1).eq.1) then !imin
-                        x(:,n1,n2) = grid%getx(l,i+1,j,k)
+                        x(:,n1+jj,n2+kk) = grid%getx(l,i+1,j,k)
                       else ! imax
-                        x(:,n1,n2) = grid%getx(l,i,j,k)
+                        x(:,n1+jj,n2+kk) = grid%getx(l,i,j,k)
                       end if
                     end do
                   end do
                 end do
+                n1 = n1 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2
+                n2 = n2 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2
               else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)+1
-                  n2 = n2 +1
+                  kk = kk + 1
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                    ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
-                      n1 = n1 + 1
+                      ii = ii + 1
                       if(grid%getbcistart(l,m,2).eq.1) then !jmin
-                        x(:,n1,n2) = grid%getx(l,i,j+1,k)
+                        x(:,n1+ii,n2+kk) = grid%getx(l,i,j+1,k)
                       else ! jmax
-                        x(:,n1,n2) = grid%getx(l,i,j,k)
+                        x(:,n1+ii,n2+kk) = grid%getx(l,i,j,k)
                       end if
                     end do
                   end do
                 end do
+                n1 = n1 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2
+                n2 = n2 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2
               else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  jj = 0
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)+1
-                    n2 = n2 + 1
+                    jj = jj + 1
+                    ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
-                      n1 = n1 + 1
+                      ii = ii + 1
                       if(grid%getbcistart(l,m,3).eq.1) then !kmin
-                        x(:,n1,n2) = grid%getx(l,i,j,k+1)
+                        x(:,n1+ii,n2+jj) = grid%getx(l,i,j,k+1)
                       else ! kmax
-                        x(:,n1,n2) = grid%getx(l,i,j,k)
+                        x(:,n1+ii,n2+jj) = grid%getx(l,i,j,k)
                       end if
                     end do
                   end do
                 end do
+                n1 = n1 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2
+                n2 = n2 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2
               end if
+
+
               if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+                kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
-                  n4 = n4 + 1
+                  kk = kk + 1
+                  jj = 0
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
-                    n3 = n3 + 1
+                    jj = jj + 1
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
                       if(grid%getbcistart(l,m,1).eq.1) then !imin
-                        pv(:,n3,n4)   = variable%getpv(n,l,i+1,j,k)
+                        pv(:,n3+jj,n4+kk)   = variable%getpv(n,l,i+1,j,k)
                       else ! imax
-                        pv(:,n3,n4)  = variable%getpv(n,l,i-1,j,k)
+                        pv(:,n3+jj,n4+kk)  = variable%getpv(n,l,i-1,j,k)
                       end if
                     end do
                   end do
                 end do
+                n3 = n3 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+1
+                n4 = n4 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+1
               else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
-                  n4 = n4 + 1
+                  kk = kk + 1
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                    ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
-                      n3 = n3 + 1
+                      ii = ii + 1
                       if(grid%getbcistart(l,m,2).eq.1) then !jmin
-                        pv(:,n3,n4)   = variable%getpv(n,l,i,j+1,k)
+                        pv(:,n3+ii,n4+kk)   = variable%getpv(n,l,i,j+1,k)
                       else ! jmax
-                        pv(:,n3,n4)   = variable%getpv(n,l,i,j-1,k)
+                        pv(:,n3+ii,n4+kk)   = variable%getpv(n,l,i,j-1,k)
                       end if
                     end do
                   end do
                 end do
+                n3 = n3 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+1
+                n4 = n4 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+1
               else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  jj = 0
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
-                    n4 = n4 + 1
+                    jj = jj + 1
+                    ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
-                      n3 = n3 + 1
+                      ii = ii + 1
                       if(grid%getbcistart(l,m,3).eq.1) then !kmin
-                        pv(:,n3,n4)   = variable%getpv(n,l,i,j,k+1)
+                        pv(:,n3+ii,n4+jj)   = variable%getpv(n,l,i,j,k+1)
                       else ! kmax
-                        pv(:,n3,n4)   = variable%getpv(n,l,i,j,k-1)
+                        pv(:,n3+ii,n4+jj)   = variable%getpv(n,l,i,j,k-1)
                       end if
                     end do
                   end do
                 end do
+                n3 = n3 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+1
+                n4 = n4 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+1
               end if
             end if
           end do
