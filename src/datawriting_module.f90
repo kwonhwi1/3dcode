@@ -240,55 +240,26 @@ module datawriting_module
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
-      integer :: io,n,m,l,i,j,k,n1,n2,n3,n4,ii,jj,kk
-      integer :: num1(grid%getnzone()),num2(grid%getnzone()),num11(grid%getnzone()),num22(grid%getnzone())
+      integer :: io,n,m,l,i,j,k,ii,jj,kk
+      integer :: num1,num2,zoneorder
       real(8), dimension(:,:,:), allocatable :: pv,x
       
-      num1 = 0
-      num2 = 0
-      num11 = 0
-      num22 = 0
-      do l=1,grid%getnzone()
-        do n=1,grid%getnbc(l)
-          if(trim(grid%getbcname(l,n)).eq.'BCWall') then
-            if(grid%getbcistart(l,n,1).eq.grid%getbciend(l,n,1)) then
-              num1(l) = num1(l) + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
-              num2(l) = num2(l) + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)
-              num11(l) = num11(l) + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)+1
-              num22(l) = num22(l) + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)+1
-            end if
-            if(grid%getbcistart(l,n,2).eq.grid%getbciend(l,n,2)) then
-              num1(l) = num1(l) + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
-              num2(l) = num2(l) + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)
-              num11(l) = num11(l) + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)+1
-              num22(l) = num22(l) + (grid%getbciend(l,n,3)-grid%getbcistart(l,n,3)+1)+1
-            end if
-            if(grid%getbcistart(l,n,3).eq.grid%getbciend(l,n,3)) then
-              num1(l) = num1(l) + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)
-              num2(l) = num2(l) + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)
-              num11(l) = num11(l) + (grid%getbciend(l,n,1)-grid%getbcistart(l,n,1)+1)+1
-              num22(l) = num22(l) + (grid%getbciend(l,n,2)-grid%getbcistart(l,n,2)+1)+1
-            end if
-          end if
-        end do
-      end do
-      
-
       open(newunit=io,file='./surface_'//trim(config%getname())//'.plt',status='unknown',action='write',form='formatted')
-      write(io,*) 'variables = x,y,z,p'
+      write(io,*) 'variables = "x","y","z","p"'
       do n=1,variable%getnsolution()
+        zoneorder = 0
         do l=1,grid%getnzone()
-          if((num11(l).ne.0).and.(num22(l).ne.0)) then
-            write(io,*) 'zone t = "',l,'",i=',num11(l),',j=',num22(l)
-            write(io,*) 'varlocation=([4]=cellcentered)'
-            write(io,*) 'zonetype=ordered, datapacking=block'
-            write(io,*) 'solutiontime=',n
-          end if
-          allocate(pv(variable%getnpv(),num1(l),num2(l)),x(3,num11(l),num22(l)))
-          n1=0; n2=0; n3=0; n4=0
           do m=1,grid%getnbc(l)
             if(trim(grid%getbcname(l,m)).eq.'BCWall') then
-              if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
+              if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then ! i-surface
+                num1 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
+                num2 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
+                zoneorder = zoneorder + 1
+                write(io,*) 'zone t = "',zoneorder,'",i=',num1,',j=',num2
+                write(io,*) 'varlocation=([4]=cellcentered)'
+                write(io,*) 'zonetype=ordered, datapacking=block'
+                write(io,*) 'solutiontime=',n
+                allocate(pv(variable%getnpv(),num2-1,num1-1),x(3,num2,num1))
                 kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)+1
                   kk = kk + 1
@@ -297,55 +268,13 @@ module datawriting_module
                     jj = jj + 1
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
                       if(grid%getbcistart(l,m,1).eq.1) then !imin
-                        x(:,n1+jj,n2+kk) = grid%getx(l,i+1,j,k)
+                        x(:,kk,jj) = grid%getx(l,i+1,j,k)
                       else ! imax
-                        x(:,n1+jj,n2+kk) = grid%getx(l,i,j,k)
+                        x(:,kk,jj) = grid%getx(l,i,j,k)
                       end if
                     end do
                   end do
                 end do
-                n1 = n1 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2
-                n2 = n2 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2
-              else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
-                kk = 0
-                do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)+1
-                  kk = kk + 1
-                  do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
-                    ii = 0
-                    do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
-                      ii = ii + 1
-                      if(grid%getbcistart(l,m,2).eq.1) then !jmin
-                        x(:,n1+ii,n2+kk) = grid%getx(l,i,j+1,k)
-                      else ! jmax
-                        x(:,n1+ii,n2+kk) = grid%getx(l,i,j,k)
-                      end if
-                    end do
-                  end do
-                end do
-                n1 = n1 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2
-                n2 = n2 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2
-              else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
-                do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
-                  jj = 0
-                  do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)+1
-                    jj = jj + 1
-                    ii = 0
-                    do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
-                      ii = ii + 1
-                      if(grid%getbcistart(l,m,3).eq.1) then !kmin
-                        x(:,n1+ii,n2+jj) = grid%getx(l,i,j,k+1)
-                      else ! kmax
-                        x(:,n1+ii,n2+jj) = grid%getx(l,i,j,k)
-                      end if
-                    end do
-                  end do
-                end do
-                n1 = n1 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2
-                n2 = n2 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2
-              end if
-
-
-              if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then
                 kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
                   kk = kk + 1
@@ -354,61 +283,109 @@ module datawriting_module
                     jj = jj + 1
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
                       if(grid%getbcistart(l,m,1).eq.1) then !imin
-                        pv(:,n3+jj,n4+kk)   = variable%getpv(n,l,i+1,j,k)
+                        pv(:,kk,jj)   = variable%getpv(n,l,i+1,j,k)
                       else ! imax
-                        pv(:,n3+jj,n4+kk)  = variable%getpv(n,l,i-1,j,k)
+                        pv(:,kk,jj)  = variable%getpv(n,l,i-1,j,k)
                       end if
                     end do
                   end do
                 end do
-                n3 = n3 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+1
-                n4 = n4 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+1
+                write(io,*) x(1,:,:)
+                write(io,*) x(2,:,:)
+                write(io,*) x(3,:,:)
+                write(io,*) pv(1,:,:)
+                deallocate(x,pv)
               else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
+                num1 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
+                num2 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
+                zoneorder = zoneorder + 1
+                write(io,*) 'zone t = "',zoneorder,'",i=',num1,',j=',num2
+                write(io,*) 'varlocation=([4]=cellcentered)'
+                write(io,*) 'zonetype=ordered, datapacking=block'
+                write(io,*) 'solutiontime=',n
+                allocate(pv(variable%getnpv(),num2-1,num1-1),x(3,num2,num1))
+                kk = 0
+                do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)+1
+                  kk = kk + 1
+                  do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
+                    ii = 0
+                    do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
+                      ii = ii + 1
+                      if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                        x(:,ii,kk) = grid%getx(l,i,j+1,k)
+                      else ! jmax
+                        x(:,ii,kk) = grid%getx(l,i,j,k)
+                      end if
+                    end do
+                  end do
+                end do
                 kk = 0
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
                   kk = kk + 1
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
                     ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
-                      ii = ii + 1
+                      ii = ii +1
                       if(grid%getbcistart(l,m,2).eq.1) then !jmin
-                        pv(:,n3+ii,n4+kk)   = variable%getpv(n,l,i,j+1,k)
+                        pv(:,ii,kk)   = variable%getpv(n,l,i,j+1,k)
                       else ! jmax
-                        pv(:,n3+ii,n4+kk)   = variable%getpv(n,l,i,j-1,k)
+                        pv(:,ii,kk)  = variable%getpv(n,l,i,j-1,k)
                       end if
                     end do
                   end do
                 end do
-                n3 = n3 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+1
-                n4 = n4 + grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+1
+                write(io,*) x(1,:,:)
+                write(io,*) x(2,:,:)
+                write(io,*) x(3,:,:)
+                write(io,*) pv(1,:,:)
+                deallocate(x,pv)
               else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
+                num1 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
+                num2 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
+                zoneorder = zoneorder + 1
+                write(io,*) 'zone t = "',zoneorder,'",i=',num1,',j=',num2
+                write(io,*) 'varlocation=([4]=cellcentered)'
+                write(io,*) 'zonetype=ordered, datapacking=block'
+                write(io,*) 'solutiontime=',n
+                allocate(pv(variable%getnpv(),num2-1,num1-1),x(3,num2,num1))
+                do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  jj = 0
+                  do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)+1
+                    jj = jj + 1
+                    ii = 0
+                    do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)+1
+                      ii = ii + 1
+                      if(grid%getbcistart(l,m,3).eq.1) then !kmin
+                        x(:,jj,ii) = grid%getx(l,i,j,k+1)
+                      else ! kmax
+                        x(:,jj,ii) = grid%getx(l,i,j,k)
+                      end if
+                    end do
+                  end do
+                end do
                 do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
                   jj = 0
                   do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
                     jj = jj + 1
                     ii = 0
                     do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
-                      ii = ii + 1
+                      ii = ii +1
                       if(grid%getbcistart(l,m,3).eq.1) then !kmin
-                        pv(:,n3+ii,n4+jj)   = variable%getpv(n,l,i,j,k+1)
+                        pv(:,jj,ii)   = variable%getpv(n,l,i,j,k+1)
                       else ! kmax
-                        pv(:,n3+ii,n4+jj)   = variable%getpv(n,l,i,j,k-1)
+                        pv(:,jj,ii)  = variable%getpv(n,l,i,j,k-1)
                       end if
                     end do
                   end do
                 end do
-                n3 = n3 + grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+1
-                n4 = n4 + grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+1
+                write(io,*) x(1,:,:)
+                write(io,*) x(2,:,:)
+                write(io,*) x(3,:,:)
+                write(io,*) pv(1,:,:)
+                deallocate(x,pv)
               end if
             end if
           end do
-          if((num11(l).ne.0).and.(num22(l).ne.0)) then
-            write(io,*) x(1,:,:)
-            write(io,*) x(2,:,:)
-            write(io,*) x(3,:,:)
-            write(io,*) pv(1,:,:)
-          end if
-          deallocate(pv,x)
         end do  
       end do
       close(io)
