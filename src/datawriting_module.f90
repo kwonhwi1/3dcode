@@ -253,6 +253,8 @@ module datawriting_module
             if(trim(grid%getbcname(l,m)).eq.'BCWall') then
               if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then ! i-surface
                 if(grid%getbcistart(l,m,1).eq.1) then !imin
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'imin'
                   num1 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
                   num2 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
                   zoneorder = zoneorder + 1
@@ -286,6 +288,8 @@ module datawriting_module
                   write(io,*) pv(1,grid%getbcistart(l,m,1):grid%getbciend(l,m,1),grid%getbcistart(l,m,2):grid%getbciend(l,m,2),grid%getbcistart(l,m,3):grid%getbciend(l,m,3))
                   deallocate(x,pv)
                 else
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'imax'
                   num1 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
                   num2 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
                   zoneorder = zoneorder + 1
@@ -321,6 +325,8 @@ module datawriting_module
                 end if
               else if(grid%getbcistart(l,m,2).eq.grid%getbciend(l,m,2)) then
                 if(grid%getbcistart(l,m,2).eq.1) then !jmin
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'jmin'
                   num1 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
                   num2 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
                   zoneorder = zoneorder + 1
@@ -354,6 +360,8 @@ module datawriting_module
                   write(io,*) pv(1,grid%getbcistart(l,m,1):grid%getbciend(l,m,1),grid%getbcistart(l,m,2):grid%getbciend(l,m,2),grid%getbcistart(l,m,3):grid%getbciend(l,m,3))
                   deallocate(x,pv)
                 else
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'jmax'
                   num1 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
                   num2 = (grid%getbciend(l,m,3)-grid%getbcistart(l,m,3)+2)
                   zoneorder = zoneorder + 1
@@ -389,6 +397,8 @@ module datawriting_module
                 end if
               else if(grid%getbcistart(l,m,3).eq.grid%getbciend(l,m,3)) then
                 if(grid%getbcistart(l,m,3).eq.1) then !kmin
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'kmin'
                   num1 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
                   num2 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
                   zoneorder = zoneorder + 1
@@ -422,6 +432,8 @@ module datawriting_module
                   write(io,*) pv(1,grid%getbcistart(l,m,1):grid%getbciend(l,m,1),grid%getbcistart(l,m,2):grid%getbciend(l,m,2),grid%getbcistart(l,m,3):grid%getbciend(l,m,3))
                   deallocate(x,pv)
                 else
+                  write(*,*) grid%getbcname(l,m),grid%getbcistart(l,m,1),grid%getbciend(l,m,1),grid%getbcistart(l,m,2),grid%getbciend(l,m,2),grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
+                  write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'kmax'
                   num1 = (grid%getbciend(l,m,1)-grid%getbcistart(l,m,1)+2)
                   num2 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
                   zoneorder = zoneorder + 1
