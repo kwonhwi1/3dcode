@@ -88,9 +88,9 @@ module postgrid_module
         do i= 1,grid%nzone
           call cg_zone_read_f(ifile,1,i,grid%zone(i)%zonename,isize,ier)
           if(i.eq.n) then
-            grid%zone(n)%imax = isize(1)
-            grid%zone(n)%jmax = isize(2)
-            grid%zone(n)%kmax = isize(3)
+            grid%zone(i)%imax = isize(1)
+            grid%zone(i)%jmax = isize(2)
+            grid%zone(i)%kmax = isize(3)
           end if
         end do
           
@@ -102,9 +102,9 @@ module postgrid_module
         nmax(1) = grid%zone(n)%imax; nmax(2) = grid%zone(n)%jmax; nmax(3) = grid%zone(n)%kmax
         nstart  = 1
           
-        call cg_coord_read_f(ifile,1,n+1,'CoordinateX',realdouble,nstart,nmax,xx,ier)
-        call cg_coord_read_f(ifile,1,n+1,'CoordinateY',realdouble,nstart,nmax,yy,ier)
-        call cg_coord_read_f(ifile,1,n+1,'CoordinateZ',realdouble,nstart,nmax,zz,ier)
+        call cg_coord_read_f(ifile,1,n,'CoordinateX',realdouble,nstart,nmax,xx,ier)
+        call cg_coord_read_f(ifile,1,n,'CoordinateY',realdouble,nstart,nmax,yy,ier)
+        call cg_coord_read_f(ifile,1,n,'CoordinateZ',realdouble,nstart,nmax,zz,ier)
           
         grid%zone(n)%x(1,:,:,:) = xx*config%getscale()
         grid%zone(n)%x(2,:,:,:) = yy*config%getscale()
@@ -128,7 +128,7 @@ module postgrid_module
         allocate(grid%zone(n)%bcinfo(grid%zone(n)%nbc))
           
         do i=1,grid%zone(n)%nbc
-          call cg_goto_f(ifile,1,ier,'Zone_t',n+1,'ZoneBC_t',1,'BC_t',i,'end')
+          call cg_goto_f(ifile,1,ier,'Zone_t',n,'ZoneBC_t',1,'BC_t',i,'end')
           call cg_famname_read_f(nodename,ier)
           call cg_boco_read_f(ifile,1,n,i,ipnts,normallist,ier)
             
