@@ -202,7 +202,7 @@ module bc_module
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegenerateLine') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
-          bc%bcinfo(n)%bctype => bcdegeneratepoint
+          bc%bcinfo(n)%bctype => bcsymmetryplane
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname

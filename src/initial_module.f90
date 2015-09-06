@@ -198,7 +198,7 @@ module initial_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
 
-#elif problem1
+#elif shocktube
     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
@@ -216,45 +216,22 @@ module initial_module
         do j=2,ini%jmax
           do i=2,ini%imax
             x = grid%getgrd(i,j,k)
-            if(x(2).lt.5.d0) then
-           ! if(((1.d0-x(3))/(x(2)-5.d0).le.-1.d0).and.((1.d0-x(4))/(x(2)-5.d0).le.-1.d0)) then
-           ! call variable%setpv(1,i,j,k,10132.5-ini%pref)
-           ! call variable%setpv(2,i,j,k,0.d0)
-           ! call variable%setpv(3,i,j,k,0.d0)
-           ! call variable%setpv(4,i,j,k,0.d0)
-           ! call variable%setpv(5,i,j,k,240.d0)
-           ! call variable%setpv(6,i,j,k,ini%y1ref)
-           ! call variable%setpv(7,i,j,k,ini%y2ref)  
-           !else
-            call variable%setpv(1,i,j,k,0.d0)
-            call variable%setpv(2,i,j,k,0.d0)
-            call variable%setpv(3,i,j,k,0.d0)
-            call variable%setpv(4,i,j,k,0.d0)
-            call variable%setpv(5,i,j,k,ini%tref)
-            call variable%setpv(6,i,j,k,ini%y1ref)
-            call variable%setpv(7,i,j,k,ini%y2ref)
-            !end if
-            else
-             
-            if((x(3)/(x(2)-5.d0).ge.1.d0)) then
-              call variable%setpv(1,i,j,k,0.d0)
+            if(x(2).lt.0.5d0) then
+              call variable%setpv(1,i,j,k,120.d0/1.4d0-ini%pref)
               call variable%setpv(2,i,j,k,0.d0)
               call variable%setpv(3,i,j,k,0.d0)
               call variable%setpv(4,i,j,k,0.d0)
               call variable%setpv(5,i,j,k,ini%tref)
               call variable%setpv(6,i,j,k,ini%y1ref)
               call variable%setpv(7,i,j,k,ini%y2ref)
-           else
-            
-            
-            call variable%setpv(1,i,j,k,10132.5-ini%pref)
-            call variable%setpv(2,i,j,k,0.d0)
-            call variable%setpv(3,i,j,k,0.d0)
-            call variable%setpv(4,i,j,k,0.d0)
-            call variable%setpv(5,i,j,k,240.d0)
-            call variable%setpv(6,i,j,k,ini%y1ref)
-            call variable%setpv(7,i,j,k,ini%y2ref)    
-            end if
+            else
+              call variable%setpv(1,i,j,k,1.2d0/1.4d0-ini%pref)
+              call variable%setpv(2,i,j,k,0.d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
+              call variable%setpv(5,i,j,k,ini%tref)
+              call variable%setpv(6,i,j,k,ini%y1ref)
+              call variable%setpv(7,i,j,k,ini%y2ref)
             end if
             pv = variable%getpv(i,j,k)   
         

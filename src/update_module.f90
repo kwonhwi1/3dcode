@@ -613,7 +613,7 @@ module update_module
             
               pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*dpv
           
-              pv(1) = dmax1(-update%pref+100.d0,pv(1))
+              !pv(1) = dmax1(-update%pref+100.d0,pv(1))
               pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
               pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
               if(update%l_turb) then
