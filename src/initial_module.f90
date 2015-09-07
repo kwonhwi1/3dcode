@@ -198,6 +198,84 @@ module initial_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
 
+#elif lax3d
+     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      class(t_ini_initial), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,n
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv())
+      real(8) :: tv(variable%getntv()),qq(variable%getnpv())
+      real(8) :: x(5)
+      
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            x = grid%getgrd(i,j,k)
+
+            if(x(2)-x(3)-x(4).lt.5.d0) then !left
+              call variable%setpv(1,i,j,k,3.528d0-ini%pref)
+              call variable%setpv(2,i,j,k,dsqrt(0.698d0/3.d0))
+              call variable%setpv(3,i,j,k,-1.d0*dsqrt(0.698d0/3.d0))
+              call variable%setpv(4,i,j,k,-1.d0*dsqrt(0.698d0/3.d0))
+              call variable%setpv(5,i,j,k,3.528d0*1.4d0/(0.4d0*1004.64d0*0.445d0))
+              call variable%setpv(6,i,j,k,ini%y1ref)
+              call variable%setpv(7,i,j,k,ini%y2ref)
+            else !right
+              call variable%setpv(1,i,j,k,0.571d0-ini%pref)
+              call variable%setpv(2,i,j,k,0.d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
+              call variable%setpv(5,i,j,k,0.571d0*1.4d0/(0.4d0*1004.64d0*0.5d0))
+              call variable%setpv(6,i,j,k,ini%y1ref)
+              call variable%setpv(7,i,j,k,ini%y2ref)
+            end if
+            pv = variable%getpv(i,j,k)   
+        
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+            
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
+            
+            if(ini%iturb.ge.-2) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
+            
+            if(ini%iturb.ge.-1) then
+              tv(3) = ini%emutref
+              call variable%setpv(8,i,j,k,ini%kref)
+              call variable%setpv(9,i,j,k,ini%oref)          
+            end if
+            
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n))
+            end do
+            
+            if(ini%nsteady.eq.1) then
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
+              
+              call variable%setqq(1,i,j,k,qq)
+              call variable%setqq(2,i,j,k,qq)
+            end if
+          end do
+        end do
+      end do
+      nps = 1
+      nts = 1
+    end subroutine initial
+
 #elif shocktube
     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
       implicit none
