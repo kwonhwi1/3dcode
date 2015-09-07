@@ -219,9 +219,9 @@ module initial_module
 
             if(x(2)-x(3)-x(4).lt.5.d0) then !left
               call variable%setpv(1,i,j,k,3.528d0-ini%pref)
-              call variable%setpv(2,i,j,k,dsqrt(0.698d0/3.d0))
-              call variable%setpv(3,i,j,k,-1.d0*dsqrt(0.698d0/3.d0))
-              call variable%setpv(4,i,j,k,-1.d0*dsqrt(0.698d0/3.d0))
+              call variable%setpv(2,i,j,k,0.698d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
               call variable%setpv(5,i,j,k,3.528d0*1.4d0/(0.4d0*1004.64d0*0.445d0))
               call variable%setpv(6,i,j,k,ini%y1ref)
               call variable%setpv(7,i,j,k,ini%y2ref)

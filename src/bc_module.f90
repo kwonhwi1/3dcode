@@ -203,6 +203,8 @@ module bc_module
           bc%bcinfo(n)%bctype => bcdegeneratepoint
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
           bc%bcinfo(n)%bctype => bcsymmetryplane
+        else if(trim(bc%bcinfo(n)%bcname).eq.'UserDefined') then
+          bc%bcinfo(n)%bctype => bcshiftedperiodic
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
@@ -2208,5 +2210,172 @@ module bc_module
         end do
       end do
     end subroutine bcsymmetryplane
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcshiftedperiodic(bcinfo,ref,grid,variable,eos,prop)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_ref), intent(in) :: ref
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: nx(3),var
+ 
+      ! h=1/16
+      select case(bcinfo%face)
+      case('jmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)-16
+              pv = variable%getpv(i+16,j+16,k)
+              dv = variable%getdv(i+16,j+16,k)
+              tv = variable%gettv(i+16,j+16,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+            do i=bcinfo%iend(1)-15,bcinfo%iend(1)
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+              tv = variable%gettv(ii,jj,kk)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+
+      case('jmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)        
+            do i=bcinfo%istart(1)+16,bcinfo%iend(1)
+              pv = variable%getpv(i-16,j-16,k)
+              dv = variable%getdv(i-16,j-16,k)
+              tv = variable%gettv(i-16,j-16,k)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+            do i=bcinfo%istart(1),bcinfo%istart(1)+15
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+              tv = variable%gettv(ii,jj,kk)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+
+      case('kmin')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)
+            do i=bcinfo%istart(1),bcinfo%iend(1)-16
+              pv = variable%getpv(i+16,j,k+16)
+              dv = variable%getdv(i+16,j,k+16)
+              tv = variable%gettv(i+16,j,k+16)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+            do i=bcinfo%iend(1)-15,bcinfo%iend(1)
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+              tv = variable%gettv(ii,jj,kk)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+
+      case('kmax')
+        do k=bcinfo%istart(3),bcinfo%iend(3)
+          do j=bcinfo%istart(2),bcinfo%iend(2)        
+            do i=bcinfo%istart(1)+16,bcinfo%iend(1)
+              pv = variable%getpv(i-16,j,k-16)
+              dv = variable%getdv(i-16,j,k-16)
+              tv = variable%gettv(i-16,j,k-16)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+            do i=bcinfo%istart(1),bcinfo%istart(1)+15
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+              tv = variable%gettv(ii,jj,kk)
+              do m=1,variable%getnpv()
+                call variable%setpv(m,i,j,k,pv(m))
+              end do
+              do m=1,variable%getndv()
+                call variable%setdv(m,i,j,k,dv(m))
+              end do
+              do m=1,variable%getntv()
+                call variable%settv(m,i,j,k,tv(m))
+              end do
+            end do
+          end do
+        end do
+
+      case default
+      end select
+
+    end subroutine bcshiftedperiodic
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module bc_module
