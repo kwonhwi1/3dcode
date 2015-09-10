@@ -104,7 +104,7 @@ module muscl_module
       real(8), intent(out) :: xl(muscl%npv),xr(muscl%npv)
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
-      real(8), parameter :: eps = 1.d-16
+      real(8), parameter :: eps = 1.d-12
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
@@ -149,7 +149,7 @@ module muscl_module
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
-      real(8), parameter :: eps = 1.d-16, eps2 = 1.d-2
+      real(8), parameter :: eps = 1.d-12, eps2 = 1.d-2
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
