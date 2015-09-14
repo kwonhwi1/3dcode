@@ -1572,7 +1572,8 @@ module bc_module
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
+      real(8) :: dv(variable%getndv()),tv(variable%getntv())
       real(8) :: nx(3),var
   
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -1584,31 +1585,37 @@ module bc_module
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii-1,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getcx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj-1,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getex(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = grid%gettx(ii,jj,kk-1)
+              pv_s = variable%getpv(ii,jj,kk)
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = - grid%gettx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             end select
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
@@ -1619,13 +1626,13 @@ module bc_module
             do m=1,variable%getnpv()
               select case(m)
               case(2)
-                var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(2)-2.d0*nx(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case(3)
-                var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(3)-2.d0*nx(2)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case(4)
-                var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(4)-2.d0*nx(3)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case default
                 call variable%setpv(m,i,j,k,pv(m))
@@ -2141,7 +2148,8 @@ module bc_module
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
+      real(8) :: dv(variable%getndv()),tv(variable%getntv())
       real(8) :: nx(3),var
   
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -2153,31 +2161,37 @@ module bc_module
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii-1,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getcx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj-1,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getex(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = grid%gettx(ii,jj,kk-1)
+              pv_s = variable%getpv(ii,jj,kk)
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = - grid%gettx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
             end select
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
@@ -2188,13 +2202,13 @@ module bc_module
             do m=1,variable%getnpv()
               select case(m)
               case(2)
-                var = pv(2)-2.d0*nx(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(2)-2.d0*nx(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case(3)
-                var = pv(3)-2.d0*nx(2)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(3)-2.d0*nx(2)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case(4)
-                var = pv(4)-2.d0*nx(3)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
+                var = pv(4)-2.d0*nx(3)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)
                 call variable%setpv(m,i,j,k,var)
               case default
                 call variable%setpv(m,i,j,k,pv(m))

@@ -202,12 +202,11 @@ module prop_module
       type(t_prop2), intent(out) :: gas
 #ifdef shocktube      
       gas%vis = 0.006d0
-      gas%cond = 1004.64d0/0.73d0*gas%vis
 #else      
       gas%vis  = 1.716d-5*(t/273.11d0)**1.5d0*383.67d0/(t+110.56d0)
       !gas%cond = 0.0241d0*(t/273.d0)**1.5d0*467.d0/(t+194.d0)
-      gas%cond = 1004.64d0/0.72d0*gas%vis
 #endif
+      gas%cond = 1004.64d0/0.72d0*gas%vis
     end subroutine sutherland
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine h2o_l_fit(prop,rho,t,liquid)
