@@ -216,7 +216,7 @@ module timestep_module
       real(8), save :: time = 0.d0
       integer :: ierr
       
-      dtmin = 1.d30
+      dtmin = 1.d10
       
       do k = 2,timestep%kmax
         do j = 2,timestep%jmax 
@@ -276,13 +276,12 @@ module timestep_module
            end do
         end do
       end do
-      
-      mpi_dtmin = dtmin
+
       call mpi_reduce(dtmin,mpi_dtmin,1,mpi_real8,mpi_min,0,mpi_comm_world,ierr)
       call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
       timestep%dt = mpi_dtmin
       time = time + mpi_dtmin
-      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',time
+      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',time, mpi_dtmin
     end subroutine mintime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine fixedtime(timestep,grid,variable,nt_phy,nt)
