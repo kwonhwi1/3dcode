@@ -128,7 +128,7 @@ module prop_module
       call prop%prop_v(rhov,t,vapor)
       call prop%prop_g(rhog,t,gas)
       
-      rho = 1.d0/((1.d0-y1)/rhol + y1*((1.d0-y2)*rhov + y2/rhog))      
+      rho = 1.d0/((1.d0-y1)/rhol + y1*((1.d0-y2)/rhov + y2/rhog))      
       tv(1) = rho*(liquid%vis*(1.d0-y1)/rhol  + y1*(vapor%vis*(1.d0-y2)/rhov  &
               + gas%vis*y2/rhog))
       tv(2) = rho*(liquid%cond*(1.d0-y1)/rhol + y1*(vapor%cond*(1.d0-y2)/rhov &

@@ -105,7 +105,10 @@ module residual_module
         write(resi%io,*) 'zone t =" "'
       end if
       
-      resmax = 1.d-30
+      resmax = 1.d-12
+      iresm = 0
+      jresm = 0
+      kresm = 0
       res = 0.d0
       
       do k=2,resi%kmax
