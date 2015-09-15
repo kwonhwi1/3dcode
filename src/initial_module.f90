@@ -288,13 +288,13 @@ module initial_module
       integer :: i,j,k,n
       real(8) :: pv(variable%getnpv()),dv(variable%getndv())
       real(8) :: tv(variable%getntv()),qq(variable%getnpv())
-      real(8) :: x(5)
+      real(8) :: grd(grid%getngrd())
       
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
-            x = grid%getgrd(i,j,k)
-            if(x(2).lt.0.5d0) then
+            grd = grid%getgrd(i,j,k)
+            if(grd(2).lt.0.5d0) then
               call variable%setpv(1,i,j,k,120.d0/1.4d0-ini%pref)
               call variable%setpv(2,i,j,k,0.d0)
               call variable%setpv(3,i,j,k,0.d0)
