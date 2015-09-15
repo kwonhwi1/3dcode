@@ -27,7 +27,7 @@ module datawriting_module
       integer :: n,m,i,j,k
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:,:), allocatable :: pv,dv,tv
-      real(8), dimension(:,:,:), allocatable :: a,vof
+      real(8), dimension(:,:,:), allocatable :: vof
       character(7), dimension(:), allocatable :: solname
  
       allocate(solname(variable%getnsolution()),time(variable%getnsolution()))
@@ -72,8 +72,7 @@ module datawriting_module
               end do
             end do
           end do
-          
-          a = dsqrt(dv(:,:,:,6))
+
           vof = dv(:,:,:,1)*pv(:,:,:,6)/dv(:,:,:,4)
           call cg_sol_write_f(ifile,1,variable%getrank(n,m)+1,solname(n),cellcenter,index_flow,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'pressure',pv(:,:,:,1),index_field,ier)
@@ -85,14 +84,13 @@ module datawriting_module
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'y2',pv(:,:,:,7),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'density',dv(:,:,:,1),index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'enthalpy',dv(:,:,:,2),index_field,ier)
-          call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'sos',a,index_field,ier)
           call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'volumefraction',vof,index_field,ier)
           if(config%getiturb().ge.-1) then
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'k',pv(:,:,:,8),index_field,ier)
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'omega',pv(:,:,:,9),index_field,ier)
             call cg_field_write_f(ifile,1,variable%getrank(n,m)+1,index_flow,realdouble,'emut',tv(:,:,:,3),index_field,ier)
           end if
-          deallocate(pv,dv,tv,a,vof)
+          deallocate(pv,dv,tv,vof)
         end do
         write(*,*) '-----------------------------------------------------------'
       end do
