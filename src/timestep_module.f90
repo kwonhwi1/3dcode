@@ -1,4 +1,5 @@
 module timestep_module
+  use mpi
   use config_module
   use grid_module
   use variable_module
@@ -202,7 +203,6 @@ module timestep_module
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
-      include 'mpif.h'
       integer :: i,j,k    
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)

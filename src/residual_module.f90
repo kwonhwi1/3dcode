@@ -1,4 +1,5 @@
 module residual_module
+  use mpi
   use config_module
   use grid_module
   use variable_module
@@ -91,7 +92,6 @@ module residual_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine residual(resi,variable,nt_phy,nt)
       implicit none
-      include 'mpif.h'
       class(t_resi), intent(inout) :: resi
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt

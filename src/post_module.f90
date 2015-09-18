@@ -1,4 +1,5 @@
 module post_module
+  use mpi
   use config_module
   use grid_module
   use variable_module
@@ -56,7 +57,6 @@ module post_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine export_variable(post,variable,nt_phy,nt)
       implicit none
-      include 'mpif.h'
       class(t_post), intent(inout) :: post
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt

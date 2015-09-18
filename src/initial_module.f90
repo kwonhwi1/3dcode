@@ -1,4 +1,5 @@
 module initial_module
+  use mpi
   use config_module
   use grid_module
   use variable_module
@@ -86,7 +87,6 @@ module initial_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine restart(ini,grid,variable,eos,prop,nps,nts)
       implicit none
-      include 'mpif.h'
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable

@@ -141,7 +141,6 @@ module config_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(config,eos,prop)
       implicit none
-      include 'mpif.h'
       class(t_config), intent(inout) :: config
       type(t_eos), intent(inout) :: eos
       type(t_prop), intent(inout) :: prop
