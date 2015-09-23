@@ -172,7 +172,7 @@ module initial_module
               call variable%settv(n,i,j,k,tv(n,i,j,k))
             end do      
             
-            call eos%deteos(pv(1,i,j,k),pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
