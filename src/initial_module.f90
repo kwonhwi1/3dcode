@@ -14,6 +14,8 @@ module initial_module
     logical :: l_ini
     integer :: size,rank,imax,jmax,kmax
     integer :: iturb,nsteady,rstnum
+    integer :: intsize,realsize
+    integer(kind=mpi_offset_kind) :: disp
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref,kref,oref,emutref
     contains
       procedure :: construct
@@ -50,12 +52,17 @@ module initial_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(ini,config,grid)
+    subroutine construct(ini,config,grid,variable)
       implicit none
       class(t_ini), intent(out) :: ini
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      
+      type(t_variable), intent(in) :: variable
+      integer :: ier,i
+
+      call mpi_type_size(mpi_integer,ini%intsize,ier)
+      call mpi_type_size(mpi_real8,ini%realsize,ier)
+
       ini%pref = config%getpref()
       ini%uref = config%geturef()
       ini%aoa = config%getaoa()
@@ -74,7 +81,19 @@ module initial_module
       ini%imax = grid%getimax()
       ini%jmax = grid%getjmax()
       ini%kmax = grid%getkmax()
-      
+
+      if(ini%rank.eq.0) then
+        ini%disp = 0
+      else
+        ini%disp = 0
+        do i=0,ini%rank-1
+          ini%disp = ini%disp + ini%intsize*3 &
+                   + ini%realsize*variable%getnpv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
+                   + ini%realsize*variable%getnpv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
+                   + ini%realsize*variable%getnqq()*variable%getnpv()*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+        end do
+      end if
+
       ini%l_ini = .true.
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -93,55 +112,59 @@ module initial_module
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
-      integer :: i,j,k,l,n,m,io,mm,ier
-      real(8) :: dv(variable%getndv())
-      real(8), dimension(:), allocatable :: qq_temp
+      integer :: i,j,k,n,io,ier,num,nqq
+      integer(kind=mpi_offset_kind) :: disp
+      real(8) :: dv(variable%getndv()),qq_temp(variable%getnpv())
       real(8), dimension(:,:,:,:), allocatable :: pv,tv
       real(8), dimension(:,:,:,:,:), allocatable :: qq
       character(7) :: iter_tag
-      integer :: size,rank,imax,jmax,kmax,nqq
-      real(8) :: var1,var2,var3
-      
-      allocate(pv(variable%getnpv(),ini%imax,ini%jmax,ini%kmax))
-      allocate(tv(variable%getntv(),ini%imax,ini%jmax,ini%kmax))
-      allocate(qq_temp(variable%getnpv()))
-      
+
       if(ini%nsteady.eq.1) then
         write(iter_tag,'(i4.4)') ini%rstnum
       else
         write(iter_tag,'(i7.7)') ini%rstnum
       end if
 
-      do mm=0,ini%size-1
-        if(mm.eq.ini%rank) then
-          open(newunit=io,file='./out_'//trim(iter_tag)//'.dat',status='old',action='read',form='unformatted')
-          read(io) size,nps,nts,nqq
-          allocate(qq(nqq,variable%getnpv(),ini%imax,ini%jmax,ini%kmax))
-          if(size.ne.ini%size) write(*,*) 'invalid size'
-          
-          do m=0,ini%size-1
-            read(io) rank,imax,jmax,kmax
-            if((rank.eq.ini%rank).and.(imax.eq.ini%imax).and.(jmax.eq.ini%jmax).and.(kmax.eq.ini%kmax)) then
-              read(io) ((((pv(n,i,j,k),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
-              read(io) ((((tv(n,i,j,k),n=1,variable%getntv()),i=2,imax),j=2,jmax),k=2,kmax)
-              read(io) (((((qq(l,n,i,j,k),l=1,nqq),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)    
-            else       
-              read(io) ((((var1,n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
-              read(io) ((((var2,n=1,variable%getntv()),i=2,imax),j=2,jmax),k=2,kmax)
-              read(io) (((((var3,l=1,nqq),n=1,variable%getnpv()),i=2,imax),j=2,jmax),k=2,kmax)
-            end if
-          end do
-      
-          close(io)
-        end if
-        call mpi_barrier(mpi_comm_world,ier)
-      end do
-      
+      disp = ini%disp
+
+      call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,nps,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + ini%intsize
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,nts,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + ini%intsize
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,nqq,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + ini%intsize
+
+      allocate(pv(variable%getnpv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(tv(variable%getntv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(qq(variable%getnpv(),nqq,2:ini%imax,2:ini%jmax,2:ini%kmax))
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%getnpv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+      call mpi_file_read_all(io,pv,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + ini%realsize*num
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%getntv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+      call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + ini%realsize*num
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = nqq*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+      call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
+
+      call mpi_file_close(io,ier)
+
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
-            call variable%setpv(1,i,j,k,pv(1,i,j,k)-ini%pref)
-            do n=2,variable%getnpv()
+            do n=1,variable%getnpv()
               call variable%setpv(n,i,j,k,pv(n,i,j,k))
             end do
         
@@ -169,15 +192,17 @@ module initial_module
               call variable%setqq(2,i,j,k,qq_temp)
             else
               do n=1,variable%getnqq()
-                qq_temp = qq(n,:,i,j,k)
+                qq_temp = qq(:,n,i,j,k)
                 call variable%setqq(n,i,j,k,qq_temp)
               end do          
             end if
           end do
         end do
       end do
-      if(allocated(qq_temp)) deallocate(qq_temp)
-      deallocate(pv,tv,qq)
+
+      if(allocated(pv))  deallocate(pv)
+      if(allocated(tv))  deallocate(tv)
+      if(allocated(qq))  deallocate(qq)
 
       nts = nts + 1
       nps = nps + 1

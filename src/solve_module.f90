@@ -10,7 +10,6 @@ module solve_module
   use initial_module
   use update_module
   use residual_module
-  use post_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc   
   implicit none
   private
@@ -25,7 +24,6 @@ module solve_module
     class(t_update), allocatable :: update
     class(t_ini), allocatable :: ini
     class(t_resi), allocatable :: resi
-    class(t_post), allocatable :: post
     contains
       procedure :: construct
       procedure :: destruct
@@ -82,14 +80,12 @@ module solve_module
       end if
       
       if(allocated(solve%ini)) then
-        call solve%ini%construct(config,grid)
+        call solve%ini%construct(config,grid,variable)
         solve%l_ini = .true.
       end if
       
       allocate(solve%resi)
       call solve%resi%construct(config,grid,variable)
-      allocate(solve%post)
-      call solve%post%construct(config,grid,variable)
      
       solve%imax = grid%getimax()
       solve%jmax = grid%getjmax()
@@ -115,8 +111,6 @@ module solve_module
       
       call solve%resi%destruct()
       deallocate(solve%resi)
-      call solve%post%destruct()
-      deallocate(solve%post)
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -137,19 +131,19 @@ module solve_module
           call solve%update%timeinteg(grid,variable,eos,prop,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
           if(solve%resi%getconverge()) then
-            call solve%post%export_variable(variable,nt_phy,nt)
+            call variable%export_variable(nt_phy,nt)
             exit
           end if
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
-            call solve%post%export_variable(variable,nt_phy,nt)
+            call variable%export_variable(nt_phy,nt)
           end if
         end do
         if(.not.solve%l_nsteady) then
-          call solve%post%export_variable(variable,nt_phy,nt-1)
+          call variable%export_variable(nt_phy,nt-1)
         end if
         if(solve%l_nsteady) then
           if(mod(nt_phy,solve%nexport).eq.0) then
-            call solve%post%export_variable(variable,nt_phy,nt-1)
+            call variable%export_variable(nt_phy,nt-1)
           end if
           call solve%unsteadyupdate(variable)
         end if

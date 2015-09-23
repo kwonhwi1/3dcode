@@ -62,7 +62,6 @@ module postgrid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(grid,config)
       implicit none
-      include 'mpif.h'
       class(t_grid), intent(out) :: grid
       type(t_config), intent(in) :: config
       character(32) :: nodename,connectname,donorname
@@ -82,18 +81,16 @@ module postgrid_module
       call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
       if(ier.ne.cg_ok) call cg_error_exit_f  
       call cg_nzones_f(ifile,1,grid%nzone,ier)
-      allocate(grid%zone(grid%nzone)) 
-      
+      allocate(grid%zone(grid%nzone))
+
+      do n= 1,grid%nzone
+        call cg_zone_read_f(ifile,1,n,grid%zone(n)%zonename,isize,ier)
+        grid%zone(n)%imax = isize(1)
+        grid%zone(n)%jmax = isize(2)
+        grid%zone(n)%kmax = isize(3)
+      end do
+
       do n=1,grid%nzone
-        do i= 1,grid%nzone
-          call cg_zone_read_f(ifile,1,i,grid%zone(i)%zonename,isize,ier)
-          if(i.eq.n) then
-            grid%zone(i)%imax = isize(1)
-            grid%zone(i)%jmax = isize(2)
-            grid%zone(i)%kmax = isize(3)
-          end if
-        end do
-          
         allocate(grid%zone(n)%x(dim,2:grid%zone(n)%imax+1,2:grid%zone(n)%jmax+1,2:grid%zone(n)%kmax+1))
         allocate(xx(2:grid%zone(n)%imax+1,2:grid%zone(n)%jmax+1,2:grid%zone(n)%kmax+1) &
                 ,yy(2:grid%zone(n)%imax+1,2:grid%zone(n)%jmax+1,2:grid%zone(n)%kmax+1) &

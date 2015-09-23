@@ -5,7 +5,7 @@ module grid_module
 #include <cgnslib_f.h>
 #include <cgnstypes_f.h>
   private
-  public :: t_grid,t_bcinfo,t_connectinfo, t_mpitemp
+  public :: t_grid,t_bcinfo,t_connectinfo,t_mpitemp
 
   type t_bcinfo
     integer :: istart(3),iend(3)
@@ -23,12 +23,17 @@ module grid_module
     real(8), dimension(:), allocatable :: sendbuf,recvbuf
   end type t_mpitemp
 
+  type t_zoneinfo
+    integer :: imax,jmax,kmax
+  end type t_zoneinfo
+
   type t_grid
     private
     integer :: rank,size
     integer :: imax,jmax,kmax,nbc,ncon,ngrd
     type(t_bcinfo), dimension(:), allocatable :: bcinfo
     type(t_connectinfo), dimension(:), allocatable ::connectinfo
+    type(t_zoneinfo), dimension(:), allocatable :: zoneinfo
     real(8), dimension(:,:,:,:), allocatable :: x
     real(8), dimension(:,:,:,:), allocatable :: cx,ex,tx
     real(8), dimension(:,:,:,:), allocatable :: grd ! vol,xcen,ycen,zcen,ydns
@@ -41,6 +46,9 @@ module grid_module
       procedure :: getimax
       procedure :: getjmax
       procedure :: getkmax
+      procedure :: getimax_zone
+      procedure :: getjmax_zone
+      procedure :: getkmax_zone
       procedure :: getnbc
       procedure :: getncon
       procedure :: getx
@@ -90,10 +98,13 @@ module grid_module
           call cg_nzones_f(ifile,1,nzone,ier)
           if(nzone.ne.config%getsize()) write(*,*) 'invalid size of domain! check cpu number'
           
-          allocate(zonename(nzone))
-          
+          allocate(zonename(nzone),grid%zoneinfo(0:nzone-1))
+
           do j= 0,nzone-1
             call cg_zone_read_f(ifile,1,j+1,zonename(j+1),isize,ier)
+            grid%zoneinfo(j)%imax = isize(1)
+            grid%zoneinfo(j)%jmax = isize(2)
+            grid%zoneinfo(j)%kmax = isize(3)
             if(j.eq.n) then
               grid%imax = isize(1)
               grid%jmax = isize(2)
@@ -322,7 +333,8 @@ module grid_module
     subroutine destruct(grid)
       implicit none
       class(t_grid), intent(inout) :: grid
-      
+
+      if(allocated(grid%zoneinfo))    deallocate(grid%zoneinfo)
       if(allocated(grid%x))           deallocate(grid%x)
       if(allocated(grid%cx))          deallocate(grid%cx)
       if(allocated(grid%ex))          deallocate(grid%ex)
@@ -1245,11 +1257,38 @@ module grid_module
       getkmax = grid%kmax
     end function getkmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    pure function getimax_zone(grid,i)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      integer, intent(in) :: i
+      integer :: getimax_zone
+
+      getimax_zone = grid%zoneinfo(i)%imax
+    end function getimax_zone
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getjmax_zone(grid,i)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      integer, intent(in) :: i
+      integer :: getjmax_zone
+
+      getjmax_zone = grid%zoneinfo(i)%jmax
+    end function getjmax_zone
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getkmax_zone(grid,i)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      integer, intent(in) :: i
+      integer :: getkmax_zone
+
+      getkmax_zone = grid%zoneinfo(i)%kmax
+    end function getkmax_zone
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getnbc(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getnbc
-      
+
       getnbc = grid%nbc
     end function getnbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     

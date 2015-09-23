@@ -53,10 +53,18 @@ module residual_module
           case(-2,-3)
             write(resi%io,*) 'variables="nt","resp","resu","resv","resw","rest","resy1","resy2"' 
           end select
+          write(resi%io,*) 'zone t ="newstart"'
         end if
       else !iread=1 restart
         if(resi%rank.eq.0) then
-          open(newunit=resi%io,file='./res.plt',status='old',action='write',position='append')
+          open(newunit=resi%io,file='./res.plt',status='unknown',action='write',position='append')
+          select case(config%getiturb())
+          case(-1,0)
+            write(resi%io,*) 'variables="nt","resp","resu","resv","resw","rest","resy1","resy2","resk","reso"'
+          case(-2,-3)
+            write(resi%io,*) 'variables="nt","resp","resu","resv","resw","rest","resy1","resy2"'
+          end select
+          write(resi%io,*) 'zone t ="restart"'
         end if
       end if
       resi%l_converge = .false.
@@ -100,10 +108,6 @@ module residual_module
       real(8) :: restest,resmax
       real(8), dimension(:) :: res(resi%npv)
       real(8), dimension(:) :: mpi_res(resi%npv),mpi_res_sum(resi%npv)
-
-      if((resi%rank.eq.0).and.(nt.eq.1).and.(nt_phy.eq.1)) then
-        write(resi%io,*) 'zone t =" "'
-      end if
       
       resmax = 1.d-12
       iresm = 0

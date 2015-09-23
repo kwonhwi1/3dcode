@@ -54,7 +54,6 @@ OBJS_POST =   $(OBJ_DIR)/eos_module.o\
               $(OBJ_DIR)/config_module.o\
               $(OBJ_DIR)/postgrid_module.o\
               $(OBJ_DIR)/postvariable_module.o\
-              $(OBJ_DIR)/datawriting_module.o\
               $(OBJ_DIR)/postprocess.o
 
 OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
@@ -72,7 +71,6 @@ OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
               $(OBJ_DIR)/jacobian_module.o\
               $(OBJ_DIR)/lhs_module.o\
               $(OBJ_DIR)/timestep_module.o\
-              $(OBJ_DIR)/post_module.o\
               $(OBJ_DIR)/residual_module.o\
               $(OBJ_DIR)/eddy_module.o\
               $(OBJ_DIR)/rhs_module.o\
