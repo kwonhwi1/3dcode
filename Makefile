@@ -7,12 +7,23 @@ EXE_MAIN = main
 # src / obj / lib / bin dir
 SRC_DIR     =   src
 OBJ_DIR     =   obj
-LIB_DIR     =   /usr/local/lib
-HDF_LIB     =   /usr/lib/x86_64-linux-gnu/hdf5/serial
-#HDF_LIB     =   /opt/local/lib
-HDF_INC     =   /usr/include/hdf5/serial
 BIN_DIR     =   bin
-INC_DIR     =   /usr/local/include
+LIB_DIR     =   lib
+INC_DIR     =   inc
+
+ifeq ($(os),mac)
+CGNS_INC    =   /usr/local/include
+CGNS_LIB    =   /usr/local/lib
+HDF_LIB     =   /opt/local/lib
+else ifeq ($(os),tachyon2)
+CGNS_INC    =   /applic/wa/cgnslib_3.2.1/intel-2015/lib
+CGNS_LIB    =   /applic/wa/cgnslib_3.2.1/intel-2015/include
+HDF_LIB     =   /applic/compilers/intel/2015/applib1/HDF5/1.8.13/lib
+else
+CGNS_INC    =   /usr/local/include
+CGNS_LIB    =   /usr/local/lib
+HDF_LIB     =   /usr/lib/x86_64-linux-gnu/hdf5/serial
+endif
 
 # f90 compiler
 ifeq ($(mpi),ompi)
@@ -37,10 +48,10 @@ endif
 endif
 
 # include needed for compile
-IFLAGS = -I $(INC_DIR) 
+IFLAGS = -I $(INC_DIR) -I $(CGNS_INC)
 
 # library needed for linking
-LFLAGS = -L $(LIB_DIR) -lcgns -L $(HDF_LIB) -lhdf5 -lstdc++
+LFLAGS = -L $(LIB_DIR) -L $(CGNS_LIB) -lcgns -L $(HDF_LIB) -lhdf5 -lstdc++
 
 # defin needed for preprocessor
 DFLAGS = -D $(def)
@@ -84,11 +95,13 @@ OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.f90
 	$(FC) -c $< -o $@ $(FFLAGS) $(IFLAGS) $(DFLAGS)
 
-post: $(OBJS_POST) 
-	$(FC) -o $(BIN_DIR)/$(EXE_POST) $(OBJS_POST) $(FFLAGS) $(LFLAGS)
+all: main post
 
 main: $(OBJS_MAIN)
 	$(FC) -o $(BIN_DIR)/$(EXE_MAIN) $(OBJS_MAIN) $(FFLAGS) $(LFLAGS)
+
+post: $(OBJS_POST)
+	$(FC) -o $(BIN_DIR)/$(EXE_POST) $(OBJS_POST) $(FFLAGS) $(LFLAGS)
 
 clean:
 	find $(OBJ_DIR) -name '*~' -exec rm {} \;
