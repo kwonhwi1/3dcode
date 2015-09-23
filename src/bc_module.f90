@@ -14,18 +14,14 @@ module bc_module
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     character(4) :: face
+    real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
-  
-  type t_ref
-    real(8), dimension(:), allocatable :: pv,tv,dv
-  end type t_ref
-  
+
   type t_bc
     private
     integer :: rank,size,iturb,nbc,ncon
     integer :: npv,ntv,ndv,ngrd
-    type(t_ref) :: ref
     type(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
     type(t_connectinfo), dimension(:), allocatable :: connectinfo
     type(t_mpitemp), dimension(:), allocatable :: mpitemp
@@ -36,16 +32,14 @@ module bc_module
   end type t_bc
 
   interface
-    subroutine p_bctype(bcinfo,ref,grid,variable,eos,prop)
+    subroutine p_bctype(bcinfo,grid,variable,eos,prop)
       import t_bcinfo2
-      import t_ref
       import t_grid
       import t_variable
       import t_eos
       import t_prop  
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -78,29 +72,8 @@ module bc_module
       bc%ndv = variable%getndv()
       bc%ngrd = grid%getngrd()
 
-      allocate(bc%ref%pv(bc%npv),bc%ref%dv(bc%ndv),bc%ref%tv(bc%ntv))
-      
-      bc%ref%pv(1) = config%getpref()
-      bc%ref%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-      bc%ref%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-      bc%ref%pv(4) = config%geturef()*dsin(config%getaos())
-      bc%ref%pv(5) = config%gettref()
-      bc%ref%pv(6) = config%gety1ref()
-      bc%ref%pv(7) = config%gety2ref()
-      
-      call eos%deteos(bc%ref%pv(1),bc%ref%pv(5),bc%ref%pv(6),bc%ref%pv(7),bc%ref%dv)
-      
-      if(config%getiturb().ge.-2) then
-        call prop%detprop(bc%ref%dv(3),bc%ref%dv(4),bc%ref%dv(5),bc%ref%pv(5),bc%ref%pv(6),bc%ref%pv(7),bc%ref%tv(1:2))
-        if(config%getiturb().ge.-1) then
-          bc%ref%tv(3) = config%getemutref()
-          bc%ref%pv(8) = config%getkref()
-          bc%ref%pv(9) = config%getoref()
-        end if
-      end if
- 
       allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
-      
+
       do n=1,bc%nbc
         bc%bcinfo(n)%bcname = grid%getbcname(n)
         do m=1,dim
@@ -215,6 +188,28 @@ module bc_module
         bc%bcinfo(n)%neighbor4 = 0 ! meaningless
         bc%bcinfo(n)%neighbor5 = 0 ! meaningless
         bc%bcinfo(n)%neighbor6 = 0 ! meaningless
+
+        allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+
+        bc%bcinfo(n)%pv(1) = config%getpref()
+        bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%bcinfo(n)%pv(5) = config%gettref()
+        bc%bcinfo(n)%pv(6) = config%gety1ref()
+        bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+        call eos%deteos(bc%bcinfo(n)%pv(1),bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+        if(config%getiturb().ge.-2) then
+          call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                           ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+          if(config%getiturb().ge.-1) then
+            bc%bcinfo(n)%tv(3) = config%getemutref()
+            bc%bcinfo(n)%pv(8) = config%getkref()
+            bc%bcinfo(n)%pv(9) = config%getoref()
+          end if
+        end if
       end do
 
       do n=1,bc%ncon
@@ -462,13 +457,34 @@ module bc_module
       
       do m=1,12
         bc%edge(m)%dir = 0
+        allocate(bc%edge(n)%pv(bc%npv),bc%edge(n)%dv(bc%ndv),bc%edge(n)%tv(bc%ntv))
+
+        bc%edge(n)%pv(1) = config%getpref()
+        bc%edge(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%edge(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%edge(n)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%edge(n)%pv(5) = config%gettref()
+        bc%edge(n)%pv(6) = config%gety1ref()
+        bc%edge(n)%pv(7) = config%gety2ref()
+
+        call eos%deteos(bc%edge(n)%pv(1),bc%edge(n)%pv(5),bc%edge(n)%pv(6),bc%edge(n)%pv(7),bc%edge(n)%dv)
+
+        if(config%getiturb().ge.-2) then
+          call prop%detprop(bc%edge(n)%dv(3),bc%edge(n)%dv(4),bc%edge(n)%dv(5),bc%edge(n)%pv(5) &
+                           ,bc%edge(n)%pv(6),bc%edge(n)%pv(7),bc%edge(n)%tv(1:2))
+          if(config%getiturb().ge.-1) then
+            bc%edge(n)%tv(3) = config%getemutref()
+            bc%edge(n)%pv(8) = config%getkref()
+            bc%edge(n)%pv(9) = config%getoref()
+          end if
+        end if
       end do
 
       isurf_edge = .false.; jsurf_edge = .false.; ksurf_edge = .false.
 
       do m=1,4
-        do n=1,bc%nbc 
-          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
+        do n=1,bc%nbc
+          if((trim(bc%edge(n)%bcname).eq.'BCWall').and. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%edge(m)%neighbor1(1)).and.   &
@@ -810,12 +826,33 @@ module bc_module
       
       do m=1,8
         bc%corner(m)%dir = 0
+        allocate(bc%corner(n)%pv(bc%npv),bc%corner(n)%dv(bc%ndv),bc%corner(n)%tv(bc%ntv))
+
+        bc%corner(n)%pv(1) = config%getpref()
+        bc%corner(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%corner(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%corner(n)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%corner(n)%pv(5) = config%gettref()
+        bc%corner(n)%pv(6) = config%gety1ref()
+        bc%corner(n)%pv(7) = config%gety2ref()
+
+        call eos%deteos(bc%corner(n)%pv(1),bc%corner(n)%pv(5),bc%corner(n)%pv(6),bc%corner(n)%pv(7),bc%corner(n)%dv)
+
+        if(config%getiturb().ge.-2) then
+          call prop%detprop(bc%corner(n)%dv(3),bc%corner(n)%dv(4),bc%corner(n)%dv(5),bc%corner(n)%pv(5) &
+                           ,bc%corner(n)%pv(6),bc%corner(n)%pv(7),bc%corner(n)%tv(1:2))
+          if(config%getiturb().ge.-1) then
+            bc%corner(n)%tv(3) = config%getemutref()
+            bc%corner(n)%pv(8) = config%getkref()
+            bc%corner(n)%pv(9) = config%getoref()
+          end if
+        end if
       end do
 
       isurf_corner = .false.; jsurf_corner = .false.; ksurf_corner = .false.
-      
+
       do m=1,8
-        do n=1,bc%nbc 
+        do n=1,bc%nbc
           if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%corner(m)%neighbor1(1)).and. &
@@ -982,22 +1019,24 @@ module bc_module
       
       do n=1,bc%nbc
         if(associated(bc%bcinfo(n)%bctype)) nullify(bc%bcinfo(n)%bctype)
+        deallocate(bc%bcinfo(n)%pv,bc%bcinfo(n)%dv,bc%bcinfo(n)%tv)
       end do
       
       do n=1,12
         if(associated(bc%edge(n)%bctype)) nullify(bc%edge(n)%bctype)
+        deallocate(bc%edge(n)%pv,bc%edge(n)%dv,bc%edge(n)%tv)
       end do
       
       do n=1,8
         if(associated(bc%corner(n)%bctype)) nullify(bc%corner(n)%bctype)
+        deallocate(bc%corner(n)%pv,bc%corner(n)%dv,bc%corner(n)%tv)
       end do
 
       do n=1,bc%ncon
         if(allocated(bc%mpitemp(n)%sendbuf)) deallocate(bc%mpitemp(n)%sendbuf)
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
       end do
-      
-      deallocate(bc%ref%pv,bc%ref%dv,bc%ref%tv)
+
       deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
       deallocate(bc%mpitemp)
     end subroutine destruct
@@ -1017,7 +1056,7 @@ module bc_module
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
       
       do n=1,bc%nbc
-        call bc%bcinfo(n)%bctype(bc%ref,grid,variable,eos,prop)
+        call bc%bcinfo(n)%bctype(grid,variable,eos,prop)
       end do
  
       do n=1,bc%ncon
@@ -1153,19 +1192,18 @@ module bc_module
       end do
       
       do n=1,12
-        call bc%edge(n)%bctype(bc%ref,grid,variable,eos,prop)
+        call bc%edge(n)%bctype(grid,variable,eos,prop)
       end do
 
       do n=1,8
-        call bc%corner(n)%bctype(bc%ref,grid,variable,eos,prop)
+        call bc%corner(n)%bctype(grid,variable,eos,prop)
       end do
       
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine edgewallwall(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1221,10 +1259,9 @@ module bc_module
       end do
     end subroutine edgewallwall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwallkw(bcinfo,ref,grid,variable,eos,prop)
+    subroutine edgewallwallkw(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1286,10 +1323,9 @@ module bc_module
       end do
     end subroutine edgewallwallkw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornerwallwall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine cornerwallwall(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1358,10 +1394,9 @@ module bc_module
       end do
     end subroutine cornerwallwall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornerwallwallkw(bcinfo,ref,grid,variable,eos,prop)
+    subroutine cornerwallwallkw(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1436,10 +1471,9 @@ module bc_module
       end do
     end subroutine cornerwallwallkw
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgenowall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine edgenowall(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1481,7 +1515,7 @@ module bc_module
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv) 
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1495,10 +1529,9 @@ module bc_module
 
     end subroutine edgenowall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornernowall(bcinfo,ref,grid,variable,eos,prop)
+    subroutine cornernowall(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1549,7 +1582,7 @@ module bc_module
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv) 
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1563,10 +1596,9 @@ module bc_module
 
     end subroutine cornernowall
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallinviscid(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcwallinviscid(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1650,10 +1682,9 @@ module bc_module
       
     end subroutine bcwallinviscid
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscous(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcwallviscous(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1690,10 +1721,9 @@ module bc_module
    
     end subroutine bcwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscouske(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcwallviscouske(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1735,10 +1765,9 @@ module bc_module
 
     end subroutine bcwallviscouske
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscouskw(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcwallviscouskw(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1813,10 +1842,9 @@ module bc_module
       end do     
     end subroutine bcwallviscouskw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflow(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcinflow(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1833,10 +1861,9 @@ module bc_module
      
     end subroutine bcinflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflowsubsonic(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcinflowsubsonic(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1852,13 +1879,13 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1872,10 +1899,9 @@ module bc_module
      
     end subroutine bcinflowsubsonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflowsupersonic(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcinflowsupersonic(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1892,13 +1918,13 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             pv(1) = -pv(1)
-            pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1912,10 +1938,9 @@ module bc_module
      
     end subroutine bcinflowsupersonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflow(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcoutflow(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1932,10 +1957,9 @@ module bc_module
       
     end subroutine bcoutflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflowsubsonic(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcoutflowsubsonic(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -1955,7 +1979,7 @@ module bc_module
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -1969,10 +1993,9 @@ module bc_module
      
     end subroutine bcoutflowsubsonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflowsupersonic(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcoutflowsupersonic(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -2003,10 +2026,9 @@ module bc_module
       end do
     end subroutine bcoutflowsupersonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcfarfield(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcfarfield(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -2078,11 +2100,11 @@ module bc_module
             else ! in
               if(mach.le.-1.d0) then !super
                 pv(1) = -pv(1)
-                pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                pv(2:variable%getnpv()) = 2.d0*ref%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               end if
@@ -2090,7 +2112,7 @@ module bc_module
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+ref%pv(1),pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -2104,10 +2126,9 @@ module bc_module
     
     end subroutine bcfarfield
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcdegeneratepoint(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcdegeneratepoint(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -2139,10 +2160,9 @@ module bc_module
     
     end subroutine bcdegeneratepoint
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcsymmetryplane(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcsymmetryplane(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
@@ -2225,17 +2245,15 @@ module bc_module
       end do
     end subroutine bcsymmetryplane
      !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcshiftedperiodic(bcinfo,ref,grid,variable,eos,prop)
+    subroutine bcshiftedperiodic(bcinfo,grid,variable,eos,prop)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
-      type(t_ref), intent(in) :: ref
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: nx(3),var
  
       ! h=1/16
       select case(bcinfo%face)
