@@ -16,8 +16,8 @@ CGNS_INC    =   /usr/local/include
 CGNS_LIB    =   /usr/local/lib
 HDF_LIB     =   /opt/local/lib
 else ifeq ($(os),tachyon2)
-CGNS_INC    =   /applic/wa/cgnslib_3.2.1/intel-2015/lib
-CGNS_LIB    =   /applic/wa/cgnslib_3.2.1/intel-2015/include
+CGNS_INC    =   /applic/wa/cgnslib_3.2.1/intel-2015/include
+CGNS_LIB    =   /applic/wa/cgnslib_3.2.1/intel-2015/lib
 HDF_LIB     =   /applic/compilers/intel/2015/applib1/HDF5/1.8.13/lib
 else
 CGNS_INC    =   /usr/local/include
