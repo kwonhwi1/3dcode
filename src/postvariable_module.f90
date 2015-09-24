@@ -9,13 +9,13 @@ module postvariable_module
   private
   public :: t_variable
   
-  type, extends(t_zone) :: t_zone2
+  type t_zone
     real(8), dimension(:,:,:,:), allocatable :: pv,tv,dv
-  end type t_zone2
+  end type t_zone
   
   type t_solution
     integer :: size,nps,nts
-    type(t_zone2), dimension(:), allocatable :: zone
+    type(t_zone), dimension(:), allocatable :: zone
   end type t_solution
   
   type t_variable

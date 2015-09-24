@@ -4,7 +4,7 @@ module postgrid_module
 #include <cgnslib_f.h>
 #include <cgnstypes_f.h>
   private
-  public :: t_grid,t_zone
+  public :: t_grid
 
   type t_bcinfo
     integer :: istart(3),iend(3)
