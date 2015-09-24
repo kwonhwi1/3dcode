@@ -81,7 +81,7 @@ module variable_module
       else
         variable%disp = 0
         do i=0,variable%rank-1
-          variable%disp = variable%disp + variable%intsize*3 &
+          variable%disp = variable%disp + variable%intsize*2 &
                         + variable%realsize*variable%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                         + variable%realsize*variable%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                         + variable%realsize*variable%nqq*variable%npv*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
@@ -125,28 +125,20 @@ module variable_module
       call mpi_file_write_all(io,nt,1,mpi_integer,mpi_status_ignore,ier)
       disp = disp + variable%intsize
 
-      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-      call mpi_file_write_all(io,variable%nqq,1,mpi_integer,mpi_status_ignore,ier)
-      disp = disp + variable%intsize
-
-
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%npv*(variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)
       call mpi_file_write_all(io,variable%pv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + variable%realsize*num
 
-      if(variable%ntv.ne.0) then
-        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-        num = variable%ntv*(variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)
-        call mpi_file_write_all(io,variable%tv,num,mpi_real8,mpi_status_ignore,ier)
-        disp = disp + variable%realsize*num
-      end if
 
-      if(variable%nqq.ne.0) then
-        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-        num = variable%nqq*variable%npv*(variable%imax-1)*(variable%jmax-1)*(variable%kmax-1)
-        call mpi_file_write_all(io,variable%qq,num,mpi_real8,mpi_status_ignore,ier)
-      end if
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%ntv*(variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)
+      call mpi_file_write_all(io,variable%tv,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + variable%realsize*num
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%nqq*variable%npv*(variable%imax-1)*(variable%jmax-1)*(variable%kmax-1)
+      call mpi_file_write_all(io,variable%qq,num,mpi_real8,mpi_status_ignore,ier)
 
       call mpi_file_close(io,ier)
 

@@ -20,7 +20,7 @@ module postvariable_module
   
   type t_variable
     private
-    integer :: npv,ntv,ndv,nsolution
+    integer :: npv,ntv,ndv,nqq,nsolution
     type(t_solution), dimension(:), allocatable :: solution
     contains
       procedure :: construct
@@ -49,7 +49,7 @@ module postvariable_module
       type(t_eos), intent(in) :: eos
       integer, intent(in) :: istart,iend,nsolution
       character(7) :: iter_tag
-      integer :: i,j,k,m,l,io,nqq,iter,num,ier
+      integer :: i,j,k,m,l,io,iter,num,ier
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
 
@@ -68,9 +68,14 @@ module postvariable_module
         variable%ntv = 3      
       end select
       variable%ndv = 18
-
+      select case(config%getnsteady())
+      case(0)
+        variable%nqq = 0
+      case(1)
+        variable%nqq = 2
+      end select
       variable%nsolution = nsolution
-      
+
       if(variable%nsolution.eq.1) then
         if(iend.eq.istart) then
           iter = 0
@@ -109,23 +114,18 @@ module postvariable_module
         call mpi_file_read_all(io,variable%solution(l)%nts,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
 
-        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-        call mpi_file_read_all(io,nqq,1,mpi_integer,mpi_status_ignore,ier)
-        disp = disp + intsize
-
         do m=1,grid%getnzone()
           call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
           num = variable%npv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
           call mpi_file_read_all(io,variable%solution(l)%zone(m)%pv,num,mpi_real8,mpi_status_ignore,ier)
           disp = disp + realsize*num
-          if(variable%ntv.ne.0) then
-            call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-            num = variable%ntv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
-            call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
-            disp = disp + realsize*num
-          end if
-          num = nqq*variable%npv*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
-          disp = disp + realsize*num + 3*intsize
+
+          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+          num = variable%ntv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
+          call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
+          disp = disp + realsize*num
+          num = variable%nqq*variable%npv*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
+          disp = disp + realsize*num + 2*intsize
         end do
 
         call mpi_file_close(io,ier)
