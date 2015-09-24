@@ -7,7 +7,6 @@ module turbsource_module
   public :: t_turbsource,t_kepsilon,t_kwsst,t_turb_result
   
   type t_turb_result
-    private
     real(8) :: source(2),itt(4),omega_cut
   end type
   
