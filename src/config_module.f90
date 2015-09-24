@@ -8,7 +8,6 @@ module config_module
   
   type t_config
     private
-    logical :: status
     character(30) :: name
     integer :: rank,size,stencil
     integer :: iread,rstnum
@@ -135,8 +134,7 @@ module config_module
         config%oref = 0.d0
         config%emutref =  0.d0    
       end if
-      
-      config%status = .true.
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(config,eos,prop)
@@ -145,8 +143,7 @@ module config_module
       type(t_eos), intent(inout) :: eos
       type(t_prop), intent(inout) :: prop
       integer :: ierr
-      
-      config%status = .false.      
+          
       call eos%destruct()
       call prop%destruct()
       

@@ -7,16 +7,19 @@ module postgrid_module
   public :: t_grid,t_bcinfo,t_connectinfo,t_zone
 
   type t_bcinfo
+    private
     integer :: istart(3),iend(3)
     character(32) :: bcname
   end type t_bcinfo
   
   type t_connectinfo
+    private
     integer :: donor,transmat(3,3)
     integer :: istart(3),iend(3),istart_donor(3),iend_donor(3)
   end type t_connectinfo
 
   type t_zone
+    private
     integer :: imax,jmax,kmax,nbc,ncon
     character(32) :: zonename
     type(t_bcinfo), dimension(:), allocatable :: bcinfo

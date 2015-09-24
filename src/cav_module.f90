@@ -8,7 +8,8 @@ module cav_module
   public :: t_cav,t_merkle,t_kunz,t_singhal,t_cav_result
   
   type t_cav_result
-     real(8) :: cavsource,icav(4)
+    private
+    real(8) :: cavsource,icav(4)
   end type
   
   type, abstract :: t_cav

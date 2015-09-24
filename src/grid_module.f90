@@ -8,16 +8,19 @@ module grid_module
   public :: t_grid,t_bcinfo,t_connectinfo,t_mpitemp
 
   type t_bcinfo
+    private
     integer :: istart(3),iend(3)
     character(32) :: bcname
   end type t_bcinfo
   
   type t_connectinfo
+    private
     integer :: donor,transmat(3,3)
     integer :: istart(3),iend(3),istart_donor(3),iend_donor(3)
   end type t_connectinfo
   
   type t_mpitemp
+    private
     integer :: num
     integer :: sendadress(21),recvadress(21)
     real(8), dimension(:), allocatable :: sendbuf,recvbuf

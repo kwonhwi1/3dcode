@@ -14,6 +14,7 @@ module bc_module
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     character(4) :: face
+    real(8) :: massflowrate,total_pressure,total_temperature
     real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -176,7 +177,7 @@ module bc_module
           bc%bcinfo(n)%bctype => bcdegeneratepoint
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
           bc%bcinfo(n)%bctype => bcsymmetryplane
-        else if(trim(bc%bcinfo(n)%bcname).eq.'UserDefined') then
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCShiftedPeriodic') then
           bc%bcinfo(n)%bctype => bcshiftedperiodic
         else
           bc%bcinfo(n)%bctype => null()
