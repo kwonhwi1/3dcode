@@ -152,14 +152,18 @@ module initial_module
       call mpi_file_read_all(io,pv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + ini%realsize*num
 
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = variable%getntv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
-      call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
-      disp = disp + ini%realsize*num
+      if(variable%getntv().ne.0) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = variable%getntv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+        call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + ini%realsize*num
+      end if
 
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = nqq*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
-      call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
+      if(nqq.ne.0) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = nqq*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+        call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
+      end if
 
       call mpi_file_close(io,ier)
 

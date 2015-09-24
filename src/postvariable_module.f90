@@ -118,11 +118,12 @@ module postvariable_module
           num = variable%npv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
           call mpi_file_read_all(io,variable%solution(l)%zone(m)%pv,num,mpi_real8,mpi_status_ignore,ier)
           disp = disp + realsize*num
-
-          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-          num = variable%ntv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
-          call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
-          disp = disp + realsize*num
+          if(variable%ntv.ne.0) then
+            call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+            num = variable%ntv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
+            call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
+            disp = disp + realsize*num
+          end if
           num = nqq*variable%npv*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
           disp = disp + realsize*num + 3*intsize
         end do
