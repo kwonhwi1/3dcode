@@ -144,8 +144,8 @@ module initial_module
       allocate(pv(variable%getnpv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(tv(variable%getntv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(qq(variable%getnpv(),nqq,2:ini%imax,2:ini%jmax,2:ini%kmax))
-      allocate(dv(variable%getndv())
-      allocate(qq_temp(variable%getnpv())
+      allocate(dv(variable%getndv()))
+      allocate(qq_temp(variable%getnpv()))
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%getnpv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
