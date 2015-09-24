@@ -458,25 +458,25 @@ module bc_module
       
       do m=1,12
         bc%edge(m)%dir = 0
-        allocate(bc%edge(n)%pv(bc%npv),bc%edge(n)%dv(bc%ndv),bc%edge(n)%tv(bc%ntv))
+        allocate(bc%edge(m)%pv(bc%npv),bc%edge(m)%dv(bc%ndv),bc%edge(m)%tv(bc%ntv))
 
-        bc%edge(n)%pv(1) = config%getpref()
-        bc%edge(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-        bc%edge(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-        bc%edge(n)%pv(4) = config%geturef()*dsin(config%getaos())
-        bc%edge(n)%pv(5) = config%gettref()
-        bc%edge(n)%pv(6) = config%gety1ref()
-        bc%edge(n)%pv(7) = config%gety2ref()
+        bc%edge(m)%pv(1) = config%getpref()
+        bc%edge(m)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%edge(m)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%edge(m)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%edge(m)%pv(5) = config%gettref()
+        bc%edge(m)%pv(6) = config%gety1ref()
+        bc%edge(m)%pv(7) = config%gety2ref()
 
-        call eos%deteos(bc%edge(n)%pv(1),bc%edge(n)%pv(5),bc%edge(n)%pv(6),bc%edge(n)%pv(7),bc%edge(n)%dv)
+        call eos%deteos(bc%edge(m)%pv(1),bc%edge(m)%pv(5),bc%edge(m)%pv(6),bc%edge(m)%pv(7),bc%edge(m)%dv)
 
         if(config%getiturb().ge.-2) then
-          call prop%detprop(bc%edge(n)%dv(3),bc%edge(n)%dv(4),bc%edge(n)%dv(5),bc%edge(n)%pv(5) &
-                           ,bc%edge(n)%pv(6),bc%edge(n)%pv(7),bc%edge(n)%tv(1:2))
+          call prop%detprop(bc%edge(m)%dv(3),bc%edge(m)%dv(4),bc%edge(m)%dv(5),bc%edge(m)%pv(5) &
+                           ,bc%edge(m)%pv(6),bc%edge(m)%pv(7),bc%edge(m)%tv(1:2))
           if(config%getiturb().ge.-1) then
-            bc%edge(n)%tv(3) = config%getemutref()
-            bc%edge(n)%pv(8) = config%getkref()
-            bc%edge(n)%pv(9) = config%getoref()
+            bc%edge(m)%tv(3) = config%getemutref()
+            bc%edge(m)%pv(8) = config%getkref()
+            bc%edge(m)%pv(9) = config%getoref()
           end if
         end if
       end do
@@ -825,8 +825,8 @@ module bc_module
       bc%corner(8)%neighbor6(2) = grid%getjmax()+1   
       bc%corner(8)%neighbor6(3) = grid%getkmax()
       
-      do m=1,8
-        bc%corner(m)%dir = 0
+      do n=1,8
+        bc%corner(n)%dir = 0
         allocate(bc%corner(n)%pv(bc%npv),bc%corner(n)%dv(bc%ndv),bc%corner(n)%tv(bc%ntv))
 
         bc%corner(n)%pv(1) = config%getpref()
