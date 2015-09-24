@@ -114,7 +114,7 @@ module initial_module
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n,io,ier,num,nqq
       integer(kind=mpi_offset_kind) :: disp
-      real(8) :: dv(variable%getndv()),qq_temp(variable%getnpv())
+      real(8), dimension(:), allocatable :: dv,qq_temp
       real(8), dimension(:,:,:,:), allocatable :: pv,tv
       real(8), dimension(:,:,:,:,:), allocatable :: qq
       character(7) :: iter_tag
@@ -144,6 +144,8 @@ module initial_module
       allocate(pv(variable%getnpv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(tv(variable%getntv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(qq(variable%getnpv(),nqq,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(dv(variable%getndv())
+      allocate(qq_temp(variable%getnpv())
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%getnpv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
@@ -200,9 +202,11 @@ module initial_module
         end do
       end do
 
-      if(allocated(pv))  deallocate(pv)
-      if(allocated(tv))  deallocate(tv)
-      if(allocated(qq))  deallocate(qq)
+      if(allocated(pv))      deallocate(pv)
+      if(allocated(tv))      deallocate(tv)
+      if(allocated(qq))      deallocate(qq)
+      if(allocated(dv))      deallocate(dv)
+      if(allocated(qq_temp)) deallocate(qq_temp)
 
       nts = nts + 1
       nps = nps + 1
