@@ -1871,16 +1871,62 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv_s(variable%getnpv()),nx(3),var,dl
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = - grid%getcx(ii-1,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getcx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = - grid%getex(ii,jj-1,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getex(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+              nx = - grid%gettx(ii,jj,kk-1)
+              pv_s = variable%getpv(ii,jj,kk)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+              nx = grid%gettx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+            end select
+            dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            var = pv_s(1) - bcinfo%dv(1)*dsqrt(bcinfo%dv(6))*(nx(1)*(bcinfo%pv(2)-pv_s(2)) &
+                          + nx(2)*(bcinfo%pv(3)-pv_s(3))+ nx(3)*(bcinfo%pv(4)-pv_s(4)))*dl
+            pv(1) = var - pv(1)
+            pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(2)
+            pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(3)
+            pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(4)
+            pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
             do m=1,variable%getnpv()
@@ -1967,16 +2013,64 @@ module bc_module
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-    
+      real(8) :: pv_s(variable%getnpv()),nx(3),dl
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = - grid%getcx(ii-1,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getcx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = - grid%getex(ii,jj-1,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getex(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+              nx = - grid%gettx(ii,jj,kk-1)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+              nx = grid%gettx(ii,jj,kk)
+              pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
+            end select
+            dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             pv(1) = -pv(1)
+            pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(2)
+            pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(3)
+            pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(4)
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
@@ -2035,7 +2129,7 @@ module bc_module
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: nx(3),vel,mach
+      real(8) :: nx(3),vel,mach,dl,var
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: pv_b(variable%getnpv()),dv_b(variable%getndv())
 
@@ -2086,6 +2180,7 @@ module bc_module
               pv_b = variable%getpv(ii,jj,kk)
               dv_b = variable%getdv(ii,jj,kk)
             end select
+            dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
@@ -2097,6 +2192,9 @@ module bc_module
               if(mach.ge.1.d0) then !super                
               else !sub
                 pv(1) = -pv(1)
+                pv(2) = 2.d0*( pv_b(2)+nx(1)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(2)
+                pv(3) = 2.d0*( pv_b(3)+nx(2)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(3)
+                pv(4) = 2.d0*( pv_b(4)+nx(3)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(4)
               end if
             else ! in
               if(mach.le.-1.d0) then !super
@@ -2105,7 +2203,13 @@ module bc_module
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                var = pv_b(1) - bcinfo%dv(1)*dsqrt(bcinfo%dv(6))*(nx(1)*(bcinfo%pv(2)-pv_b(2)) &
+                              + nx(2)*(bcinfo%pv(3)-pv_b(3))+ nx(3)*(bcinfo%pv(4)-pv_b(4)))*dl
+                pv(1) = var - pv(1)
+                pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(2)
+                pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(3)
+                pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(4)
+                pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               end if

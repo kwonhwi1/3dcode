@@ -317,7 +317,7 @@ module flux_module
                        ,sdst(4)/sdst(10),sdst(10)/sdst(4),sdst(10)/sdst(16),sdst(16)/sdst(10) )
       
       if(uuu .ne. 0.d0) then
-        ff = (dabs(uuu)/dsqrt(rdv(6)))**ff
+        ff = (dabs(uup)/ddd_cut)**ff
       else
         ff = 1.d0
       end if
@@ -327,7 +327,7 @@ module flux_module
       gg = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)
       
       if(uuu .ne. 0.d0) then
-        gg = (dabs(uuu)/dsqrt(rdv(6)))**gg
+        gg = (dabs(uup)/ddd_cut)**gg
       else
         gg = 1.d0
       end if

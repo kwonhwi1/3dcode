@@ -55,6 +55,7 @@ LFLAGS = -L $(LIB_DIR) -L $(CGNS_LIB) -lcgns -L $(HDF_LIB) -lhdf5 -lstdc++
 
 # defin needed for preprocessor
 DFLAGS = -D $(def)
+DFLAGS_R = -D $(defr)
 
 # whar archiving to use
 AR = xiar rcs
@@ -93,7 +94,7 @@ OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
 .PHONY: all clean distclean
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.f90
-	$(FC) -c $< -o $@ $(FFLAGS) $(IFLAGS) $(DFLAGS)
+	$(FC) -c $< -o $@ $(FFLAGS) $(IFLAGS) $(DFLAGS) $(DFLAGS_R)
 
 all: main post
 

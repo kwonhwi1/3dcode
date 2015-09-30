@@ -147,10 +147,13 @@ module initial_module
       call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize*num
 
+#ifdef steadyini
+
+#else
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%getnqq()*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
       call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
-
+#endif
       call mpi_file_close(io,ier)
 
       do k=2,ini%kmax
@@ -170,24 +173,24 @@ module initial_module
               call variable%setdv(n,i,j,k,dv(n))
             end do
         
-!            if(nqq.ne.variable%getnqq()) then
-!              qq_temp(1) = dv(1)
-!              qq_temp(2) = dv(1)*pv(2,i,j,k)
-!              qq_temp(3) = dv(1)*pv(3,i,j,k)
-!              qq_temp(4) = dv(1)*pv(4,i,j,k)
-!              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)
-!              do n=6,variable%getnpv()
-!                qq_temp(n) = dv(1)*pv(n,i,j,k)
-!              end do
-!
-!              call variable%setqq(1,i,j,k,qq_temp)
-!              call variable%setqq(2,i,j,k,qq_temp)
-!            else
+#ifdef steadyini
+              qq_temp(1) = dv(1)
+              qq_temp(2) = dv(1)*pv(2,i,j,k)
+              qq_temp(3) = dv(1)*pv(3,i,j,k)
+              qq_temp(4) = dv(1)*pv(4,i,j,k)
+              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)
+              do n=6,variable%getnpv()
+                qq_temp(n) = dv(1)*pv(n,i,j,k)
+              end do
+
+              call variable%setqq(1,i,j,k,qq_temp)
+              call variable%setqq(2,i,j,k,qq_temp)
+#else
             do n=1,variable%getnqq()
               qq_temp = qq(:,n,i,j,k)
               call variable%setqq(n,i,j,k,qq_temp)
             end do
-!            end if
+#endif
           end do
         end do
       end do
@@ -205,13 +208,9 @@ module initial_module
         nps = 1
       end if
 
-!      if(nqq.eq.0) then
-!        nps = 1
-!      else
-!        if(ini%nsteady.eq.0) then
-!          write(*,*) 'invalid restart option : unsteady -> steady'
-!        end if
-!      end if
+#ifdef steadyini
+      nps = 1
+#endif
       
     end subroutine restart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
