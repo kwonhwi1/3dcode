@@ -110,7 +110,18 @@ module initial_module
       else
         write(iter_tag,'(i7.7)') ini%rstnum
       end if
-
+#ifdef steadyini
+      if(ini%rank.eq.0) then
+        disp = 0
+      else
+        disp = 0
+        do i=0,ini%rank-1
+          disp = disp + intsize*2 &
+               + realsize*variable%getnpv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
+               + realsize*variable%getntv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+        end do
+      end if
+#else
       if(ini%rank.eq.0) then
         disp = 0
       else
@@ -122,7 +133,7 @@ module initial_module
                + realsize*variable%getnqq()*variable%getnpv()*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
         end do
       end if
-
+#endif
       call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
 
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
