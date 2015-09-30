@@ -178,7 +178,7 @@ module initial_module
               qq_temp(2) = dv(1)*pv(2,i,j,k)
               qq_temp(3) = dv(1)*pv(3,i,j,k)
               qq_temp(4) = dv(1)*pv(4,i,j,k)
-              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)
+              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)-ini%pref
               do n=6,variable%getnpv()
                 qq_temp(n) = dv(1)*pv(n,i,j,k)
               end do
