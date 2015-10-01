@@ -86,6 +86,7 @@ module initial_module
       ini%l_ini = .false.
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+#ifdef steadyini
     subroutine restart(ini,grid,variable,eos,prop,nps,nts)
       implicit none
       class(t_ini_restart), intent(inout) :: ini
@@ -110,7 +111,7 @@ module initial_module
       else
         write(iter_tag,'(i7.7)') ini%rstnum
       end if
-#ifdef steadyini
+
       if(ini%rank.eq.0) then
         disp = 0
       else
@@ -121,19 +122,7 @@ module initial_module
                + realsize*variable%getntv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
         end do
       end if
-#else
-      if(ini%rank.eq.0) then
-        disp = 0
-      else
-        disp = 0
-        do i=0,ini%rank-1
-          disp = disp + intsize*2 &
-               + realsize*variable%getnpv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
-               + realsize*variable%getntv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
-               + realsize*variable%getnqq()*variable%getnpv()*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
-        end do
-      end if
-#endif
+
       call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
 
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
@@ -158,13 +147,6 @@ module initial_module
       call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize*num
 
-#ifdef steadyini
-
-#else
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = variable%getnqq()*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
-      call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
-#endif
       call mpi_file_close(io,ier)
 
       do k=2,ini%kmax
@@ -183,25 +165,19 @@ module initial_module
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
             end do
-        
-#ifdef steadyini
-              qq_temp(1) = dv(1)
-              qq_temp(2) = dv(1)*pv(2,i,j,k)
-              qq_temp(3) = dv(1)*pv(3,i,j,k)
-              qq_temp(4) = dv(1)*pv(4,i,j,k)
-              qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)-ini%pref
-              do n=6,variable%getnpv()
-                qq_temp(n) = dv(1)*pv(n,i,j,k)
-              end do
 
-              call variable%setqq(1,i,j,k,qq_temp)
-              call variable%setqq(2,i,j,k,qq_temp)
-#else
-            do n=1,variable%getnqq()
-              qq_temp = qq(:,n,i,j,k)
-              call variable%setqq(n,i,j,k,qq_temp)
+            qq_temp(1) = dv(1)
+            qq_temp(2) = dv(1)*pv(2,i,j,k)
+            qq_temp(3) = dv(1)*pv(3,i,j,k)
+            qq_temp(4) = dv(1)*pv(4,i,j,k)
+            qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)-ini%pref
+            do n=6,variable%getnpv()
+              qq_temp(n) = dv(1)*pv(n,i,j,k)
             end do
-#endif
+
+            call variable%setqq(1,i,j,k,qq_temp)
+            call variable%setqq(2,i,j,k,qq_temp)
+
           end do
         end do
       end do
@@ -219,11 +195,118 @@ module initial_module
         nps = 1
       end if
 
-#ifdef steadyini
       nps = 1
-#endif
+
+    end subroutine restart
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+#else
+    subroutine restart(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      class(t_ini_restart), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,n,io,ier,num
+      integer :: intsize,realsize
+      integer(kind=mpi_offset_kind) :: disp
+      real(8) :: dv(variable%getndv()),qq_temp(variable%getnpv())
+      real(8), dimension(:,:,:,:), allocatable :: pv,tv
+      real(8), dimension(:,:,:,:,:), allocatable :: qq
+      character(7) :: iter_tag
+
+      call mpi_type_size(mpi_integer,intsize,ier)
+      call mpi_type_size(mpi_real8,realsize,ier)
+
+      if(ini%nsteady.eq.1) then
+        write(iter_tag,'(i4.4)') ini%rstnum
+      else
+        write(iter_tag,'(i7.7)') ini%rstnum
+      end if
+
+      if(ini%rank.eq.0) then
+        disp = 0
+      else
+        disp = 0
+        do i=0,ini%rank-1
+          disp = disp + intsize*2 &
+               + realsize*variable%getnpv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
+               + realsize*variable%getntv()*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
+               + realsize*variable%getnqq()*variable%getnpv()*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+        end do
+      end if
+
+      call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,nps,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + intsize
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,nts,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + intsize
+
+      allocate(pv(variable%getnpv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(tv(variable%getntv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(qq(variable%getnpv(),variable%getnqq(),2:ini%imax,2:ini%jmax,2:ini%kmax))
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%getnpv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+      call mpi_file_read_all(io,pv,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize*num
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%getntv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+      call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize*num
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      num = variable%getnqq()*variable%getnpv()*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+      call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
+
+      call mpi_file_close(io,ier)
+
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            do n=1,variable%getnpv()
+              call variable%setpv(n,i,j,k,pv(n,i,j,k))
+            end do
+        
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n,i,j,k))
+            end do      
+            
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
+
+            do n=1,variable%getnqq()
+              qq_temp = qq(:,n,i,j,k)
+              call variable%setqq(n,i,j,k,qq_temp)
+            end do
+          end do
+        end do
+      end do
+
+      if(allocated(pv)) deallocate(pv)
+      if(allocated(tv)) deallocate(tv)
+      if(allocated(qq)) deallocate(qq)
+
+      nts = nts + 1
+      nps = nps + 1
+      
+      if(ini%nsteady.eq.1) then
+        nts = 1
+      else
+        nps = 1
+      end if
       
     end subroutine restart
+#endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
 

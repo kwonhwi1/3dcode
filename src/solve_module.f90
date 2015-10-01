@@ -142,10 +142,10 @@ module solve_module
           call variable%export_variable(nt_phy,nt-1)
         end if
         if(solve%l_nsteady) then
+          call solve%unsteadyupdate(variable)
           if(mod(nt_phy,solve%nexport).eq.0) then
             call variable%export_variable(nt_phy,nt-1)
           end if
-          call solve%unsteadyupdate(variable)
         end if
       end do
       
