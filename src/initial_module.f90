@@ -164,7 +164,14 @@ module initial_module
               call variable%setdv(n,i,j,k,dv(n))
             end do
 
-            qq_temp = 0.d0
+            qq_temp(1) = dv(1)
+            qq_temp(2) = dv(1)*pv(2,i,j,k)
+            qq_temp(3) = dv(1)*pv(3,i,j,k)
+            qq_temp(4) = dv(1)*pv(4,i,j,k)
+            qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)-ini%pref
+            do n=6,variable%getnpv()
+              qq_temp(n) = dv(1)*pv(n,i,j,k)
+            end do
 
             call variable%setqq(1,i,j,k,qq_temp)
             call variable%setqq(2,i,j,k,qq_temp)
@@ -352,7 +359,15 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq = 0.d0
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
+
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
@@ -421,7 +436,15 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq = 0.d0
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
+
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
@@ -478,7 +501,15 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq = 0.d0
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
+              
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
