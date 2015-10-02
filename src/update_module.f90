@@ -497,7 +497,7 @@ module update_module
             end do
             
             pv = pv + dpv
-            pv(1) = dmax1(-update%pref+1.d-10,pv(1))
+            pv(1) = dmax1(-update%pref+1.d1,pv(1))
             pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
             pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
             if(update%l_turb) then
@@ -613,7 +613,7 @@ module update_module
             
               pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*dpv
           
-              pv(1) = dmax1(-update%pref+1.d-10,pv(1))
+              pv(1) = dmax1(-update%pref+1.d1,pv(1))
               pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
               pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
               if(update%l_turb) then
@@ -869,7 +869,7 @@ module update_module
           do i=2,update%imax
             pv = variable%getpv(i,j,k) + update%dqs(:,i,j,k)
             
-            pv(1) = dmax1(-update%pref+1.d-10,pv(1))
+            pv(1) = dmax1(-update%pref+1.d1,pv(1))
             pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
             pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
             if(update%l_turb) then

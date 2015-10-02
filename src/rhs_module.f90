@@ -264,8 +264,8 @@ module rhs_module
                 if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
                 if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
               end if
-              pvl(1) = dmax1(-rhs%pref+1.d-10,pvl(1))
-              pvr(1) = dmax1(-rhs%pref+1.d-10,pvr(1))
+              pvl(1) = dmax1(-rhs%pref+1.d1,pvl(1))
+              pvr(1) = dmax1(-rhs%pref+1.d1,pvr(1))
               call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
@@ -357,8 +357,8 @@ module rhs_module
                 if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
                 if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
               end if
-              pvl(1) = dmax1(-rhs%pref+1.d-10,pvl(1))
-              pvr(1) = dmax1(-rhs%pref+1.d-10,pvr(1))
+              pvl(1) = dmax1(-rhs%pref+1.d1,pvl(1))
+              pvr(1) = dmax1(-rhs%pref+1.d1,pvr(1))
               call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
@@ -450,8 +450,8 @@ module rhs_module
                 if((pvl(9).lt.0.d0).and.(x(9,9).gt.0.d0))  pvl(9) = x(9,9)
                 if((pvr(9).lt.0.d0).and.(x(10,9).gt.0.d0)) pvr(9) = x(10,9)
               end if
-              pvl(1) = dmax1(-rhs%pref+1.d-10,pvl(1))
-              pvr(1) = dmax1(-rhs%pref+1.d-10,pvr(1))              
+              pvl(1) = dmax1(-rhs%pref+1.d1,pvl(1))
+              pvr(1) = dmax1(-rhs%pref+1.d1,pvr(1))
               call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
