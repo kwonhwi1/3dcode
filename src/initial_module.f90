@@ -100,7 +100,6 @@ module initial_module
       integer(kind=mpi_offset_kind) :: disp
       real(8) :: dv(variable%getndv()),qq_temp(variable%getnpv())
       real(8), dimension(:,:,:,:), allocatable :: pv,tv
-      real(8), dimension(:,:,:,:,:), allocatable :: qq
       character(7) :: iter_tag
 
       call mpi_type_size(mpi_integer,intsize,ier)
@@ -135,7 +134,6 @@ module initial_module
 
       allocate(pv(variable%getnpv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(tv(variable%getntv(),-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
-      allocate(qq(variable%getnpv(),variable%getnqq(),2:ini%imax,2:ini%jmax,2:ini%kmax))
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%getnpv()*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
@@ -166,14 +164,7 @@ module initial_module
               call variable%setdv(n,i,j,k,dv(n))
             end do
 
-            qq_temp(1) = dv(1)
-            qq_temp(2) = dv(1)*pv(2,i,j,k)
-            qq_temp(3) = dv(1)*pv(3,i,j,k)
-            qq_temp(4) = dv(1)*pv(4,i,j,k)
-            qq_temp(5) = dv(1)*(dv(2)+0.5d0*(pv(2,i,j,k)**2+pv(3,i,j,k)**2+pv(4,i,j,k)**2))-pv(1,i,j,k)-ini%pref
-            do n=6,variable%getnpv()
-              qq_temp(n) = dv(1)*pv(n,i,j,k)
-            end do
+            qq_temp = 0.d0
 
             call variable%setqq(1,i,j,k,qq_temp)
             call variable%setqq(2,i,j,k,qq_temp)
@@ -184,18 +175,10 @@ module initial_module
 
       if(allocated(pv)) deallocate(pv)
       if(allocated(tv)) deallocate(tv)
-      if(allocated(qq)) deallocate(qq)
 
-      nts = nts + 1
-      nps = nps + 1
-      
-      if(ini%nsteady.eq.1) then
-        nts = 1
-      else
-        nps = 1
-      end if
-
+      nts = 1
       nps = 1
+
 
     end subroutine restart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -369,15 +352,7 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq(1) = dv(1)
-              qq(2) = dv(1)*pv(2)
-              qq(3) = dv(1)*pv(3)
-              qq(4) = dv(1)*pv(4)
-              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
-              do n=6,variable%getnpv()
-                qq(n) = dv(1)*pv(n)
-              end do
-              
+              qq = 0.d0
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
@@ -446,15 +421,7 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq(1) = dv(1)
-              qq(2) = dv(1)*pv(2)
-              qq(3) = dv(1)*pv(3)
-              qq(4) = dv(1)*pv(4)
-              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
-              do n=6,variable%getnpv()
-                qq(n) = dv(1)*pv(n)
-              end do
-              
+              qq = 0.d0
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
@@ -511,15 +478,7 @@ module initial_module
             end do
             
             if(ini%nsteady.eq.1) then
-              qq(1) = dv(1)
-              qq(2) = dv(1)*pv(2)
-              qq(3) = dv(1)*pv(3)
-              qq(4) = dv(1)*pv(4)
-              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
-              do n=6,variable%getnpv()
-                qq(n) = dv(1)*pv(n)
-              end do
-              
+              qq = 0.d0
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
