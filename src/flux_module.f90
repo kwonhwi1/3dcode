@@ -228,7 +228,7 @@ module flux_module
       real(8) :: ravg(flux%npv),ravg_ht,ravg_d
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
-      real(8) :: aaa,add,b1,b2,rrr,ff,gg,sdst(18),b1b2,pp_l,pp_r  
+      real(8) :: aaa,add,b1,b2,rrr,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
       
@@ -335,10 +335,10 @@ module flux_module
       add = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
       aaa = (c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)
       
-      if((m_star*uup-c_star).eq.0.d0) then
+      if((m_star*uup-c_star_cut).eq.0.d0) then
         rrr = 0.d0
       else
-        rrr = -1.d0/(m_star*uup-c_star)
+        rrr = -1.d0/(m_star*uup-c_star_cut)
       end if
       
       bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
@@ -349,9 +349,8 @@ module flux_module
       do k=6,flux%npv
         bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
       end do
-      b1b2 = b1*b2 + ddd_cut**2 - ddd*ddd_cut
       do k=1,flux%npv
-        fx(k) = (b1*fl(k)-b2*fr(k)+b1b2*dq(k)-gg*b1b2*rrr*bdq(k))/(b1-b2)*dl
+        fx(k) = (b1*fl(k)-b2*fr(k)+b1*b2*dq(k)-gg*b1*b2*rrr*bdq(k))/(b1-b2)*dl
       end do
     
     end subroutine roem
