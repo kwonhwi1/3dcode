@@ -14,7 +14,7 @@ INC_DIR     =   inc
 ifeq ($(os),mac)
 CGNS_INC    =   /usr/local/include
 CGNS_LIB    =   /usr/local/lib
-HDF_LIB     =   /opt/local/lib
+HDF_LIB     =   /usr/local/lib
 else ifeq ($(os),tachyon2)
 CGNS_INC    =   /applic/wa/cgnslib_3.2.1/intel-2015/include
 CGNS_LIB    =   /applic/wa/cgnslib_3.2.1/intel-2015/lib
