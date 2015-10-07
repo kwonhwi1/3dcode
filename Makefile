@@ -35,7 +35,7 @@ endif
 # flags for maximum performance
 ifeq ($(compiler),gcc)
 ifeq ($(mode),debug)
-FFLAGS = -O0 -cpp -ffpe-trap=invalid -fbounds-check -Wall -pedantic -ffree-line-length-none -J $(OBJ_DIR)
+FFLAGS = -O0 -cpp -ffpe-trap=invalid -fcheck=all -Wall -pedantic -ffree-line-length-none -J $(OBJ_DIR)
 else
 FFLAGS = -O3 -cpp -ffpe-trap=invalid -ffree-line-length-none -J $(OBJ_DIR)
 endif
