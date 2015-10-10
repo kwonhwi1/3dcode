@@ -50,12 +50,11 @@ module initial_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(ini,config,grid,variable)
+    subroutine construct(ini,config,grid)
       implicit none
       class(t_ini), intent(out) :: ini
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
 
       ini%pref = config%getpref()
       ini%uref = config%geturef()

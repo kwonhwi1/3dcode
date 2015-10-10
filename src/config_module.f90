@@ -19,7 +19,7 @@ module config_module
     integer :: timemethod,local,prec
     real(8) :: cfl
     integer :: fluid,fluid_eostype,ngas,gas_eostype,mixingrule
-    integer :: ncav
+    integer :: ncav,gravity
     real(8) :: c_v,c_c
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref
     real(8) :: l_chord,l_character,scale,l_domain
@@ -54,6 +54,7 @@ module config_module
       procedure :: gettcomp
       procedure :: getc_v
       procedure :: getc_c
+      procedure :: getgravity
       procedure :: getcfl
       procedure :: getpref
       procedure :: geturef
@@ -101,6 +102,7 @@ module config_module
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
           read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
+          read(io,*); read(io,*) config%gravity
           read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%aos,config%tref,config%y1ref,config%y2ref
           read(io,*); read(io,*) config%l_chord,config%l_character,config%scale,config%l_domain
           close(io)
@@ -373,7 +375,16 @@ module config_module
       getc_c = config%c_c
       
     end function getc_c
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getgravity(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getgravity
+      
+      getgravity = config%gravity
+      
+    end function getgravity
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getcfl(config)
       implicit none
       class(t_config), intent(in) :: config

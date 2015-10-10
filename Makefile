@@ -79,6 +79,7 @@ OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
               $(OBJ_DIR)/muscl_module.o\
               $(OBJ_DIR)/unsteady_module.o\
               $(OBJ_DIR)/vsflux_module.o\
+              $(OBJ_DIR)/gravity_module.o\
               $(OBJ_DIR)/bc_module.o\
               $(OBJ_DIR)/jacobian_module.o\
               $(OBJ_DIR)/lhs_module.o\

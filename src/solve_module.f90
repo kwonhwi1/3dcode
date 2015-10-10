@@ -80,7 +80,7 @@ module solve_module
       end if
       
       if(allocated(solve%ini)) then
-        call solve%ini%construct(config,grid,variable)
+        call solve%ini%construct(config,grid)
         solve%l_ini = .true.
       end if
       

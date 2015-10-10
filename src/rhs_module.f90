@@ -12,6 +12,7 @@ module rhs_module
   use cav_module
   use turbsource_module
   use unsteady_module
+  use gravity_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
   implicit none
   private
@@ -20,7 +21,7 @@ module rhs_module
   type t_rhs
     private
     integer :: stencil,npv,ndv,ntv,ngrd,imax,jmax,kmax
-    logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady
+    logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady,l_gravity,l_rotation
     real(8) :: pref
     real(8), dimension(:,:,:,:), allocatable :: res,icav,itt
     real(8), dimension(:,:,:), allocatable ::omega_cut
@@ -31,6 +32,7 @@ module rhs_module
     class(t_turbsource), allocatable :: turbsource
     class(t_vsflux),     allocatable :: vsflux
     class(t_unsteady),   allocatable :: unsteady
+    class(t_gravity),    allocatable :: gravity
     contains
       procedure :: construct
       procedure :: destruct
@@ -104,12 +106,21 @@ module rhs_module
         allocate(t_unsteady::rhs%unsteady)
       end select
 
+      select case(config%getgravity())
+      case(0)
+      case(-1,1,-2,2,-3,3)
+        allocate(t_gravity::rhs%gravity)
+      case default
+      end select
+
       rhs%l_flux       = .false.
       rhs%l_muscl      = .false.
       rhs%l_cav        = .false.
       rhs%l_turbsource = .false.
       rhs%l_vsflux     = .false.
       rhs%l_unsteady   = .false.
+      rhs%l_gravity    = .false.
+      rhs%l_rotation   = .false.
 
       rhs%ngrd = grid%getngrd()
       rhs%imax = grid%getimax()
@@ -159,6 +170,11 @@ module rhs_module
         rhs%l_unsteady   = .true.
       end if
 
+      if(allocated(rhs%gravity)) then
+        call rhs%gravity%construct(config,grid,variable)
+        rhs%l_gravity = .true.
+      end if
+
       allocate(rhs%res(rhs%npv,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
 
     end subroutine construct
@@ -195,7 +211,10 @@ module rhs_module
         call rhs%unsteady%destruct()
         deallocate(rhs%unsteady)
       end if
-      
+      if(rhs%l_gravity) then
+        call rhs%gravity%destruct()
+        deallocate(rhs%gravity)
+      end if
       deallocate(rhs%res)
       
     end subroutine destruct
@@ -548,7 +567,12 @@ module rhs_module
               call rhs%unsteady%setqq(pvl,pvr)
               rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - rhs%unsteady%unsteadysource()
             end if
-            
+
+            if(rhs%l_gravity) then
+              call rhs%gravity%setdv(dvl)
+              call rhs%gravity%setgrd(grdl)
+              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + rhs%gravity%getgravitysource()
+            end if
           end do
         end do
       end do

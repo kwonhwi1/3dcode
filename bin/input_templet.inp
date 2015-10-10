@@ -16,6 +16,8 @@ fluid         fluid_eostype  ngas           gas_eostype    mixingrule
 0             0              0              0              0
 ncav          c_v            c_c
 0             0.d0           0.d0
+gravity
+0
 pref          uref           aoa            aos            tref           y1ref          y2ref
 0.d0          0.d0           0.d0           0.d0           0.d0           0.d0           0.d0
 l_chord       l_character    scale          l_domain
@@ -50,6 +52,7 @@ mixingrule    : 1 = amagat's law, 2 = dalton's law
 ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
 c_v           : vaporization coefficient
 c_c           : condensation coefficient
+gravity       : 0= no gravitataionsl acceleration 1,-1 = (+-)x-axis, 2,-2 = (+-)y-axis, 3,-3 = (+-)z-axis
 pref          : reference pressure
 uref          : reference speed
 aoa           : angle of attack
