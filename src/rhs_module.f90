@@ -13,6 +13,7 @@ module rhs_module
   use turbsource_module
   use unsteady_module
   use gravity_module
+  use rotation_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
   implicit none
   private
@@ -23,6 +24,7 @@ module rhs_module
     integer :: stencil,npv,ndv,ntv,ngrd,imax,jmax,kmax
     logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady,l_gravity,l_rotation
     real(8) :: pref
+    real(8) :: omega(3)
     real(8), dimension(:,:,:,:), allocatable :: res,icav,itt
     real(8), dimension(:,:,:), allocatable ::omega_cut
     real(8), dimension(:,:), allocatable :: ea,fa,ga,eva,fva,gva
@@ -33,6 +35,7 @@ module rhs_module
     class(t_vsflux),     allocatable :: vsflux
     class(t_unsteady),   allocatable :: unsteady
     class(t_gravity),    allocatable :: gravity
+    class(t_rotation),   allocatable :: rotation
     contains
       procedure :: construct
       procedure :: destruct
@@ -54,7 +57,8 @@ module rhs_module
       
       rhs%stencil = config%getstencil()
       rhs%pref = config%getpref()
-      
+      rhs%omega = config%getomega()
+
       select case(config%getiturb())
       case(-3)
 
@@ -110,6 +114,13 @@ module rhs_module
       case(0)
       case(-1,1,-2,2,-3,3)
         allocate(t_gravity::rhs%gravity)
+      case default
+      end select
+
+      select case(config%getrotation())
+      case(0)
+      case(-1,1,-2,2,-3,3)
+        allocate(t_rotation::rhs%rotation)
       case default
       end select
 
@@ -175,6 +186,11 @@ module rhs_module
         rhs%l_gravity = .true.
       end if
 
+      if(allocated(rhs%rotation)) then
+        call rhs%rotation%construct(config,grid,variable)
+        rhs%l_rotation = .true.
+      end if
+
       allocate(rhs%res(rhs%npv,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
 
     end subroutine construct
@@ -214,6 +230,10 @@ module rhs_module
       if(rhs%l_gravity) then
         call rhs%gravity%destruct()
         deallocate(rhs%gravity)
+      end if
+      if(rhs%l_rotation) then
+        call rhs%rotation%destruct()
+        deallocate(rhs%rotation)
       end if
       deallocate(rhs%res)
       
@@ -572,6 +592,13 @@ module rhs_module
               call rhs%gravity%setdv(dvl)
               call rhs%gravity%setgrd(grdl)
               rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + rhs%gravity%getgravitysource()
+            end if
+
+            if(rhs%l_rotation) then
+              call rhs%rotation%setpv(x)
+              call rhs%rotation%setdv(dvl)
+              call rhs%rotation%setgrd(grdl)
+              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - rhs%rotation%getrotationsource()
             end if
           end do
         end do

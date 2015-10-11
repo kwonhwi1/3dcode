@@ -19,7 +19,8 @@ module config_module
     integer :: timemethod,local,prec
     real(8) :: cfl
     integer :: fluid,fluid_eostype,ngas,gas_eostype,mixingrule
-    integer :: ncav,gravity
+    integer :: ncav,gravity,rotation
+    real(8) :: rpm,omega(3)
     real(8) :: c_v,c_c
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref
     real(8) :: l_chord,l_character,scale,l_domain
@@ -55,6 +56,8 @@ module config_module
       procedure :: getc_v
       procedure :: getc_c
       procedure :: getgravity
+      procedure :: getrotation
+      procedure :: getomega
       procedure :: getcfl
       procedure :: getpref
       procedure :: geturef
@@ -103,6 +106,7 @@ module config_module
           read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
           read(io,*); read(io,*) config%gravity
+          read(io,*); read(io,*) config%rotation,config%rpm
           read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%aos,config%tref,config%y1ref,config%y2ref
           read(io,*); read(io,*) config%l_chord,config%l_character,config%scale,config%l_domain
           close(io)
@@ -119,6 +123,24 @@ module config_module
       config%aos = config%aos*config%pi/180.d0
       config%str = config%l_character/config%pi/config%dt_phy/config%uref
       
+      select case(config%rotation)
+      case(1)
+        config%omega = (/config%rpm*2.d0*config%pi/60.d0,0.d0,0.d0/)
+      case(-1)
+        config%omega = (/-config%rpm*2.d0*config%pi/60.d0,0.d0,0.d0/)
+      case(2)
+        config%omega = (/0.d0,config%rpm*2.d0*config%pi/60.d0,0.d0/)
+      case(-2)
+        config%omega = (/0.d0,-config%rpm*2.d0*config%pi/60.d0,0.d0/)
+      case(3)
+        config%omega = (/0.d0,0.d0,config%rpm*2.d0*config%pi/60.d0/)
+      case(-3)
+        config%omega = (/0.d0,0.d0,config%rpm*2.d0*config%pi/60.d0/)
+      case(0)
+        config%omega = (/0.d0,0.d0,0.d0/)
+      case default
+      end select
+
       call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref)
       call prop%detprop(config%dvref(3),config%dvref(4),config%dvref(5),config%tref,config%y1ref,config%y2ref,config%tvref)
       
@@ -384,6 +406,23 @@ module config_module
       getgravity = config%gravity
       
     end function getgravity
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getrotation(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getrotation
+
+      getrotation = config%rotation
+
+    end function getrotation
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getomega(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      real(8) :: getomega(3)
+
+      getomega = config%omega
+    end function getomega
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getcfl(config)
       implicit none

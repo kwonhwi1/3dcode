@@ -18,6 +18,8 @@ ncav          c_v            c_c
 0             0.d0           0.d0
 gravity
 0
+rotation      rpm
+0             0.d0
 pref          uref           aoa            aos            tref           y1ref          y2ref
 0.d0          0.d0           0.d0           0.d0           0.d0           0.d0           0.d0
 l_chord       l_character    scale          l_domain
@@ -52,7 +54,9 @@ mixingrule    : 1 = amagat's law, 2 = dalton's law
 ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
 c_v           : vaporization coefficient
 c_c           : condensation coefficient
-gravity       : 0= no gravitataionsl acceleration 1,-1 = (+-)x-axis, 2,-2 = (+-)y-axis, 3,-3 = (+-)z-axis
+gravity       : 0= no gravitataionsl acceleration 1,-1 = gravity on (+-)x-axis, 2,-2 = gravity on (+-)y-axis, 3,-3 = gravity on (+-)z-axis
+rotation      : 0= no rotation 1,-1 = rotating along (+-)x-axis, 2,-2 = rotating along (+-)y-axis, 3,-3 = rotating aling (+-)z-axis
+rpm           : revolution per minute
 pref          : reference pressure
 uref          : reference speed
 aoa           : angle of attack
