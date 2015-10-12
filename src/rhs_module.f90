@@ -143,7 +143,7 @@ module rhs_module
       
       
       if(allocated(rhs%flux)) then
-        call rhs%flux%construct(config,variable)
+        call rhs%flux%construct(config,grid,variable)
         rhs%l_flux = .true.
         allocate(rhs%ea(rhs%npv,rhs%imax),rhs%fa(rhs%npv,rhs%jmax),rhs%ga(rhs%npv,rhs%kmax))
       end if
@@ -314,7 +314,11 @@ module rhs_module
               dvr = variable%getdv(i+1,j,k)
             end if
             
+            grdl = grid%getgrd(i,j,k)
+            grdr = grid%getgrd(i+1,j,k)
+
             call rhs%flux%setnorm(nx)
+            call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
@@ -329,8 +333,6 @@ module rhs_module
               tx2 = grid%gettx(i+1,j,k-1)
               tx3 = grid%gettx(i,j,k)
               tx4 = grid%gettx(i+1,j,k)              
-              grdl = grid%getgrd(i,j,k)
-              grdr = grid%getgrd(i+1,j,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i+1,j,k)
               tvl = variable%gettv(i,j,k)
@@ -406,8 +408,12 @@ module rhs_module
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j+1,k)
             end if
+            
+            grdl = grid%getgrd(i,j,k)
+            grdr = grid%getgrd(i,j+1,k)
 
             call rhs%flux%setnorm(nx)
+            call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
@@ -422,8 +428,6 @@ module rhs_module
               tx2 = grid%getcx(i,j,k)
               tx3 = grid%getcx(i-1,j+1,k)
               tx4 = grid%getcx(i,j+1,k)
-              grdl = grid%getgrd(i,j,k)
-              grdr = grid%getgrd(i,j+1,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j+1,k)
               tvl = variable%gettv(i,j,k)
@@ -499,8 +503,12 @@ module rhs_module
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j,k+1)
             end if
+            
+            grdl = grid%getgrd(i,j,k)
+            grdr = grid%getgrd(i,j,k+1)
 
             call rhs%flux%setnorm(nx)
+            call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
@@ -515,8 +523,6 @@ module rhs_module
               tx2 = grid%getex(i,j,k)
               tx3 = grid%getex(i,j-1,k+1)
               tx4 = grid%getex(i,j,k+1)
-              grdl = grid%getgrd(i,j,k)
-              grdr = grid%getgrd(i,j,k+1)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j,k+1)
               tvl = variable%gettv(i,j,k)

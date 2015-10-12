@@ -1,5 +1,6 @@
 module flux_module
   use config_module
+  use grid_module
   use variable_module
   use eos_module
   implicit none
@@ -8,15 +9,18 @@ module flux_module
 
   type, abstract :: t_flux
     private
-    integer :: npv,ndv
+    integer :: npv,ndv,ngrd
+    real(8) :: omega(3)
     real(8) :: uref,str,pref
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
-    real(8), pointer :: nx(:)
+    real(8), pointer :: nx(:),grdl(:),grdr(:)
     procedure(p_getsndp2), pointer :: getsndp2
+    procedure(p_getdynamic), pointer :: getdynamic
     contains
       procedure :: construct       
       procedure :: destruct
       procedure :: setnorm         ! (nx)
+      procedure :: setgrd          ! (grdl,grdr) vol,x,y,z,ydns
       procedure :: setpv           ! (pvl,pvr) p,u,v,w,t,y1,y2,k,o
       procedure :: setdv           ! (dvl,dvr) rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
       procedure :: setsdst         ! (sdst)
@@ -63,19 +67,27 @@ module flux_module
       integer, intent(in) :: cut
       real(8) :: sndp2
     end function p_getsndp2
+    function p_getdynamic(flux,pv,grd)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: 
+    end function p_getdynamic
   end interface
         
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    subroutine construct(flux,config,variable)
+    subroutine construct(flux,config,grid,variable)
       implicit none
       class(t_flux), intent(out) :: flux
       type(t_config), intent(in) :: config
+      type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       
       flux%uref = config%geturef()
       flux%str  = config%getstr()
       flux%pref = config%getpref()
+      flux%omega = config%getomega()
             
       select case(config%getprecd())
       case(0)
@@ -86,6 +98,7 @@ module flux_module
         flux%getsndp2 => unsteady_prec
       end select
 
+      flux%ngrd = grid%getngrd()
       flux%npv = variable%getnpv()
       flux%ndv = variable%getndv()
       
@@ -95,7 +108,9 @@ module flux_module
       implicit none
       class(t_flux), intent(inout) :: flux
 
-      if(associated(flux%nx))       nullify(flux%nx)    
+      if(associated(flux%nx))       nullify(flux%nx)
+      if(associated(flux%grdl))     nullify(flux%grdl)
+      if(associated(flux%grdr))     nullify(flux%grdr)
       if(associated(flux%pvl))      nullify(flux%pvl)  
       if(associated(flux%pvr))      nullify(flux%pvr)  
       if(associated(flux%dvl))      nullify(flux%dvl)  
@@ -112,6 +127,16 @@ module flux_module
       flux%nx => nx
 
     end subroutine setnorm
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setgrd(flux,grdl,grdr)
+      implicit none
+      class(t_flux), intent(inout) :: flux
+      real(8), intent(in), target :: grdl(flux%ngrd),grdr(flux%ngrd)
+
+      flux%grdl => grdl
+      flux%grdr => grdr
+
+    end subroutine setgrd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setpv(flux,pvl,pvr)
       implicit none
