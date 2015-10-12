@@ -75,7 +75,7 @@ module jacobian_module
       jac%uref = config%geturef()
       jac%str  = config%getstr()
       
-      select case(config%getprec())
+      select case(config%getprecd())
       case(0)
         jac%getsndp2 => no_prec
       case(1)
@@ -242,7 +242,7 @@ module jacobian_module
       jac%a(6,3) = jac%pv(6)*a3
       jac%a(6,4) = jac%pv(6)*a4
       jac%a(6,5) = jac%pv(6)*jac%a(1,5)
-      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*uuu
+      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*(lamda+vis)
       jac%a(6,7) = jac%pv(6)*jac%a(1,7)
         
       jac%a(7,1) = jac%pv(7)*jac%a(1,1)
@@ -251,7 +251,7 @@ module jacobian_module
       jac%a(7,4) = jac%pv(7)*a4
       jac%a(7,5) = jac%pv(7)*jac%a(1,5)
       jac%a(7,6) = jac%pv(7)*jac%a(1,6)
-      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*uuu
+      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*(lamda+vis)
 
       jac%a = jac%a*0.5d0
       
@@ -348,7 +348,7 @@ module jacobian_module
       jac%a(6,3) = jac%pv(6)*a3
       jac%a(6,4) = jac%pv(6)*a4
       jac%a(6,5) = jac%pv(6)*jac%a(1,5)
-      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*uuu
+      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*(lamda+vis)
       jac%a(6,7) = jac%pv(6)*jac%a(1,7)
       jac%a(6,8) = 0.d0
       jac%a(6,9) = 0.d0
@@ -359,7 +359,7 @@ module jacobian_module
       jac%a(7,4) = jac%pv(7)*a4
       jac%a(7,5) = jac%pv(7)*jac%a(1,5)
       jac%a(7,6) = jac%pv(7)*jac%a(1,6)
-      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*uuu
+      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*(lamda+vis)
       jac%a(7,8) = 0.d0
       jac%a(7,9) = 0.d0
 

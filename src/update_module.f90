@@ -791,7 +791,9 @@ module update_module
             end do
             
             do n=1,update%npv
-              update%dqs(n,i,j,k) = dot_product(update%inv(n,:,i,j,k),update%dcv(:,i,j,k))
+              do l=1,update%npv
+                update%dqs(n,i,j,k) = update%dqs(n,i,j,k) + update%inv(n,l,i,j,k)*update%dcv(l,i,j,k)
+              end do
             end do
             
           end do
@@ -858,7 +860,9 @@ module update_module
             end do
             
             do n=1,update%npv
-              update%dqs(n,i,j,k) = dot_product(update%inv(n,:,i,j,k),update%dcv(:,i,j,k))
+              do l=1,update%npv
+                update%dqs(n,i,j,k) = update%dqs(n,i,j,k) + update%inv(n,l,i,j,k)*update%dcv(l,i,j,k)
+              end do
             end do
           end do
         end do

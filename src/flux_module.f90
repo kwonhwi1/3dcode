@@ -15,7 +15,7 @@ module flux_module
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
     real(8), pointer :: nx(:),grdl(:),grdr(:)
     procedure(p_getsndp2), pointer :: getsndp2
-    procedure(p_getdynamic), pointer :: getdynamic
+    procedure(p_getrothalpy), pointer :: getrothalpy
     contains
       procedure :: construct       
       procedure :: destruct
@@ -67,12 +67,12 @@ module flux_module
       integer, intent(in) :: cut
       real(8) :: sndp2
     end function p_getsndp2
-    function p_getdynamic(flux,pv,grd)
+    function p_getrothalpy(flux)
       import t_flux
       implicit none
       class(t_flux), intent(in) :: flux
-      real(8), intent(in) :: 
-    end function p_getdynamic
+      real(8) :: p_getrothalpy
+    end function p_getrothalpy
   end interface
         
   contains
@@ -96,6 +96,14 @@ module flux_module
         flux%getsndp2 => steady_prec
       case(2)
         flux%getsndp2 => unsteady_prec
+      end select
+
+      select case(config%getrotation())
+      case(0)
+        flux%getrothalpy => no_rotation
+      case(-1,1,-2,2,-3,3)
+        flux%getrothalpy => rotation
+      case default
       end select
 
       flux%ngrd = grid%getngrd()
@@ -640,5 +648,17 @@ module flux_module
       sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2,dble(cut)*flux%str**2*uuu2))
       
     end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_rotation(flux)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8) :: no_rotation
+    end function no_rotation
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rotation(flux)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8) :: rotation
+    end function rotation
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module flux_module
