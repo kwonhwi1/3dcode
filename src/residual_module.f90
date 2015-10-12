@@ -21,6 +21,7 @@ module residual_module
       procedure :: setqres
       procedure :: residual
       procedure :: getconverge
+      procedure :: setl_converge
   end type t_resi
   
   contains
@@ -82,6 +83,15 @@ module residual_module
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setl_converge(resi,flag)
+      implicit none
+      class(t_resi), intent(inout) :: resi
+      logical,intent(in) :: flag
+
+      resi%l_converge = flag
+
+    end subroutine setl_converge
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setqres(resi,variable)
       implicit none
       class(t_resi), intent(inout) :: resi

@@ -126,14 +126,12 @@ module solve_module
       call solve%ini%initialize(grid,variable,eos,prop,nps,nts)
 
       do nt_phy=nps,solve%npmax
+        call solve%resi%setl_converge(.false.)
         do nt=nts,solve%ntmax
           call solve%resi%setqres(variable)
           call solve%update%timeinteg(grid,variable,eos,prop,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
-          if(solve%resi%getconverge()) then
-            call variable%export_variable(nt_phy,nt)
-            exit
-          end if
+          if(solve%resi%getconverge()) exit
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
             call variable%export_variable(nt_phy,nt)
           end if
