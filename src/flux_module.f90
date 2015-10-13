@@ -15,7 +15,9 @@ module flux_module
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
     real(8), pointer :: nx(:),grdl(:),grdr(:)
     procedure(p_getsndp2), pointer :: getsndp2
-    procedure(p_getrothalpy), pointer :: getrothalpy
+    procedure(p_getenthalpy_l), pointer :: getenthalpy_l
+    procedure(p_getenthalpy_r), pointer :: getenthalpy_r
+    procedure(p_getenthalpy_c), pointer :: getenthalpy_c
     contains
       procedure :: construct       
       procedure :: destruct
@@ -67,12 +69,25 @@ module flux_module
       integer, intent(in) :: cut
       real(8) :: sndp2
     end function p_getsndp2
-    function p_getrothalpy(flux)
+    function p_getenthalpy_l(flux)
       import t_flux
       implicit none
       class(t_flux), intent(in) :: flux
-      real(8) :: p_getrothalpy
-    end function p_getrothalpy
+      real(8) :: p_getenthalpy_l
+    end function p_getenthalpy_l
+    function p_getenthalpy_r(flux)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8) :: p_getenthalpy_r
+    end function p_getenthalpy_r
+    function p_getenthalpy_c(flux,h,uv2)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uv2
+      real(8) :: p_getenthalpy_c
+    end function p_getenthalpy_c
   end interface
         
   contains
@@ -100,9 +115,13 @@ module flux_module
 
       select case(config%getrotation())
       case(0)
-        flux%getrothalpy => no_rotation
+        flux%getenthalpy_l => enthalpy_l
+        flux%getenthalpy_r => enthalpy_r
+        flux%getenthalpy_c => enthalpy_c
       case(-1,1,-2,2,-3,3)
-        flux%getrothalpy => rotation
+        flux%getenthalpy_l => rothalpy_l
+        flux%getenthalpy_r => rothalpy_r
+        flux%getenthalpy_c => rothalpy_c
       case default
       end select
 
@@ -116,15 +135,18 @@ module flux_module
       implicit none
       class(t_flux), intent(inout) :: flux
 
-      if(associated(flux%nx))       nullify(flux%nx)
-      if(associated(flux%grdl))     nullify(flux%grdl)
-      if(associated(flux%grdr))     nullify(flux%grdr)
-      if(associated(flux%pvl))      nullify(flux%pvl)  
-      if(associated(flux%pvr))      nullify(flux%pvr)  
-      if(associated(flux%dvl))      nullify(flux%dvl)  
-      if(associated(flux%dvr))      nullify(flux%dvr)  
-      if(associated(flux%sdst))     nullify(flux%sdst) 
-      if(associated(flux%getsndp2)) nullify(flux%getsndp2)    
+      if(associated(flux%nx))            nullify(flux%nx)
+      if(associated(flux%grdl))          nullify(flux%grdl)
+      if(associated(flux%grdr))          nullify(flux%grdr)
+      if(associated(flux%pvl))           nullify(flux%pvl)
+      if(associated(flux%pvr))           nullify(flux%pvr)
+      if(associated(flux%dvl))           nullify(flux%dvl)
+      if(associated(flux%dvr))           nullify(flux%dvr)
+      if(associated(flux%sdst))          nullify(flux%sdst)
+      if(associated(flux%getsndp2))      nullify(flux%getsndp2)
+      if(associated(flux%getenthalpy_l)) nullify(flux%getenthalpy_l)
+      if(associated(flux%getenthalpy_r)) nullify(flux%getenthalpy_r)
+      if(associated(flux%getenthalpy_c)) nullify(flux%getenthalpy_c)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setnorm(flux,nx)
@@ -182,8 +204,8 @@ module flux_module
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
-      real(8) :: uurr,uull,htl,htr,uv2
-      real(8) :: ravg(flux%npv),ravg_ht,rdv(flux%ndv),ravg_d
+      real(8) :: uurr,uull,uv2
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
       real(8) :: df(flux%npv),uv2_1,sndp2_1
@@ -201,9 +223,7 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
-      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
-    
+
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
@@ -215,7 +235,6 @@ module flux_module
       
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       uv2_1 = 0.5d0*(uurr**2+uull**2)
-      ravg_ht = rdv(2)+0.5d0*uv2
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
@@ -233,20 +252,21 @@ module flux_module
       du = m_star*(uurr-uull)+(c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/sndp2_cut
       dp = m_star*(flux%pvr(1)-flux%pvl(1))+(c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*rdv(1)*(uurr-uull)
       
-      df(1) = dabs(uuu)*(flux%dvr(1)                 - flux%dvl(1)                ) + du*rdv(1)
-      df(2) = dabs(uuu)*(flux%dvr(1)*flux%pvr(2)     - flux%dvl(1)*flux%pvl(2)    ) + du*rdv(1)*ravg(2)  + dp*nx
-      df(3) = dabs(uuu)*(flux%dvr(1)*flux%pvr(3)     - flux%dvl(1)*flux%pvl(3)    ) + du*rdv(1)*ravg(3)  + dp*ny
-      df(4) = dabs(uuu)*(flux%dvr(1)*flux%pvr(4)     - flux%dvl(1)*flux%pvl(4)    ) + du*rdv(1)*ravg(4)  + dp*nz
-      df(5) = dabs(uuu)*(flux%dvr(1)*htr-(flux%pvr(1)+flux%pref) - (flux%dvl(1)*htl-(flux%pvl(1)+flux%pref))) + du*rdv(1)*ravg_ht  + dp*uuu
+      df(1) = dabs(uuu)*(flux%dvr(1)             - flux%dvl(1)            ) + du*rdv(1)
+      df(2) = dabs(uuu)*(flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)) + du*rdv(1)*ravg(2)  + dp*nx
+      df(3) = dabs(uuu)*(flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)) + du*rdv(1)*ravg(3)  + dp*ny
+      df(4) = dabs(uuu)*(flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)) + du*rdv(1)*ravg(4)  + dp*nz
+      df(5) = dabs(uuu)*(flux%dvr(1)*flux%getenthalpy_r()-flux%pvr(1)     &
+                      - (flux%dvl(1)*flux%getenthalpy_l()-flux%pvl(1))    ) + du*rdv(1)*flux%getenthalpy_c(rdv(2),uv2)  + dp*uuu
       do k=6,flux%npv
         df(k) = dabs(uuu)*(flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)) + du*rdv(1)*ravg(k)
       end do
       
-      fx(1) = 0.5d0*(flux%dvl(1)*uull                            + flux%dvr(1)*uurr                            - df(1))*dl
+      fx(1) = 0.5d0*(flux%dvl(1)*uull + flux%dvr(1)*uurr - df(1))*dl
       fx(2) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref) - df(2))*dl
       fx(3) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref) - df(3))*dl
       fx(4) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref) - df(4))*dl
-      fx(5) = 0.5d0*(flux%dvl(1)*uull*htl                        + flux%dvr(1)*uurr*htr                        - df(5))*dl
+      fx(5) = 0.5d0*(flux%dvl(1)*uull*flux%getenthalpy_l() + flux%dvr(1)*uurr*flux%getenthalpy_r() - df(5))*dl
       do k=6,flux%npv
         fx(k) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(k) + flux%dvr(1)*uurr*flux%pvr(k) - df(k))*dl
       end do    
@@ -259,8 +279,8 @@ module flux_module
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
-      real(8) :: uurr,uull,htl,htr,uv2
-      real(8) :: ravg(flux%npv),ravg_ht,ravg_d
+      real(8) :: uurr,uull,uv2
+      real(8) :: ravg(flux%npv),ravg_d
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
       real(8) :: aaa,add,add1,b1,b2,b1b2,rrr,rrr1,ff,gg,sdst(18),pp_l,pp_r
@@ -280,8 +300,6 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
-      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
@@ -294,7 +312,6 @@ module flux_module
       
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       uv2_1 = 0.5d0*(uurr**2+uull**2)
-      ravg_ht = rdv(2)+0.5d0*uv2
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
@@ -320,7 +337,7 @@ module flux_module
       dq(2) = flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)
       dq(3) = flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)
       dq(4) = flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)
-      dq(5) = flux%dvr(1)*htr         - flux%dvl(1)*htl
+      dq(5) = flux%dvr(1)*flux%getenthalpy_r() - flux%dvl(1)*flux%getenthalpy_l()
       do k=6,flux%npv
         dq(k) = flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)
       end do
@@ -329,7 +346,7 @@ module flux_module
       fl(2) = flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref)
       fl(3) = flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref)
       fl(4) = flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref)
-      fl(5) = flux%dvl(1)*uull*htl
+      fl(5) = flux%dvl(1)*uull*flux%getenthalpy_l()
       do k=6,flux%npv
         fl(k) = flux%dvl(1)*uull*flux%pvl(k)
       end do
@@ -338,7 +355,7 @@ module flux_module
       fr(2) = flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref)
       fr(3) = flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref)
       fr(4) = flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref)
-      fr(5) = flux%dvr(1)*uurr*htr
+      fr(5) = flux%dvr(1)*uurr*flux%getenthalpy_r()
       do k=6,flux%npv
         fr(k) = flux%dvr(1)*uurr*flux%pvr(k)
       end do
@@ -389,7 +406,7 @@ module flux_module
       bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*dqp(2)
       bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*dqp(3)
       bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*dqp(4)
-      bdq(5) = bdq(1)*ravg_ht  + rdv(1)*add*(htr-htl)
+      bdq(5) = bdq(1)*flux%getenthalpy_c(rdv(2),uv2)  + rdv(1)*add*(flux%getenthalpy_r()-flux%getenthalpy_l())
       do k=6,flux%npv
         bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
       end do
@@ -411,7 +428,7 @@ module flux_module
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
-      real(8) :: uurr,uull,htr,htl
+      real(8) :: uurr,uull
       real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
@@ -433,8 +450,6 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
-      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
@@ -513,7 +528,7 @@ module flux_module
       fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
       fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
-      fx(5) = (zmpl1*amid*flux%dvl(1)*htl          + zmmr1*amid*flux%dvr(1)*htr                  )*dl
+      fx(5) = (zmpl1*amid*flux%dvl(1)*flux%getenthalpy_l() + zmmr1*amid*flux%dvr(1)*flux%getenthalpy_r())*dl
       do k=6,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
@@ -527,7 +542,7 @@ module flux_module
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
-      real(8) :: uurr,uull,htr,htl
+      real(8) :: uurr,uull
       real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
@@ -549,8 +564,6 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-      htl = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
-      htr = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
     
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
@@ -609,7 +622,7 @@ module flux_module
       fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
       fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
-      fx(5) = (zmpl1*amid*flux%dvl(1)*htl          + zmmr1*amid*flux%dvr(1)*htr                  )*dl
+      fx(5) = (zmpl1*amid*flux%dvl(1)*flux%getenthalpy_l() + zmmr1*amid*flux%dvr(1)*flux%getenthalpy_r())*dl
       do k=6,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
@@ -649,16 +662,71 @@ module flux_module
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function no_rotation(flux)
+    function enthalpy_l(flux)
       implicit none
       class(t_flux), intent(in) :: flux
-      real(8) :: no_rotation
-    end function no_rotation
+      real(8) :: enthalpy_l
+      enthalpy_l = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+    end function enthalpy_l
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function rotation(flux)
+    function enthalpy_r(flux)
       implicit none
       class(t_flux), intent(in) :: flux
-      real(8) :: rotation
-    end function rotation
+      real(8) :: enthalpy_r
+      enthalpy_r = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
+    end function enthalpy_r
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function enthalpy_c(flux,h,uv2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uv2
+      real(8) :: enthalpy_c
+      enthalpy_c = h+0.5d0*uv2
+    end function enthalpy_c
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy_l(flux)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8) :: rothalpy_l
+      rothalpy_l = flux%dvl(2) + 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2)
+      rothalpy_l = rothalpy_l -0.5d0*(flux%omega(1)**2*(flux%grdl(3)**2+flux%grdl(4)**2) &
+                                     +flux%omega(2)**2*(flux%grdl(2)**2+flux%grdl(4)**2) &
+                                     +flux%omega(3)**2*(flux%grdl(2)**2+flux%grdl(3)**2) &
+                               -2.d0*(flux%omega(1)*flux%omega(2)*flux%grdl(2)*flux%grdl(3) &
+                                    + flux%omega(2)*flux%omega(3)*flux%grdl(3)*flux%grdl(4) &
+                                    + flux%omega(3)*flux%omega(1)*flux%grdl(4)*flux%grdl(2)))
+    end function rothalpy_l
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy_r(flux)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8) :: rothalpy_r
+      rothalpy_r = flux%dvr(2) + 0.5d0*(flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2)
+      rothalpy_r = rothalpy_r -0.5d0*(flux%omega(1)**2*(flux%grdr(3)**2+flux%grdr(4)**2) &
+                                     +flux%omega(2)**2*(flux%grdr(2)**2+flux%grdr(4)**2) &
+                                     +flux%omega(3)**2*(flux%grdr(2)**2+flux%grdr(3)**2) &
+                               -2.d0*(flux%omega(1)*flux%omega(2)*flux%grdr(2)*flux%grdr(3) &
+                                    + flux%omega(2)*flux%omega(3)*flux%grdr(3)*flux%grdr(4) &
+                                    + flux%omega(3)*flux%omega(1)*flux%grdr(4)*flux%grdr(2)))
+    end function rothalpy_r
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy_c(flux,h,uv2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uv2
+      real(8) :: rothalpy_c
+      real(8) :: x(3)
+      x(1) = 0.5d0*(flux%grdl(2)+flux%grdr(2))
+      x(2) = 0.5d0*(flux%grdl(3)+flux%grdr(3))
+      x(3) = 0.5d0*(flux%grdl(4)+flux%grdr(4))
+
+      rothalpy_c = h+0.5d0*uv2
+      rothalpy_c = rothalpy_c -0.5d0*(flux%omega(1)**2*(x(2)**2+x(3)**2) &
+                                     +flux%omega(2)**2*(x(1)**2+x(3)**2) &
+                                     +flux%omega(3)**2*(x(1)**2+x(2)**2) &
+                               -2.d0*(flux%omega(1)*flux%omega(2)*x(1)*x(2) &
+                                    + flux%omega(2)*flux%omega(3)*x(2)*x(3) &
+                                    + flux%omega(3)*flux%omega(1)*x(3)*x(1)))
+    end function rothalpy_c
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module flux_module

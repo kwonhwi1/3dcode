@@ -10,6 +10,7 @@ module lhs_module
     private
     integer :: npv,ndv,ntv,ngrd,nsteady
     real(8) :: uref,str,dt_phy
+    real(8) :: omega(3)
     real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
     real(8), pointer :: pv(:),tv(:),dv(:),grd(:),dt
     real(8), pointer :: c(:),t(:)
@@ -18,6 +19,7 @@ module lhs_module
     procedure(p_getsndp2), pointer :: getsndp2
     procedure(p_geteigenvis), pointer :: geteigenvis
     procedure(p_eigen), pointer :: eigen
+    procedure(p_getenthalpy), pointer :: getenthalpy
     contains
       procedure :: construct
       procedure :: destruct
@@ -73,7 +75,13 @@ module lhs_module
       class(t_lhs), intent(in) :: lhs
       real(8) :: lamda
     end function p_eigen
-    
+
+    function p_getenthalpy(lhs)
+      import t_lhs
+      implicit none
+      class(t_lhs), intent(in) :: lhs
+      real(8) :: p_getenthalpy
+    end function p_getenthalpy
   end interface
   
   contains
@@ -94,6 +102,7 @@ module lhs_module
       lhs%str  = config%getstr()
       lhs%dt_phy = config%getdt_phy()
       lhs%nsteady = config%getnsteady()
+      lhs%omega = config%getomega()
       
       select case(config%getprec())
       case(0)
@@ -120,7 +129,15 @@ module lhs_module
           lhs%geteigenvis => euler
         end select
       end select
-      
+
+      select case(config%getrotation())
+      case(0)
+        lhs%getenthalpy => enthalpy
+      case(-1,1,-2,2,-3,3)
+        lhs%getenthalpy => rothalpy
+      case default
+      end select
+
       allocate(lhs%x(lhs%npv,lhs%npv))
       allocate(lhs%c0(4))
       allocate(lhs%t0(4))
@@ -150,7 +167,7 @@ module lhs_module
       if(associated(lhs%getsndp2))    nullify(lhs%getsndp2)     
       if(associated(lhs%geteigenvis)) nullify(lhs%geteigenvis)  
       if(associated(lhs%eigen))       nullify(lhs%eigen)        
-
+      if(associated(lhs%getenthalpy)) nullify(lhs%getenthalpy)
       deallocate(lhs%x,lhs%c0,lhs%t0)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -248,7 +265,7 @@ module lhs_module
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
       ss = lhs%dv(1)*lhs%dv(12)*(1.d0/lhs%getsndp2(uv2)+b/lhs%dv(6))
       rr = 1.d0/lhs%getsndp2(uv2)-1.d0/lhs%dv(6)+b1*lhs%dv(7)
-      hst1 = lhs%dv(2)-0.5d0*uv2-lhs%dv(14)*lhs%pv(7)
+      hst1 = lhs%getenthalpy()-uv2-lhs%dv(14)*lhs%pv(7)
       hst = hst1 - lhs%dv(13)*lhs%pv(6)
       dr1 = lhs%dv(1)+lhs%dv(10)*lhs%pv(7)
       dr2 = lhs%dv(1)+lhs%dv(9)*lhs%pv(6)
@@ -349,7 +366,7 @@ module lhs_module
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
       ss = lhs%dv(1)*lhs%dv(12)*(1.d0/lhs%getsndp2(uv2)+b/lhs%dv(6))
       rr = 1.d0/lhs%getsndp2(uv2)-1.d0/lhs%dv(6)+b1*lhs%dv(7)
-      hst1 = lhs%dv(2)-0.5d0*uv2-lhs%dv(14)*lhs%pv(7)
+      hst1 = lhs%getenthalpy()-uv2-lhs%dv(14)*lhs%pv(7)
       hst = hst1 - lhs%dv(13)*lhs%pv(6)
       dr1 = lhs%dv(1)+lhs%dv(10)*lhs%pv(7)
       dr2 = lhs%dv(1)+lhs%dv(9)*lhs%pv(6)
@@ -581,6 +598,26 @@ module lhs_module
       sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,lhs%uref**2,lhs%str**2*uuu2))
       
     end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function enthalpy(lhs)
+      implicit none
+      class(t_lhs), intent(in) :: lhs
+      real(8) :: enthalpy
+      enthalpy = lhs%dv(2) + 0.5d0*(lhs%pv(2)**2 + lhs%pv(3)**2 + lhs%pv(4)**2)
+    end function enthalpy
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy(lhs)
+      implicit none
+      class(t_lhs), intent(in) :: lhs
+      real(8) :: rothalpy
+      rothalpy = lhs%dv(2) + 0.5d0*(lhs%pv(2)**2 + lhs%pv(3)**2 + lhs%pv(4)**2)
+      rothalpy = rothalpy -0.5d0*(lhs%omega(1)**2*(lhs%grd(3)**2+lhs%grd(4)**2) &
+                                + lhs%omega(2)**2*(lhs%grd(2)**2+lhs%grd(4)**2) &
+                                + lhs%omega(3)**2*(lhs%grd(2)**2+lhs%grd(3)**2) &
+                           -2.d0*(lhs%omega(1)*lhs%omega(2)*lhs%grd(2)*lhs%grd(3) &
+                                + lhs%omega(2)*lhs%omega(3)*lhs%grd(3)*lhs%grd(4) &
+                                + lhs%omega(3)*lhs%omega(1)*lhs%grd(4)*lhs%grd(2)))
+    end function rothalpy
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getx(lhs,i,j)
       implicit none

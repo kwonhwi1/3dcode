@@ -10,11 +10,13 @@ module jacobian_module
     private
     integer :: ngrd,npv,ndv,ntv
     real(8) :: uref,str
+    real(8) :: omega(3)
     real(8), pointer :: nx(:)
     real(8), pointer :: pv(:),tv(:),dv(:),grd(:)
     real(8), dimension(:,:), allocatable :: a
     procedure(p_getsndp2), pointer :: getsndp2
-    procedure(p_geteigenvis), pointer :: geteigenvis    
+    procedure(p_geteigenvis), pointer :: geteigenvis
+    procedure(p_getenthalpy), pointer :: getenthalpy
     contains
       procedure :: construct
       procedure :: destruct
@@ -61,6 +63,13 @@ module jacobian_module
       class(t_jac), intent(in) :: jac
       real(8) :: eigenvis
     end function p_geteigenvis
+
+    function p_getenthalpy(jac)
+      import t_jac
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: p_getenthalpy
+    end function p_getenthalpy
   end interface
   
   contains
@@ -74,8 +83,9 @@ module jacobian_module
             
       jac%uref = config%geturef()
       jac%str  = config%getstr()
+      jac%omega = config%getomega()
       
-      select case(config%getprecd())
+      select case(config%getprec())
       case(0)
         jac%getsndp2 => no_prec
       case(1)
@@ -91,6 +101,14 @@ module jacobian_module
         jac%geteigenvis => laminar
       case(-3)
         jac%geteigenvis => euler
+      end select
+
+      select case(config%getrotation())
+      case(0)
+        jac%getenthalpy => enthalpy
+      case(-1,1,-2,2,-3,3)
+        jac%getenthalpy => rothalpy
+      case default
       end select
 
       jac%ngrd = grid%getngrd()
@@ -111,7 +129,8 @@ module jacobian_module
       if(associated(jac%dv))           nullify(jac%dv) 
       if(associated(jac%tv))           nullify(jac%tv)                   
       if(associated(jac%getsndp2))     nullify(jac%getsndp2)    
-      if(associated(jac%geteigenvis))  nullify(jac%geteigenvis) 
+      if(associated(jac%geteigenvis))  nullify(jac%geteigenvis)
+      if(associated(jac%getenthalpy))  nullify(jac%getenthalpy)
       
       deallocate(jac%a)
     end subroutine destruct
@@ -165,14 +184,13 @@ module jacobian_module
       implicit none
       class(t_jac_flowonly), intent(inout) :: jac
       integer, intent(in) :: sign
-      real(8) :: ds,h,u,up,d,beta,sndp2,lamda,vis
+      real(8) :: ds,u,up,d,beta,sndp2,lamda,vis
       real(8), parameter :: cappa = 1.05d0
       real(8) :: a1,a2,a3,a4,a5,a6,a7
       real(8) :: g1,g5,g6,g7,ge1,ge5,ge6,ge7,uuu
       
       ds = jac%nx(1)**2+jac%nx(2)**2+jac%nx(3)**2
       u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
-      h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       up = 0.5d0*(1.d0+sndp2/jac%dv(6))*u
       d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
@@ -229,13 +247,13 @@ module jacobian_module
       jac%a(4,6) = jac%pv(4)*jac%a(1,6)
       jac%a(4,7) = jac%pv(4)*jac%a(1,7)
       
-      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+h*jac%a(1,1)-lamda-vis
-      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +h*a2
-      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +h*a3
-      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +h*a4
-      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+h*jac%a(1,5)
-      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+h*jac%a(1,6)
-      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+h*jac%a(1,7)
+      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+jac%getenthalpy()*jac%a(1,1)-lamda-vis
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*a2
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*a3
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*a4
+      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+jac%getenthalpy()*jac%a(1,5)
+      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+jac%getenthalpy()*jac%a(1,6)
+      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+jac%getenthalpy()*jac%a(1,7)
         
       jac%a(6,1) = jac%pv(6)*jac%a(1,1)
       jac%a(6,2) = jac%pv(6)*a2
@@ -261,14 +279,13 @@ module jacobian_module
       implicit none
       class(t_jac_flowturball), intent(inout) :: jac
       integer, intent(in) :: sign
-      real(8) :: ds,h,u,up,d,beta,sndp2,lamda,vis
+      real(8) :: ds,u,up,d,beta,sndp2,lamda,vis
       real(8), parameter :: cappa = 1.05d0
       real(8) :: a1,a2,a3,a4,a5,a6,a7
       real(8) :: g1,g5,g6,g7,ge1,ge5,ge6,ge7,uuu
       
       ds = jac%nx(1)**2+jac%nx(2)**2+jac%nx(3)**2
       u = jac%nx(1)*jac%pv(2) + jac%nx(2)*jac%pv(3)+jac%nx(3)*jac%pv(4)
-      h = jac%dv(2) + 0.5d0*(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       sndp2 = jac%getsndp2(jac%pv(2)**2+jac%pv(3)**2+jac%pv(4)**2)
       up = 0.5d0*(1.d0+sndp2/jac%dv(6))*u
       d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/jac%dv(6))**2+4.d0*sndp2*ds)
@@ -333,13 +350,13 @@ module jacobian_module
       jac%a(4,8) = 0.d0
       jac%a(4,9) = 0.d0
       
-      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+h*jac%a(1,1)-lamda-vis
-      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +h*a2
-      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +h*a3
-      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +h*a4
-      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+h*jac%a(1,5)
-      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+h*jac%a(1,6)
-      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+h*jac%a(1,7)
+      jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+jac%getenthalpy()*jac%a(1,1)-lamda-vis
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*a2
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*a3
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*a4
+      jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+jac%getenthalpy()*jac%a(1,5)
+      jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+jac%getenthalpy()*jac%a(1,6)
+      jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+jac%getenthalpy()*jac%a(1,7)
       jac%a(5,8) = 0.d0
       jac%a(5,9) = 0.d0
         
@@ -457,5 +474,25 @@ module jacobian_module
       geta = jac%a(i,j)
       
     end function geta
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function enthalpy(jac)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: enthalpy
+      enthalpy = jac%dv(2) + 0.5d0*(jac%pv(2)**2 + jac%pv(3)**2 + jac%pv(4)**2)
+    end function enthalpy
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy(jac)
+      implicit none
+      class(t_jac), intent(in) :: jac
+      real(8) :: rothalpy
+      rothalpy = jac%dv(2) + 0.5d0*(jac%pv(2)**2 + jac%pv(3)**2 + jac%pv(4)**2)
+      rothalpy = rothalpy -0.5d0*(jac%omega(1)**2*(jac%grd(3)**2+jac%grd(4)**2) &
+                                + jac%omega(2)**2*(jac%grd(2)**2+jac%grd(4)**2) &
+                                + jac%omega(3)**2*(jac%grd(2)**2+jac%grd(3)**2) &
+                           -2.d0*(jac%omega(1)*jac%omega(2)*jac%grd(2)*jac%grd(3) &
+                                + jac%omega(2)*jac%omega(3)*jac%grd(3)*jac%grd(4) &
+                                + jac%omega(3)*jac%omega(1)*jac%grd(4)*jac%grd(2)))
+    end function rothalpy
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module jacobian_module
