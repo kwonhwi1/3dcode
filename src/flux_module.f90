@@ -310,16 +310,15 @@ module flux_module
       
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
+      uv2_1 = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+                   + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )
       
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
+      sndp2_1   = flux%getsndp2(rdv(6),uv2_1,0)
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
-      if((uuu.eq.0.d0).and.((uurr-uull).ne.0.d0)) then
-        ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
-      else
-        ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
-      end if
+      ddd = 0.5d0*dsqrt((1.d0-sndp2_1/rdv(6))**2*uuu**2+4.d0*sndp2_1)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
       c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
@@ -467,7 +466,8 @@ module flux_module
 
       am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
       am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
-      !am2mid = 0.5d0*(zml**2+zmr**2)
+      am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+                    + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
       am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
 
             
@@ -581,7 +581,8 @@ module flux_module
 
       am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
       am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
-      !am2mid = 0.5d0*(zml**2+zmr**2)
+      am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+                    + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
       am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
 
             
