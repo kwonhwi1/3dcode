@@ -1053,7 +1053,7 @@ module bc_module
       integer :: ii,jj,kk
       integer :: ier
       integer :: request_s(bc%ncon),request_r(bc%ncon),request_sa(bc%ncon),request_ra(bc%ncon)
-      integer :: status(mpi_status_size,bc%ncon)
+      integer :: status(mpi_status_size)
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
       
       do n=1,bc%nbc
@@ -1150,10 +1150,14 @@ module bc_module
       end do
       
       if(bc%size.gt.1) then
-        call mpi_waitall(bc%ncon,request_s ,status,ier)
-        call mpi_waitall(bc%ncon,request_sa,status,ier)
-        call mpi_waitall(bc%ncon,request_r ,status,ier)
-        call mpi_waitall(bc%ncon,request_ra,status,ier)
+        do n=1,bc%ncon
+          if(bc%rank.ne.bc%connectinfo(n)%donor) then
+            call mpi_wait(request_s(n),status,ier)
+            call mpi_wait(request_r(n),status,ier)
+            call mpi_wait(request_sa(n),status,ier)
+            call mpi_wait(request_ra(n),status,ier)
+          end if
+        end do
       end if
 
       do n=1,bc%ncon

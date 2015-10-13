@@ -352,7 +352,7 @@ module grid_module
       integer :: m,n,i,j,k,l,ii,jj,kk
       integer :: sendnum,recvnum
       integer :: ier
-      integer :: status(mpi_status_size,grid%ncon)
+      integer :: status(mpi_status_size)
       integer :: recvcount(0:grid%size-1),disp(0:grid%size-1)
       integer, parameter :: dim = 3
       real(8), dimension(:), allocatable :: sendxb,sendyb,sendzb,recvxb,recvyb,recvzb
@@ -568,10 +568,14 @@ module grid_module
       end do
       
       if(grid%size.gt.1) then
-        call mpi_waitall(grid%ncon,request_s ,status,ier)
-        call mpi_waitall(grid%ncon,request_r ,status,ier)
-        call mpi_waitall(grid%ncon,request_ra,status,ier)
-        call mpi_waitall(grid%ncon,request_sa,status,ier)
+        do n=1,grid%ncon
+          if(grid%rank.ne.grid%connectinfo(n)%donor) then
+            call mpi_wait(request_s(n),status,ier)
+            call mpi_wait(request_r(n),status,ier)
+            call mpi_wait(request_sa(n),status,ier)
+            call mpi_wait(request_ra(n),status,ier)
+          end if
+        end do
       end if
 
       do n=1,grid%ncon
@@ -609,7 +613,7 @@ module grid_module
       integer :: i,j,k,n,m,l,ii,jj,kk
       integer :: sign1,sign2
       integer :: ier,request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%ncon)
-      integer :: status(mpi_status_size,grid%ncon)
+      integer :: status(mpi_status_size)
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
       real(8) :: xc,yc,zc,xe,ye,ze,xs,ys,zs 
       integer, parameter :: dim = 3
@@ -839,12 +843,16 @@ module grid_module
           end do
         end if    
       end do
-      
+
       if(grid%size.gt.1) then
-        call mpi_waitall(grid%ncon,request_s ,status,ier)
-        call mpi_waitall(grid%ncon,request_sa,status,ier)
-        call mpi_waitall(grid%ncon,request_r ,status,ier)
-        call mpi_waitall(grid%ncon,request_ra,status,ier)
+        do n=1,grid%ncon
+          if(grid%rank.ne.grid%connectinfo(n)%donor) then
+            call mpi_wait(request_s(n),status,ier)
+            call mpi_wait(request_r(n),status,ier)
+            call mpi_wait(request_sa(n),status,ier)
+            call mpi_wait(request_ra(n),status,ier)
+          end if
+        end do
       end if
 
       do n=1,grid%ncon
@@ -943,7 +951,7 @@ module grid_module
       real(8) :: pa(3),pb(3),pc(3),pd(3)
       real(8) :: volp1,volp2,volp3,volp4,volp5,volp6
       integer :: ier,request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%ncon)
-      integer :: status(mpi_status_size,grid%ncon)
+      integer :: status(mpi_status_size)
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
 
       do k=2,grid%kmax
@@ -1170,10 +1178,14 @@ module grid_module
       end do
       
       if(grid%size.gt.1) then      
-        call mpi_waitall(grid%ncon,request_s ,status,ier)
-        call mpi_waitall(grid%ncon,request_sa,status,ier)
-        call mpi_waitall(grid%ncon,request_r ,status,ier)
-        call mpi_waitall(grid%ncon,request_ra,status,ier)
+        do n=1,grid%ncon
+          if(grid%rank.ne.grid%connectinfo(n)%donor) then
+            call mpi_wait(request_s(n),status,ier)
+            call mpi_wait(request_r(n),status,ier)
+            call mpi_wait(request_sa(n),status,ier)
+            call mpi_wait(request_ra(n),status,ier)
+          end if
+        end do
       end if
 
       do n=1,grid%ncon

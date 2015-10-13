@@ -208,7 +208,7 @@ module flux_module
       real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
-      real(8) :: df(flux%npv),uv2_1,sndp2_1
+      real(8) :: df(flux%npv)
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -234,15 +234,13 @@ module flux_module
       call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
       
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      uv2_1 = 0.5d0*(uurr**2+uull**2)
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
-      sndp2_1   = flux%getsndp2(rdv(6),uv2_1,0)
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
-      ddd = 0.5d0*dsqrt((1.d0-sndp2_1/rdv(6))**2*uuu**2+4.d0*sndp2_1)
+      ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
       c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
