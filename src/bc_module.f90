@@ -1149,16 +1149,14 @@ module bc_module
         end if
       end do
       
-      if(bc%size.gt.1) then
-        do n=1,bc%ncon
-          if(bc%rank.ne.bc%connectinfo(n)%donor) then
-            call mpi_wait(request_s(n),status,ier)
-            call mpi_wait(request_r(n),status,ier)
-            call mpi_wait(request_sa(n),status,ier)
-            call mpi_wait(request_ra(n),status,ier)
-          end if
-        end do
-      end if
+      do n=1,bc%ncon
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
+          call mpi_wait(request_s(n),status,ier)
+          call mpi_wait(request_r(n),status,ier)
+          call mpi_wait(request_sa(n),status,ier)
+          call mpi_wait(request_ra(n),status,ier)
+        end if
+      end do
 
       do n=1,bc%ncon
         if(bc%rank.ne.bc%connectinfo(n)%donor) then 

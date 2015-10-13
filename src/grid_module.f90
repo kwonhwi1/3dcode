@@ -29,6 +29,7 @@ module grid_module
 
   type t_grid
     private
+    character(32) :: zonename
     integer :: rank,size
     integer :: imax,jmax,kmax,nbc,ncon,ngrd
     type(t_bcinfo), dimension(:), allocatable :: bcinfo
@@ -43,6 +44,7 @@ module grid_module
       procedure, private :: calydns
       procedure, private :: calnormal
       procedure, private :: calvolume
+      procedure :: getzonename
       procedure :: getimax
       procedure :: getjmax
       procedure :: getkmax
@@ -106,6 +108,7 @@ module grid_module
             grid%zoneinfo(j)%jmax = isize(2)
             grid%zoneinfo(j)%kmax = isize(3)
             if(j.eq.n) then
+              grid%zonename = zonename(j+1)
               grid%imax = isize(1)
               grid%jmax = isize(2)
               grid%kmax = isize(3)
@@ -567,16 +570,14 @@ module grid_module
         end if    
       end do
       
-      if(grid%size.gt.1) then
-        do n=1,grid%ncon
-          if(grid%rank.ne.grid%connectinfo(n)%donor) then
-            call mpi_wait(request_s(n),status,ier)
-            call mpi_wait(request_r(n),status,ier)
-            call mpi_wait(request_sa(n),status,ier)
-            call mpi_wait(request_ra(n),status,ier)
-          end if
-        end do
-      end if
+      do n=1,grid%ncon
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
+          call mpi_wait(request_s(n),status,ier)
+          call mpi_wait(request_r(n),status,ier)
+          call mpi_wait(request_sa(n),status,ier)
+          call mpi_wait(request_ra(n),status,ier)
+        end if
+      end do
 
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
@@ -844,16 +845,14 @@ module grid_module
         end if    
       end do
 
-      if(grid%size.gt.1) then
-        do n=1,grid%ncon
-          if(grid%rank.ne.grid%connectinfo(n)%donor) then
-            call mpi_wait(request_s(n),status,ier)
-            call mpi_wait(request_r(n),status,ier)
-            call mpi_wait(request_sa(n),status,ier)
-            call mpi_wait(request_ra(n),status,ier)
-          end if
-        end do
-      end if
+      do n=1,grid%ncon
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
+          call mpi_wait(request_s(n),status,ier)
+          call mpi_wait(request_r(n),status,ier)
+          call mpi_wait(request_sa(n),status,ier)
+          call mpi_wait(request_ra(n),status,ier)
+        end if
+      end do
 
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
@@ -1177,16 +1176,14 @@ module grid_module
         end if    
       end do
       
-      if(grid%size.gt.1) then      
-        do n=1,grid%ncon
-          if(grid%rank.ne.grid%connectinfo(n)%donor) then
-            call mpi_wait(request_s(n),status,ier)
-            call mpi_wait(request_r(n),status,ier)
-            call mpi_wait(request_sa(n),status,ier)
-            call mpi_wait(request_ra(n),status,ier)
-          end if
-        end do
-      end if
+      do n=1,grid%ncon
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
+          call mpi_wait(request_s(n),status,ier)
+          call mpi_wait(request_r(n),status,ier)
+          call mpi_wait(request_sa(n),status,ier)
+          call mpi_wait(request_ra(n),status,ier)
+        end if
+      end do
 
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then 
@@ -1244,6 +1241,14 @@ module grid_module
       !  make right hand rule unnecessary by take absolute value
       pyramid = dabs( volpx + volpy + volpz )
     end function pyramid
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getzonename(grid)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      character(32) :: getzonename
+
+      getzonename = grid%zonename
+    end function getzonename
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getimax(grid)
       implicit none
