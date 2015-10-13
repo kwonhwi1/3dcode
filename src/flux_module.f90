@@ -276,7 +276,7 @@ module flux_module
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
       real(8) :: aaa,add,add1,b1,b2,b1b2,rrr,rrr1,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),bdq1(flux%npv),dq(flux%npv)
-      real(8) :: rdv(flux%ndv),sndp2_1
+      real(8) :: rdv(flux%ndv)
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -308,11 +308,10 @@ module flux_module
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
-      sndp2_1   = flux%getsndp2(rdv(6),uv2,0)
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
-      ddd = 0.5d0*dsqrt((1.d0-sndp2_1/rdv(6))**2*uuu**2+4.d0*sndp2_1)
+      ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
       c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
