@@ -276,7 +276,7 @@ module flux_module
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
       real(8) :: aaa,add,add1,b1,b2,b1b2,rrr,rrr1,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),bdq1(flux%npv),dq(flux%npv)
-      real(8) :: rdv(flux%ndv)
+      real(8) :: rdv(flux%ndv),sndp2_1
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
