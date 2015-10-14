@@ -222,14 +222,14 @@ module flux_module
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
       call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
-      
-      !uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      uv2 = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
-                 + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )
+
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
-
+      !uv2 = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+      !          + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )
+      uv2 = 0.5d0*(uurr**2+uull**2)
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
@@ -301,13 +301,14 @@ module flux_module
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
       call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
-      
-      !uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      uv2 = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
-                 + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )
+
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
+      !uv2 = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+      !          + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )
+      uv2 = 0.5d0*(uurr**2+uull**2)
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
@@ -457,13 +458,13 @@ module flux_module
       zmr = uurr/amid
       zml = uull/amid
 
-      !am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
-      am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
-                    + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      !am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+      !              + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
+      am2mid = 0.5d0*(zml**2+zmr**2)
       am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
+      am2mid = (ravg(2)**2+ravg(3)**2)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
 
-            
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
       
@@ -572,13 +573,13 @@ module flux_module
       zmr = uurr/amid
       zml = uull/amid
 
-      !am2mid = (ravg(2)**2+ravg(3)**2+ravg(4)**2)/rdv(6)
-      am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
-                    + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      !am2mid = 0.5d0*(flux%pvl(2)**2 + flux%pvl(3)**2 + flux%pvl(4)**2  &
+      !              + flux%pvr(2)**2 + flux%pvr(3)**2 + flux%pvr(4)**2 )/rdv(6)
+      am2mid = 0.5d0*(zml**2+zmr**2)
       am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
+      am2mid = (ravg(2)**2+ravg(3)**2)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
 
-            
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
       
