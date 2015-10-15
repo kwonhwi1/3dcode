@@ -19,13 +19,19 @@ module bc_module
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
 
+  type t_prec
+    real(8) :: str,uref
+    procedure(p_getsndp2), pointer :: getsndp2
+  end type t_prec
+
   type t_bc
     private
     integer :: rank,size,iturb,nbc,ncon
     integer :: npv,ntv,ndv,ngrd
-    type(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
-    type(t_connectinfo), dimension(:), allocatable :: connectinfo
-    type(t_mpitemp), dimension(:), allocatable :: mpitemp
+    class(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
+    class(t_connectinfo), dimension(:), allocatable :: connectinfo
+    class(t_mpitemp), dimension(:), allocatable :: mpitemp
+    type(t_prec) :: prec
     contains
       procedure :: construct
       procedure :: destruct
@@ -33,18 +39,28 @@ module bc_module
   end type t_bc
 
   interface
-    subroutine p_bctype(bcinfo,grid,variable,eos,prop)
+    function p_getsndp2(prec,snd2,uuu2) result(sndp2)
+      import t_prec
+      implicit none
+      class(t_prec), intent(in) :: prec
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+    end function p_getsndp2
+
+    subroutine p_bctype(bcinfo,grid,variable,eos,prop,prec)
       import t_bcinfo2
       import t_grid
       import t_variable
       import t_eos
-      import t_prop  
+      import t_prop
+      import t_prec
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
     end subroutine p_bctype
   end interface
   contains
@@ -72,6 +88,19 @@ module bc_module
       bc%ntv = variable%getntv()
       bc%ndv = variable%getndv()
       bc%ngrd = grid%getngrd()
+
+      bc%prec%uref = config%geturef()
+      bc%prec%str  = config%getstr()
+      select case(config%getprec())
+      case(0)
+        bc%prec%getsndp2 => no_prec
+      case(1)
+        bc%prec%getsndp2 => steady_prec
+      case(2)
+        bc%prec%getsndp2 => unsteady_prec
+      case default
+        bc%prec%getsndp2 => null()
+      end select
 
       allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
 
@@ -1017,7 +1046,9 @@ module bc_module
       implicit none
       class(t_bc), intent(inout) :: bc
       integer :: n
-      
+
+      if(associated(bc%prec%getsndp2)) nullify(bc%prec%getsndp2)
+
       do n=1,bc%nbc
         if(associated(bc%bcinfo(n)%bctype)) nullify(bc%bcinfo(n)%bctype)
         deallocate(bc%bcinfo(n)%pv,bc%bcinfo(n)%dv,bc%bcinfo(n)%tv)
@@ -1057,7 +1088,7 @@ module bc_module
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
       
       do n=1,bc%nbc
-        call bc%bcinfo(n)%bctype(grid,variable,eos,prop)
+        call bc%bcinfo(n)%bctype(grid,variable,eos,prop,bc%prec)
       end do
  
       do n=1,bc%ncon
@@ -1195,22 +1226,23 @@ module bc_module
       end do
       
       do n=1,12
-        call bc%edge(n)%bctype(grid,variable,eos,prop)
+        call bc%edge(n)%bctype(grid,variable,eos,prop,bc%prec)
       end do
 
       do n=1,8
-        call bc%corner(n)%bctype(grid,variable,eos,prop)
+        call bc%corner(n)%bctype(grid,variable,eos,prop,bc%prec)
       end do
       
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwall(bcinfo,grid,variable,eos,prop)
+    subroutine edgewallwall(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: ppv(variable%getnpv())
@@ -1262,13 +1294,14 @@ module bc_module
       end do
     end subroutine edgewallwall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgewallwallkw(bcinfo,grid,variable,eos,prop)
+    subroutine edgewallwallkw(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
@@ -1326,13 +1359,14 @@ module bc_module
       end do
     end subroutine edgewallwallkw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornerwallwall(bcinfo,grid,variable,eos,prop)
+    subroutine cornerwallwall(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: ppv(variable%getnpv())
@@ -1397,13 +1431,14 @@ module bc_module
       end do
     end subroutine cornerwallwall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornerwallwallkw(bcinfo,grid,variable,eos,prop)
+    subroutine cornerwallwallkw(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
@@ -1474,13 +1509,14 @@ module bc_module
       end do
     end subroutine cornerwallwallkw
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine edgenowall(bcinfo,grid,variable,eos,prop)
+    subroutine edgenowall(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
  
@@ -1532,13 +1568,14 @@ module bc_module
 
     end subroutine edgenowall
     !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cornernowall(bcinfo,grid,variable,eos,prop)
+    subroutine cornernowall(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
  
@@ -1599,13 +1636,14 @@ module bc_module
 
     end subroutine cornernowall
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallinviscid(bcinfo,grid,variable,eos,prop)
+    subroutine bcwallinviscid(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
       real(8) :: dv(variable%getndv()),tv(variable%getntv())
@@ -1685,13 +1723,14 @@ module bc_module
       
     end subroutine bcwallinviscid
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscous(bcinfo,grid,variable,eos,prop)
+    subroutine bcwallviscous(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
 
@@ -1724,13 +1763,14 @@ module bc_module
    
     end subroutine bcwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscouske(bcinfo,grid,variable,eos,prop)
+    subroutine bcwallviscouske(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
 
@@ -1768,13 +1808,14 @@ module bc_module
 
     end subroutine bcwallviscouske
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcwallviscouskw(bcinfo,grid,variable,eos,prop)
+    subroutine bcwallviscouskw(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv()),grd(grid%getngrd())
       real(8) :: dv_b(variable%getndv()),tv_b(variable%getntv())
@@ -1845,13 +1886,14 @@ module bc_module
       end do     
     end subroutine bcwallviscouskw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflow(bcinfo,grid,variable,eos,prop)
+    subroutine bcinflow(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k
     
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -1864,16 +1906,17 @@ module bc_module
      
     end subroutine bcinflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflowsubsonic(bcinfo,grid,variable,eos,prop)
+    subroutine bcinflowsubsonic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: pv_s(variable%getnpv()),nx(3),var,dl
+      real(8) :: pv_s(variable%getnpv()),nx(3),var,dl,a
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1885,36 +1928,42 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getcx(ii-1,jj,kk)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii,jj,kk)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = - grid%getex(ii,jj-1,kk)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj,kk)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = - grid%gettx(ii,jj,kk-1)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
               pv_s = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
             end select
             dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
@@ -1922,12 +1971,14 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            var = pv_s(1) - bcinfo%dv(1)*dsqrt(bcinfo%dv(6))*(nx(1)*(bcinfo%pv(2)-pv_s(2)) &
+            a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
+            a = dsqrt(a)
+            var = pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2)) &
                           + nx(2)*(bcinfo%pv(3)-pv_s(3))+ nx(3)*(bcinfo%pv(4)-pv_s(4)))*dl
             pv(1) = var - pv(1)
-            pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(2)
-            pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(3)
-            pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(4)
+            pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv(1)/a*dl) - pv(2)
+            pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv(1)/a*dl) - pv(3)
+            pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv(1)/a*dl) - pv(4)
             pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
@@ -1948,13 +1999,14 @@ module bc_module
      
     end subroutine bcinflowsubsonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcinflowsupersonic(bcinfo,grid,variable,eos,prop)
+    subroutine bcinflowsupersonic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       integer :: i,j,k,ii,jj,kk,m
       
@@ -1987,13 +2039,14 @@ module bc_module
      
     end subroutine bcinflowsupersonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflow(bcinfo,grid,variable,eos,prop)
+    subroutine bcoutflow(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k
       
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -2006,16 +2059,17 @@ module bc_module
       
     end subroutine bcoutflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflowsubsonic(bcinfo,grid,variable,eos,prop)
+    subroutine bcoutflowsubsonic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: pv_s(variable%getnpv()),nx(3),dl
+      real(8) :: pv_s(variable%getnpv()),nx(3),dl,a
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -2069,10 +2123,12 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
+            a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
+            a = dsqrt(a)
             pv(1) = -pv(1)
-            pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(2)
-            pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(3)
-            pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/dsqrt(dv(6))*dl) - pv(4)
+            pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/a*dl) - pv(2)
+            pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/a*dl) - pv(3)
+            pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/a*dl) - pv(4)
             do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
@@ -2090,13 +2146,14 @@ module bc_module
      
     end subroutine bcoutflowsubsonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcoutflowsupersonic(bcinfo,grid,variable,eos,prop)
+    subroutine bcoutflowsupersonic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       
@@ -2123,15 +2180,16 @@ module bc_module
       end do
     end subroutine bcoutflowsupersonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcfarfield(bcinfo,grid,variable,eos,prop)
+    subroutine bcfarfield(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: nx(3),vel,mach,dl,var
+      real(8) :: nx(3),vel,mach,dl,var,a
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: pv_b(variable%getnpv()),dv_b(variable%getndv())
 
@@ -2190,13 +2248,15 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
             vel = (pv_b(2)*nx(1)+pv_b(3)*nx(2)+pv_b(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             mach = vel/dsqrt(dv_b(6))
+            a = prec%getsndp2(dv_b(6),pv_b(2)**2+pv_b(3)**2+pv_b(4)**2)
+            a = dsqrt(a)
             if(mach.ge.0.d0) then !out
               if(mach.ge.1.d0) then !super                
               else !sub
                 pv(1) = -pv(1)
-                pv(2) = 2.d0*( pv_b(2)+nx(1)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(2)
-                pv(3) = 2.d0*( pv_b(3)+nx(2)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(3)
-                pv(4) = 2.d0*( pv_b(4)+nx(3)*pv_b(1)/dv_b(1)/dsqrt(dv_b(6))*dl) - pv(4)
+                pv(2) = 2.d0*( pv_b(2)+nx(1)*pv_b(1)/dv_b(1)/a*dl) - pv(2)
+                pv(3) = 2.d0*( pv_b(3)+nx(2)*pv_b(1)/dv_b(1)/a*dl) - pv(3)
+                pv(4) = 2.d0*( pv_b(4)+nx(3)*pv_b(1)/dv_b(1)/a*dl) - pv(4)
               end if
             else ! in
               if(mach.le.-1.d0) then !super
@@ -2205,12 +2265,12 @@ module bc_module
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                var = pv_b(1) - bcinfo%dv(1)*dsqrt(bcinfo%dv(6))*(nx(1)*(bcinfo%pv(2)-pv_b(2)) &
+                var = pv_b(1) - dv_b(1)*a*(nx(1)*(bcinfo%pv(2)-pv_b(2)) &
                               + nx(2)*(bcinfo%pv(3)-pv_b(3))+ nx(3)*(bcinfo%pv(4)-pv_b(4)))*dl
                 pv(1) = var - pv(1)
-                pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(2)
-                pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(3)
-                pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/bcinfo%dv(1)/dsqrt(bcinfo%dv(6))*dl) - pv(4)
+                pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv_b(1)/a*dl) - pv(2)
+                pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv_b(1)/a*dl) - pv(3)
+                pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv_b(1)/a*dl) - pv(4)
                 pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
@@ -2233,13 +2293,14 @@ module bc_module
     
     end subroutine bcfarfield
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcdegeneratepoint(bcinfo,grid,variable,eos,prop)
+    subroutine bcdegeneratepoint(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
 
@@ -2267,13 +2328,14 @@ module bc_module
     
     end subroutine bcdegeneratepoint
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcsymmetryplane(bcinfo,grid,variable,eos,prop)
+    subroutine bcsymmetryplane(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
       real(8) :: dv(variable%getndv()),tv(variable%getntv())
@@ -2352,13 +2414,14 @@ module bc_module
       end do
     end subroutine bcsymmetryplane
      !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine bcshiftedperiodic(bcinfo,grid,variable,eos,prop)
+    subroutine bcshiftedperiodic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
       type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
  
@@ -2517,4 +2580,34 @@ module bc_module
 
     end subroutine bcshiftedperiodic
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_prec(prec,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_prec), intent(in) :: prec
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+      
+      sndp2 = snd2
+      
+    end function no_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function steady_prec(prec,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_prec), intent(in) :: prec
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+      
+      sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2))
+      
+    end function steady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function unsteady_prec(prec,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_prec), intent(in) :: prec
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+
+      sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2,prec%str**2*uuu2))
+      
+    end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module bc_module
