@@ -1973,12 +1973,12 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
             a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
             a = dsqrt(a)
-            var = 2.d0*pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2))  + nx(2)*(bcinfo%pv(3)-pv_s(3)) &
+            var = pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2))  + nx(2)*(bcinfo%pv(3)-pv_s(3)) &
                                         + nx(3)*(bcinfo%pv(4)-pv_s(4)))*dl
             pv(1) = var - pv(1)
-            pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*(pv_s(1)-0.5d0*var)/dv(1)/a*dl) - pv(2)
-            pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*(pv_s(1)-0.5d0*var)/dv(1)/a*dl) - pv(3)
-            pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*(pv_s(1)-0.5d0*var)/dv(1)/a*dl) - pv(4)
+            pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv(1)/a*dl) - pv(2)
+            pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv(1)/a*dl) - pv(3)
+            pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv(1)/a*dl) - pv(4)
             pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
@@ -2265,12 +2265,12 @@ module bc_module
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                var = 2.d0*pv_b(1) - dv_b(1)*a*(nx(1)*(bcinfo%pv(2)-pv_b(2)) + nx(2)*(bcinfo%pv(3)-pv_b(3)) &
+                var = pv_b(1) - dv_b(1)*a*(nx(1)*(bcinfo%pv(2)-pv_b(2)) + nx(2)*(bcinfo%pv(3)-pv_b(3)) &
                                               + nx(3)*(bcinfo%pv(4)-pv_b(4)))*dl
                 pv(1) = var - pv(1)
-                pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*(pv_b(1)-0.5d0*var)/dv_b(1)/a*dl) - pv(2)
-                pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*(pv_b(1)-0.5d0*var)/dv_b(1)/a*dl) - pv(3)
-                pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*(pv_b(1)-0.5d0*var)/dv_b(1)/a*dl) - pv(4)
+                pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv_b(1)/a*dl) - pv(2)
+                pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv_b(1)/a*dl) - pv(3)
+                pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv_b(1)/a*dl) - pv(4)
                 pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
