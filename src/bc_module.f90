@@ -215,7 +215,11 @@ module bc_module
           bc%bcinfo(n)%bctype => bctotalpressurein
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCCounterRotatingWall') then
           select case(config%getiturb())
-          case(-2,-1,0)
+          case(0)
+            bc%bcinfo(n)%bctype => bccounterrotatingwallviscouskw
+          case(-1)
+            bc%bcinfo(n)%bctype => bccounterrotatingwallviscouske
+          case(-2)
             bc%bcinfo(n)%bctype => bccounterrotatingwallviscous
           case default
             bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
@@ -2875,6 +2879,200 @@ module bc_module
 
     end subroutine bccounterrotatingwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bccounterrotatingwallviscouske(bcinfo,grid,variable,eos,prop,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: grd(grid%getngrd()),gridvel(3)
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmin')
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmax')
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmin')
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmax')
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            end select
+
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4)
+                call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
+              case(8,9)
+                call variable%setpv(m,i,j,k,-pv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              select case(m)
+              case(3)
+                call variable%settv(m,i,j,k,-tv(m))
+              case default
+                call variable%settv(m,i,j,k,tv(m))
+              end select
+            end do
+          end do
+        end do
+      end do
+
+    end subroutine bccounterrotatingwallviscouske
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bccounterrotatingwallviscouskw(bcinfo,grid,variable,eos,prop,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: dv_b(variable%getndv()),tv_b(variable%getntv())
+      real(8) :: grd(grid%getngrd()),gridvel(3),var
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmin')
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmax')
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmin')
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmax')
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
+
+              gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+              gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+              gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            end select
+            dv_b = variable%getdv(ii,jj,kk)
+            tv_b = variable%gettv(ii,jj,kk)
+            grd = grid%getgrd(ii,jj,kk)
+            do m=1,variable%getnpv()
+              select case(m)
+              case(2,3,4)
+                call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
+              case(8)
+                call variable%setpv(m,i,j,k,-pv(m))
+              case(9)
+                var = 1600.d0*tv_b(1)/(dv_b(1)*grd(5)**2)-pv(m)
+                call variable%setpv(m,i,j,k,pv(m))
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,variable%getntv()
+              select case(m)
+              case(3)
+                call variable%settv(m,i,j,k,-tv(m))
+              case default
+                call variable%settv(m,i,j,k,tv(m))
+              end select
+            end do
+          end do
+        end do
+      end do
+
+    end subroutine bccounterrotatingwallviscouskw
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bccounterrotatingwallinviscid(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
