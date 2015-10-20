@@ -105,6 +105,7 @@ module bc_module
       allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
 
       do n=1,bc%nbc
+        bc%bcinfo(n)%omega = config%getomega()
         bc%bcinfo(n)%bcname = grid%getbcname(n)
         do m=1,dim
           bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
@@ -252,8 +253,6 @@ module bc_module
           end if
         end if
       end do
-
-      bc%bcinfo(n)%omega = config%getomega()
 
       do n=1,bc%ncon
         bc%connectinfo(n)%donor = grid%getconnectdonor(n)
@@ -527,7 +526,7 @@ module bc_module
 
       do m=1,4
         do n=1,bc%nbc
-          if((trim(bc%edge(n)%bcname).eq.'BCWall').and. &
+          if((trim(bc%edge(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%edge(m)%neighbor1(1)).and.   &
@@ -546,7 +545,7 @@ module bc_module
       end do
       do m=5,8
         do n=1,bc%nbc 
-          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%edge(m)%neighbor1(1)).and.   &
@@ -565,7 +564,7 @@ module bc_module
       end do
       do m=9,12
         do n=1,bc%nbc 
-          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(2).le.bc%edge(m)%neighbor2(2)).and. &
                (bc%bcinfo(n)%iend(2).ge.bc%edge(m)%neighbor2(2)).and.   &
@@ -896,7 +895,7 @@ module bc_module
 
       do m=1,8
         do n=1,bc%nbc
-          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').and. &
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%corner(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%corner(m)%neighbor1(1)).and.   &
@@ -2771,10 +2770,10 @@ module bc_module
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
 
-            do m=1,7
+            do m=1,variable%getnpv()
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(4),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv)
             do m=1,variable%getndv()
               call variable%setdv(m,i,j,k,dv(m))
             end do
@@ -2959,7 +2958,7 @@ module bc_module
             do m=1,variable%getnpv()
               select case(m)
               case(2,3,4)
-                var = 2.d0*(pv_s(m) - nx(m-1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2) - 2.d0*gridvel(m-1)) - pv(m)
+                var = 2.d0*(pv_s(m) - nx(m-1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2) - gridvel(m-1)) - pv(m)
                 call variable%setpv(m,i,j,k,var)
               case default
                 call variable%setpv(m,i,j,k,pv(m))
