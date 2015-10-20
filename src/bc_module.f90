@@ -2858,7 +2858,7 @@ module bc_module
             do m=1,variable%getnpv()
               select case(m)
               case(2,3,4)
-                call variable%setpv(m,i,j,k,-pv(m)+2.d0*gridvel(m-1))
+                call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
               case default
                 call variable%setpv(m,i,j,k,pv(m))
               end select
@@ -2959,7 +2959,7 @@ module bc_module
             do m=1,variable%getnpv()
               select case(m)
               case(2,3,4)
-                var = 2.d0*(pv_s(m) - nx(m-1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2) + 2.d0*gridvel(m-1)) - pv(m)
+                var = 2.d0*(pv_s(m) - nx(m-1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2) - 2.d0*gridvel(m-1)) - pv(m)
                 call variable%setpv(m,i,j,k,var)
               case default
                 call variable%setpv(m,i,j,k,pv(m))
