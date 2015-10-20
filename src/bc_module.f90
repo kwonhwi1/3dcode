@@ -2803,91 +2803,61 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            select case(bcinfo%face)
-            case('imin')
-              if(i.eq.bcinfo%istart(1)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            case('imax')
-              if(i.eq.bcinfo%iend(1)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            case('jmin')
-              if(j.eq.bcinfo%istart(2)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            case('jmax')
-              if(j.eq.bcinfo%iend(2)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            case('kmin')
-              if(k.eq.bcinfo%istart(3)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            case('kmax')
-              if(k.eq.bcinfo%iend(3)) then
-                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
-
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-              end if
-            end select
-          end do
-        end do
-      end do
-      
-      do k=bcinfo%istart(3),bcinfo%iend(3)
-        do j=bcinfo%istart(2),bcinfo%iend(2)
-          do i=bcinfo%istart(1),bcinfo%iend(1)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
+            select case(bcinfo%face)
+            case('imin')
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('imax')
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmin')
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('jmax')
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmin')
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            case('kmax')
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+            end select
+
             do m=1,variable%getnpv()
               select case(m)
               case(2,3,4)
-                call variable%setpv(m,i,j,k,-pv(2)+2.d0*gridvel(1))
+                call variable%setpv(m,i,j,k,-pv(m)+2.d0*gridvel(m-1))
               case default
                 call variable%setpv(m,i,j,k,pv(m))
               end select
@@ -2902,6 +2872,7 @@ module bc_module
         end do
       end do
 
+
     end subroutine bccounterrotatingwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bccounterrotatingwallinviscid(bcinfo,grid,variable,eos,prop,prec)
@@ -2914,12 +2885,18 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: grd(grid%getngrd()),gridvel(3)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            
-          end do
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+         end do
         end do
       end do
 
