@@ -14,7 +14,7 @@ module bc_module
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     character(4) :: face
-    real(8) :: massflowrate,total_pressure,total_temperature
+    real(8) :: massflowrate,total_pressure,total_temperature,omega(3)
     real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -208,6 +208,12 @@ module bc_module
           bc%bcinfo(n)%bctype => bcsymmetryplane
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCShiftedPeriodic') then
           bc%bcinfo(n)%bctype => bcshiftedperiodic
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCTotalPressureIn') then
+          bc%bcinfo(n)%total_temperature = 0.d0
+          bc%bcinfo(n)%total_pressure = 0.d0
+          bc%bcinfo(n)%bctype => bctotalpressurein
+        else if(trim(bc%bcinfo(n)%bcname).eq.'BCCounterRotatingWall') then
+          bc%bcinfo(n)%bctype => bccounterrotatingwall
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
@@ -241,6 +247,8 @@ module bc_module
           end if
         end if
       end do
+
+      bc%bcinfo(n)%omega = config%getomega()
 
       do n=1,bc%ncon
         bc%connectinfo(n)%donor = grid%getconnectdonor(n)
@@ -2413,7 +2421,7 @@ module bc_module
         end do
       end do
     end subroutine bcsymmetryplane
-     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcshiftedperiodic(bcinfo,grid,variable,eos,prop,prec)
       implicit none
       class(t_bcinfo2), intent(in) :: bcinfo
@@ -2580,6 +2588,214 @@ module bc_module
 
     end subroutine bcshiftedperiodic
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bctotalpressurein(bcinfo,grid,variable,eos,prop,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: grd(grid%getngrd()),nx(3),gridvel(3)
+      real(8) :: ua,va,wa,area,uvwa2,x(2),h_total,pa,ta
+      real(8),parameter :: pi = 4.d0*datan(1.d0)
+      logical :: check
+
+      ua = 0.d0
+      va = 0.d0
+      wa = 0.d0
+      pa = 0.d0
+      ta = 0.d0
+      area = 0.d0
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            select case(bcinfo%face)
+            case('imin')
+              if(i.eq.bcinfo%istart(1)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = - grid%getcx(ii-1,jj,kk)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            case('imax')
+              if(i.eq.bcinfo%iend(1)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = grid%getcx(ii,jj,kk)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            case('jmin')
+              if(j.eq.bcinfo%istart(2)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = - grid%getex(ii,jj-1,kk)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            case('jmax')
+              if(j.eq.bcinfo%iend(2)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = grid%getex(ii,jj,kk)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            case('kmin')
+              if(k.eq.bcinfo%istart(3)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+                nx = - grid%gettx(ii,jj,kk-1)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            case('kmax')
+              if(k.eq.bcinfo%iend(3)) then
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+                nx = grid%gettx(ii,jj,kk)
+                grd = grid%getgrd(ii,jj,kk)
+
+                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              end if
+            end select
+          end do
+        end do
+      end do
+
+      ua = ua/area
+      va = va/area
+      pa = pa/area
+      ta = ta/area
+      uvwa2 = ua**2+va**2+wa**2
+
+      ! reference pv(6), pv(7) should be given as boundary condition
+      call eos%deteos(bcinfo%total_pressure,bcinfo%total_temperature,bcinfo%pv(6),bcinfo%pv(7),dv)
+      h_total = dv(2)
+
+      ! initial guess
+      ! x(1)=static pressure, x(2)=static temperature
+      x(1) = pa+bcinfo%pv(1)
+      x(2) = ta
+
+      call newt(eos,2,bcinfo%total_pressure,h_total,bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+
+            pv(1) = 2.d0*(x(1)-bcinfo%pv(1))-pv(1)
+            pv(5) = 2.d0*x(2)-pv(5)
+            pv(6) = 2.d0*bcinfo%pv(6)-pv(6)
+            pv(7) = 2.d0*bcinfo%pv(7)-pv(7)
+            pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
+            pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
+
+            do m=1,7
+              call variable%setpv(m,i,j,k,pv(m))
+            end do
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(4),pv(6),pv(7),dv)
+            do m=1,variable%getndv()
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            if(variable%getntv().ne.0) call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            do m=1,variable%getntv()
+              call variable%settv(m,i,j,k,tv(m))
+            end do
+          end do
+        end do
+      end do
+
+    end subroutine bctotalpressurein
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bccounterrotatingwall(bcinfo,grid,variable,eos,prop,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,m,ii,jj,kk
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+
+    end subroutine bccounterrotatingwall
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function no_prec(prec,snd2,uuu2) result(sndp2)
       implicit none
       class(t_prec), intent(in) :: prec
@@ -2609,5 +2825,322 @@ module bc_module
       sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2,prec%str**2*uuu2))
       
     end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine newt(eos,n,p_total,h_total,y1,y2,uvwa2,x,check)
+      implicit none
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: n
+      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
+      logical, intent(out) :: check
+      real(8), intent(inout) :: x(n)
+      integer, parameter :: maxits=200
+      real(8), parameter :: tolf=1.d-4,tolmin=1.d-6,tolx=1.d-7,stpmx=100.d0
+      integer :: i,its,j,indx(n)
+      real(8) :: fvec(n)
+      real(8) :: d,den,f,fold,stpmax,sum,temp,test
+      real(8) :: fjac(n,n),g(n),p(n),xold(n)
+
+      f=fmin(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      test=0.d0
+
+      do i=1,n
+        if(dabs(fvec(i)).gt.test) test=dabs(fvec(i))
+      end do
+      if(test.lt.0.01d0*tolf) then
+        check=.false.
+        return
+      end if
+
+      sum=0.d0
+      do i=1,n
+        sum=sum+x(i)**2
+      end do
+      stpmax=stpmx*dmax1(dsqrt(sum),dble(n))
+      do its=1,maxits
+        call fdjac(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec,fjac)
+        do i=1,n
+          sum=0.d0
+          do j=1,n
+            sum=sum+fjac(j,i)*fvec(j)
+          end do
+          g(i)=sum
+        end do
+        do i=1,n
+          xold(i)=x(i)
+        end do
+        fold=f
+        do i=1,n
+          p(i)=-fvec(i)
+        end do
+
+        call ludcmp(fjac,n,indx,d)
+        call lubksb(fjac,n,indx,p)
+        call lnsrch(eos,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+        test=0.d0
+        do i=1,n
+          if(dabs(fvec(i)).gt.test) test=dabs(fvec(i))
+        end do
+        if (test.lt.tolf) then
+          check=.false.
+          return
+        end if
+        if(check) then
+          test=0.d0
+          den=dmax1(f,0.5d0*n)
+          do i=1,n
+            temp=dabs(g(i))*dmax1(dabs(x(i)),1.d0)/den
+            if(temp.gt.test) test=temp
+          end do
+          if(test.lt.tolmin) then
+            check=.true.
+          else
+            check=.false.
+          end if
+          return
+        end if
+        test=0.d0
+        do i=1,n
+          temp=(dabs(x(i)-xold(i)))/dmax1(dabs(x(i)),1.d0)
+          if(temp.gt.test) test=temp
+        end do
+        if(test.lt.tolx) return
+      end do
+
+      write(*,*) "maxits exceeded in newt"
+
+    end subroutine newt
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function fmin(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      implicit none
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: n
+      real(8), intent(in) :: h_total,p_total,y1,y2,uvwa2,x(n)
+      real(8), intent(out) :: fvec(n)
+      integer :: i
+      real(8) :: fmin,sum
+
+      call funcv(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+
+      sum=0.d0
+      do i=1,n
+        sum=sum+fvec(i)**2
+      enddo
+      fmin=0.5d0*sum
+      return
+    end function fmin
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine funcv(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      implicit none
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: n
+      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n)
+      real(8), intent(out) :: fvec(n)
+      real(8) :: dv(18)
+
+      call eos%deteos(x(1),x(2),y1,y2,dv)
+
+      fvec(1) = p_total - (x(1)+0.5d0*dv(1)*uvwa2)
+      fvec(2) = h_total - (dv(2)+0.5d0*uvwa2)
+    end subroutine funcv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine fdjac(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec,df)
+      implicit none
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: n
+      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n),fvec(n)
+      real(8), intent(out) :: df(n,n)
+      real(8),parameter :: eps=1.0d-4
+      integer :: i,j
+      real(8) :: h,temp(n),f(n)
+
+      do j=1,n
+        temp = x
+        h=eps*dabs(temp(j))
+        if(h.eq.0.0d0) h=eps
+        temp(j)=temp(j)+h
+        h=temp(j)-x(j)
+        call funcv(eos,n,p_total,h_total,y1,y2,uvwa2,temp,f)
+        do i=1,n
+          df(i,j)=(f(i)-fvec(i))/h
+        enddo
+      enddo
+
+      return
+    end subroutine fdjac
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine lnsrch(eos,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+      implicit none
+      type(t_eos), intent(in) :: eos
+      integer, intent(in) :: n
+      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
+      logical :: check
+      real(8) :: f,fold,stpmax,g(n),p(n),x(n),xold(n),fvec(n)
+      real(8), parameter :: alf=1.d-4,tolx=1.d-7
+      integer :: i
+      real(8) :: a,alam,alam2,alamin,b,disc,f2,fold2,rhs1,rhs2
+      real(8) :: slope,sum,temp,test,tmplam
+
+      check=.false.
+      sum=0.0d0
+      do i=1,n
+        sum=sum+p(i)*p(i)
+      enddo
+      sum=dsqrt(sum)
+      if(sum.gt.stpmax) then
+        do i=1,n
+          p(i)=p(i)*stpmax/sum
+         enddo
+      endif
+      slope=0.0d0
+      do i=1,n
+        slope=slope+g(i)*p(i)
+      enddo
+      if(slope.ge.0.d0) write(*,*) "roundoff problem in lnsrch"
+      test=0.0d0
+      do i=1,n
+        temp=dabs(p(i))/dmax1(dabs(xold(i)),1.0d0)
+        if(temp.gt.test) test=temp
+      enddo
+      alamin=tolx/test
+      alam=1.0d0
+1     continue
+      do i=1,n
+        x(i)=xold(i)+alam*p(i)
+      enddo
+      f=fmin(eos,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      if(alam.lt.alamin) then
+        do i=1,n
+          x(i)=xold(i)
+        enddo
+        check=.true.
+        return
+      else if(f.le.fold+alf*alam*slope) then
+        return
+      else
+        if(alam.eq.1.0d0) then
+          tmplam=-slope/(2.0d0*(f-fold-slope))
+        else
+          rhs1=f-fold-alam*slope
+          rhs2=f2-fold2-alam2*slope
+          a=(rhs1/alam**2-rhs2/alam2**2)/(alam-alam2)
+          b=(-alam2*rhs1/alam**2+alam*rhs2/alam2**2)/(alam-alam2)
+          if(a.eq.0.0d0) then
+            tmplam=-slope/(2.0d0*b)
+          else
+            disc=b*b-3.0d0*a*slope
+            if(disc.lt.0.d0) then
+              tmplam=0.5d0*alam
+            else if(b.le.0.d0) then
+              tmplam=(-b+dsqrt(disc))/(3.0d0*a)
+            else
+              tmplam=-slope/(b+dsqrt(disc))
+            end if
+          endif
+          if(tmplam.gt.0.5d0*alam) tmplam=0.5d0*alam
+        endif
+      endif
+      alam2=alam
+      f2=f
+      fold2=fold
+      alam=dmax1(tmplam,0.1d0*alam)
+      goto 1
+
+    end subroutine lnsrch
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine ludcmp(a,n,indx,d)
+      implicit none
+      integer, intent(in) :: n
+      integer, intent(out) :: indx(n)
+      real(8), intent(out) :: d
+      real(8), intent(inout) :: a(n,n)
+      real(8), parameter :: tiny=1.d-20
+      integer :: i,imax,j,k
+      real(8) :: aamax,dum,sum,vv(n)
+
+      d=1.d0
+      do i=1,n
+        aamax=0.d0
+        do j=1,n
+          if(dabs(a(i,j)).gt.aamax) aamax=dabs(a(i,j))
+        end do
+        if(aamax.eq.0.d0) write(*,*) "singular matrix in ludcmp"
+        vv(i)=1.d0/aamax
+      end do
+
+      do j=1,n
+        do i=1,j-1
+          sum=a(i,j)
+          do k=1,i-1
+            sum=sum-a(i,k)*a(k,j)
+          end do
+          a(i,j)=sum
+        end do
+        aamax=0.d0
+        do i=j,n
+          sum=a(i,j)
+          do k=1,j-1
+            sum=sum-a(i,k)*a(k,j)
+          end do
+          a(i,j)=sum
+          dum=vv(i)*dabs(sum)
+          if(dum.ge.aamax) then
+            imax=i
+            aamax=dum
+          end if
+        end do
+        if(j.ne.imax) then
+          do k=1,n
+            dum=a(imax,k)
+            a(imax,k)=a(j,k)
+            a(j,k)=dum
+          end do
+          d=-d
+          vv(imax)=vv(j)
+        end if
+        indx(j)=imax
+        if(a(j,j).eq.0.d0) a(j,j)=tiny
+        if(j.ne.n) then
+          dum=1.d0/a(j,j)
+          do i=j+1,n
+            a(i,j)=a(i,j)*dum
+          end do
+        end if
+      end do
+      return
+
+    end subroutine ludcmp
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine lubksb(a,n,indx,b)
+      implicit none
+      integer, intent(in) :: n,indx(n)
+      real(8), intent(in) :: a(n,n)
+      real(8), intent(inout) :: b(n)
+      integer :: i,ii,j,ll
+      real(8) :: sum
+
+      ii=0
+      do i=1,n
+        ll=indx(i)
+        sum=b(ll)
+        b(ll)=b(i)
+        if (ii.ne.0) then
+          do j=ii,i-1
+            sum=sum-a(i,j)*b(j)
+          end do
+        else if(sum.ne.0.d0) then
+          ii=i
+        end if
+        b(i)=sum
+      end do
+      do i=n,1,-1
+        sum=b(i)
+        do j=i+1,n
+          sum=sum-a(i,j)*b(j)
+        end do
+        b(i)=sum/a(i,i)
+      end do
+      return
+
+    end subroutine lubksb
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module bc_module
