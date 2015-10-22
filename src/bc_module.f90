@@ -107,6 +107,27 @@ module bc_module
       do n=1,bc%nbc
         bc%bcinfo(n)%omega = config%getomega()
         bc%bcinfo(n)%bcname = grid%getbcname(n)
+        allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+
+        bc%bcinfo(n)%pv(1) = config%getpref()
+        bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%bcinfo(n)%pv(5) = config%gettref()
+        bc%bcinfo(n)%pv(6) = config%gety1ref()
+        bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+        call eos%deteos(bc%bcinfo(n)%pv(1),bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+        if(config%getiturb().ge.-2) then
+          call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                           ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+          if(config%getiturb().ge.-1) then
+            bc%bcinfo(n)%tv(3) = config%getemutref()
+            bc%bcinfo(n)%pv(8) = config%getkref()
+            bc%bcinfo(n)%pv(9) = config%getoref()
+          end if
+        end if
         do m=1,dim
           bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
           bc%bcinfo(n)%iend(m)   = grid%getbciend(n,m)
@@ -234,28 +255,6 @@ module bc_module
         bc%bcinfo(n)%neighbor4 = 0 ! meaningless
         bc%bcinfo(n)%neighbor5 = 0 ! meaningless
         bc%bcinfo(n)%neighbor6 = 0 ! meaningless
-
-        allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-
-        bc%bcinfo(n)%pv(1) = config%getpref()
-        bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-        bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-        bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-        bc%bcinfo(n)%pv(5) = config%gettref()
-        bc%bcinfo(n)%pv(6) = config%gety1ref()
-        bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-        call eos%deteos(bc%bcinfo(n)%pv(1),bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
-
-        if(config%getiturb().ge.-2) then
-          call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
-                           ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
-        end if
       end do
 
       do n=1,bc%ncon
