@@ -244,9 +244,13 @@ module flux_module
       df(2) = dabs(uuu)*(flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)) + du*rdv(1)*ravg(2)  + dp*nx
       df(3) = dabs(uuu)*(flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)) + du*rdv(1)*ravg(3)  + dp*ny
       df(4) = dabs(uuu)*(flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)) + du*rdv(1)*ravg(4)  + dp*nz
-      df(5) = dabs(uuu)*(flux%dvr(1)*flux%getenthalpy_r()-flux%pvr(1)     &
-                      - (flux%dvl(1)*flux%getenthalpy_l()-flux%pvl(1))    ) + du*rdv(1)*ravg_ht  + dp*uuu
-      do k=6,flux%npv
+      df(5) = dabs(uuu)*(flux%dvr(1)*flux%getenthalpy_r() - flux%pvr(1)   &
+                       - flux%dvl(1)*flux%getenthalpy_l() + flux%pvl(1)   ) + du*rdv(1)*ravg_ht  + dp*uuu
+      df(6) = dabs(uuu)*(flux%dvr(1)*flux%pvr(6)*(1.d0-flux%pvr(7))       &
+                       - flux%dvl(1)*flux%pvl(6)*(1.d0-flux%pvl(7))       ) + du*rdv(1)*ravg(6)*(1.d0-ravg(7))
+      df(7) = dabs(uuu)*(flux%dvr(1)*flux%pvr(6)*flux%pvr(7)              &
+                       - flux%dvl(1)*flux%pvl(6)*flux%pvl(7)              ) + du*rdv(1)*ravg(6)*ravg(7)
+      do k=8,flux%npv
         df(k) = dabs(uuu)*(flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)) + du*rdv(1)*ravg(k)
       end do
       
