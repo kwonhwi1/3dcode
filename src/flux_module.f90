@@ -254,12 +254,20 @@ module flux_module
         df(k) = dabs(uuu)*(flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)) + du*rdv(1)*ravg(k)
       end do
       
-      fx(1) = 0.5d0*(flux%dvl(1)*uull + flux%dvr(1)*uurr - df(1))*dl
-      fx(2) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref) - df(2))*dl
-      fx(3) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref) - df(3))*dl
-      fx(4) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref) + flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref) - df(4))*dl
-      fx(5) = 0.5d0*(flux%dvl(1)*uull*flux%getenthalpy_l() + flux%dvr(1)*uurr*flux%getenthalpy_r() - df(5))*dl
-      do k=6,flux%npv
+      fx(1) = 0.5d0*(flux%dvl(1)*uull + flux%dvr(1)*uurr                     - df(1))*dl
+      fx(2) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref) &
+                   + flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref) - df(2))*dl
+      fx(3) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref) &
+                   + flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref) - df(3))*dl
+      fx(4) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref) &
+                   + flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref) - df(4))*dl
+      fx(5) = 0.5d0*(flux%dvl(1)*uull*flux%getenthalpy_l()                   &
+                   + flux%dvr(1)*uurr*flux%getenthalpy_r()                   - df(5))*dl
+      fx(6) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(6)*(1.d0-flux%pvl(7))         &
+                   + flux%dvr(1)*uurr*flux%pvr(6)*(1.d0-flux%pvr(7))         - df(6))*dl
+      fx(7) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(6)*flux%pvl(7)                &
+                   + flux%dvr(1)*uurr*flux%pvr(6)*flux%pvr(7)                - df(7))*dl
+      do k=8,flux%npv
         fx(k) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(k) + flux%dvr(1)*uurr*flux%pvr(k) - df(k))*dl
       end do    
     end subroutine roe
@@ -274,7 +282,7 @@ module flux_module
       real(8) :: uurr,uull,uv2
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
-      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star
+      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
       real(8) :: aaa,add,add1,b1,b2,b1b2,rrr,rrr1,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),bdq1(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
@@ -331,7 +339,12 @@ module flux_module
       dq(3) = flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)
       dq(4) = flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)
       dq(5) = flux%dvr(1)*flux%getenthalpy_r() - flux%dvl(1)*flux%getenthalpy_l()
-      do k=6,flux%npv
+      dq(6) = flux%dvr(1)*flux%pvr(6)*(1.d0-flux%pvr(7)) &
+            - flux%dvl(1)*flux%pvl(6)*(1.d0-flux%pvl(7))
+      dq(7) = flux%dvr(1)*flux%pvr(6)*flux%pvr(7) &
+            - flux%dvl(1)*flux%pvl(6)*flux%pvl(7)
+      
+      do k=8,flux%npv
         dq(k) = flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)
       end do
       
@@ -340,7 +353,9 @@ module flux_module
       fl(3) = flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref)
       fl(4) = flux%dvl(1)*uull*flux%pvl(4)+nz*(flux%pvl(1)+flux%pref)
       fl(5) = flux%dvl(1)*uull*flux%getenthalpy_l()
-      do k=6,flux%npv
+      fl(6) = flux%dvl(1)*uull*flux%pvl(6)*(1.d0-flux%pvl(7))
+      fl(7) = flux%dvl(1)*uull*flux%pvl(6)*flux%pvl(7)
+      do k=8,flux%npv
         fl(k) = flux%dvl(1)*uull*flux%pvl(k)
       end do
       
@@ -349,12 +364,16 @@ module flux_module
       fr(3) = flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref)
       fr(4) = flux%dvr(1)*uurr*flux%pvr(4)+nz*(flux%pvr(1)+flux%pref)
       fr(5) = flux%dvr(1)*uurr*flux%getenthalpy_r()
-      do k=6,flux%npv
+      fr(6) = flux%dvr(1)*uurr*flux%pvr(6)*(1.d0-flux%pvr(7))
+      fr(7) = flux%dvr(1)*uurr*flux%pvr(6)*flux%pvr(7)
+      do k=8,flux%npv
         fr(k) = flux%dvr(1)*uurr*flux%pvr(k)
       end do
       
+      rhom = dmin1(flux%dvl(1),flux%dvr(1))
+
       do k=1,18
-        sdst(k) = flux%sdst(k)+0.5d0*flux%pref+rdv(1)*rdv(6)
+        sdst(k) = flux%sdst(k)+0.5d0*flux%pref+rhom*rdv(6)
       end do
       
       ff = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9) &
@@ -369,8 +388,8 @@ module flux_module
         ff = 1.d0
       end if
       
-      pp_l = flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
-      pp_r = flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      pp_l = flux%pvl(1)+flux%pref+rhom*rdv(6)
+      pp_r = flux%pvr(1)+flux%pref+rhom*rdv(6)
       gg = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)
       
       if(uuu .ne. 0.d0) then
@@ -395,14 +414,16 @@ module flux_module
         rrr1 = -1.d0/dsign(eps,rrr1)
       else
         rrr1 = -1.d0/rrr1
-      end if
+      end if 
 
       bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
       bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*dqp(2)
       bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*dqp(3)
       bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*dqp(4)
       bdq(5) = bdq(1)*ravg_ht  + rdv(1)*add*(flux%getenthalpy_r()-flux%getenthalpy_l())
-      do k=6,flux%npv
+      bdq(6) = bdq(1)*ravg(6)*(1.d0-ravg(7)) + rdv(1)*add*(flux%pvr(6)*(1.d0-flux%pvr(7))-flux%pvl(6)*(1.d0-flux%pvl(7)))
+      bdq(7) = bdq(1)*ravg(6)*ravg(7)        + rdv(1)*add*(flux%pvr(6)*flux%pvr(7)-flux%pvl(6)*flux%pvl(7))
+      do k=8,flux%npv
         bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
       end do
       bdq1 = 0.d0
@@ -425,12 +446,12 @@ module flux_module
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
       real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
-      real(8) :: amid,zml,zmr,am2mid
+      real(8) :: amid,zml,zmr,am2mid,rhom
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
-      real(8), parameter :: beta = 0.125d0, ku = 0.25d0
+      real(8), parameter :: beta = 0.125d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -487,24 +508,24 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr
-      !pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - (1.d0-fmid1)*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
+      rhom = dmin1(flux%dvl(1),flux%dvr(1))
       do k=1,18
-        sdst(k) = flux%sdst(k)+flux%pref+0.5d0*rdv(1)*rdv(6)
+        sdst(k) = flux%sdst(k)+flux%pref+rhom*rdv(6)
       end do
       
-      pp_l = flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
-      pp_r = flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6)
+      pp_l = flux%pvl(1)+flux%pref+rhom*rdv(6)
+      pp_r = flux%pvr(1)+flux%pref+rhom*rdv(6)
       ww1 = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)**3
       ww2 = 1.d0-dmin1(1.d0,dmin1(sdst(7),sdst(8),sdst(11),sdst(12),sdst(3),sdst(4),sdst(15),sdst(16))/dmax1(sdst(7),sdst(8),sdst(11),sdst(12),sdst(3),sdst(4),sdst(15),sdst(16)))**2
       !ww2 = (1.d0-dmin1(1.d0,4.d0*(sdst(4)-sdst(3))/(sdst(6)+sdst(5)-sdst(1)-sdst(2)+1.d-12)))**2*(1.d0-dmin1(sdst(3)/sdst(4),sdst(4)/sdst(3)))**2
       ww = dmax1(ww1,ww2)
-      pmt = pmid + 0.5d0*rdv(1)*rdv(6)
+      pmt = pmid + rhom*rdv(6)
       
       if(pmt.ne.0.d0) then
-        pwl = ((flux%pvl(1)+flux%pref+0.5d0*rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
-        pwr = ((flux%pvr(1)+flux%pref+0.5d0*rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
+        pwl = ((flux%pvl(1)+flux%pref+rhom*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
+        pwr = ((flux%pvr(1)+flux%pref+rhom*rdv(6))/pmt-1.d0)*(1.d0-ww2)/fmid
       else
         pwl = 0.d0
         pwr = 0.d0
@@ -523,7 +544,11 @@ module flux_module
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
       fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
       fx(5) = (zmpl1*amid*flux%dvl(1)*flux%getenthalpy_l() + zmmr1*amid*flux%dvr(1)*flux%getenthalpy_r())*dl
-      do k=6,flux%npv
+      fx(6) = (zmpl1*amid*flux%dvl(1)*flux%pvl(6)*(1.d0-flux%pvl(7)) &
+             + zmmr1*amid*flux%dvr(1)*flux%pvr(6)*(1.d0-flux%pvr(7))                             )*dl
+      fx(7) = (zmpl1*amid*flux%dvl(1)*flux%pvl(6)*flux%pvl(7) &
+             + zmmr1*amid*flux%dvr(1)*flux%pvr(6)*flux%pvr(7)                                    )*dl
+      do k=8,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
         
@@ -615,7 +640,11 @@ module flux_module
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
       fx(4) = (zmpl1*amid*flux%dvl(1)*flux%pvl(4)  + zmmr1*amid*flux%dvr(1)*flux%pvr(4) + pmid*nz)*dl
       fx(5) = (zmpl1*amid*flux%dvl(1)*flux%getenthalpy_l() + zmmr1*amid*flux%dvr(1)*flux%getenthalpy_r())*dl
-      do k=6,flux%npv
+      fx(6) = (zmpl1*amid*flux%dvl(1)*flux%pvl(6)*(1.d0-flux%pvl(7)) &
+             + zmmr1*amid*flux%dvr(1)*flux%pvr(6)*(1.d0-flux%pvr(7))                             )*dl
+      fx(7) = (zmpl1*amid*flux%dvl(1)*flux%pvl(6)*flux%pvl(7) &
+             + zmmr1*amid*flux%dvr(1)*flux%pvr(6)*flux%pvr(7)                                    )*dl
+      do k=8,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
      

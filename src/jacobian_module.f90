@@ -224,52 +224,52 @@ module jacobian_module
       jac%a(1,7) = a7+g7+ge7
 
       jac%a(2,1) = jac%pv(2)*jac%a(1,1) + jac%nx(1)
-      jac%a(2,2) = jac%pv(2)*a2 + jac%dv(1)*uuu
-      jac%a(2,3) = jac%pv(2)*a3
-      jac%a(2,4) = jac%pv(2)*a4
+      jac%a(2,2) = jac%pv(2)*jac%a(1,2) + jac%dv(1)*uuu
+      jac%a(2,3) = jac%pv(2)*jac%a(1,3)
+      jac%a(2,4) = jac%pv(2)*jac%a(1,4)
       jac%a(2,5) = jac%pv(2)*jac%a(1,5)
       jac%a(2,6) = jac%pv(2)*jac%a(1,6)
       jac%a(2,7) = jac%pv(2)*jac%a(1,7)
         
       jac%a(3,1) = jac%pv(3)*jac%a(1,1) + jac%nx(2)
-      jac%a(3,2) = jac%pv(3)*a2 
-      jac%a(3,3) = jac%pv(3)*a3 + jac%dv(1)*uuu
-      jac%a(3,4) = jac%pv(3)*a4
+      jac%a(3,2) = jac%pv(3)*jac%a(1,2) 
+      jac%a(3,3) = jac%pv(3)*jac%a(1,3) + jac%dv(1)*uuu
+      jac%a(3,4) = jac%pv(3)*jac%a(1,4)
       jac%a(3,5) = jac%pv(3)*jac%a(1,5)
       jac%a(3,6) = jac%pv(3)*jac%a(1,6)
       jac%a(3,7) = jac%pv(3)*jac%a(1,7)
 
       jac%a(4,1) = jac%pv(4)*jac%a(1,1) + jac%nx(3)
-      jac%a(4,2) = jac%pv(4)*a2 
-      jac%a(4,3) = jac%pv(4)*a3 
-      jac%a(4,4) = jac%pv(4)*a4 + jac%dv(1)*uuu
+      jac%a(4,2) = jac%pv(4)*jac%a(1,2) 
+      jac%a(4,3) = jac%pv(4)*jac%a(1,3) 
+      jac%a(4,4) = jac%pv(4)*jac%a(1,4) + jac%dv(1)*uuu
       jac%a(4,5) = jac%pv(4)*jac%a(1,5)
       jac%a(4,6) = jac%pv(4)*jac%a(1,6)
       jac%a(4,7) = jac%pv(4)*jac%a(1,7)
       
       jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+jac%getenthalpy()*jac%a(1,1)-lamda-vis
-      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*a2
-      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*a3
-      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*a4
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*jac%a(1,2)
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*jac%a(1,3)
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*jac%a(1,4)
       jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+jac%getenthalpy()*jac%a(1,5)
       jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+jac%getenthalpy()*jac%a(1,6)
       jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+jac%getenthalpy()*jac%a(1,7)
         
-      jac%a(6,1) = jac%pv(6)*jac%a(1,1)
-      jac%a(6,2) = jac%pv(6)*a2
-      jac%a(6,3) = jac%pv(6)*a3
-      jac%a(6,4) = jac%pv(6)*a4
-      jac%a(6,5) = jac%pv(6)*jac%a(1,5)
-      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*(lamda+vis)
-      jac%a(6,7) = jac%pv(6)*jac%a(1,7)
+      jac%a(6,1) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,1)
+      jac%a(6,2) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,2)
+      jac%a(6,3) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,3)
+      jac%a(6,4) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,4)
+      jac%a(6,5) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,5)
+      jac%a(6,6) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,6) + jac%dv(1)*(1.d0-jac%pv(7))*uuu
+      jac%a(6,7) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,7) - jac%dv(1)*jac%pv(6)*uuu
         
-      jac%a(7,1) = jac%pv(7)*jac%a(1,1)
-      jac%a(7,2) = jac%pv(7)*a2
-      jac%a(7,3) = jac%pv(7)*a3
-      jac%a(7,4) = jac%pv(7)*a4
-      jac%a(7,5) = jac%pv(7)*jac%a(1,5)
-      jac%a(7,6) = jac%pv(7)*jac%a(1,6)
-      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*(lamda+vis)
+      jac%a(7,1) = jac%pv(6)*jac%pv(7)*jac%a(1,1)
+      jac%a(7,2) = jac%pv(6)*jac%pv(7)*jac%a(1,2)
+      jac%a(7,3) = jac%pv(6)*jac%pv(7)*jac%a(1,3)
+      jac%a(7,4) = jac%pv(6)*jac%pv(7)*jac%a(1,4)
+      jac%a(7,5) = jac%pv(6)*jac%pv(7)*jac%a(1,5)
+      jac%a(7,6) = jac%pv(6)*jac%pv(7)*jac%a(1,6) + jac%dv(1)*jac%pv(7)*uuu
+      jac%a(7,7) = jac%pv(6)*jac%pv(7)*jac%a(1,7) + jac%dv(1)*jac%pv(6)*uuu
 
       jac%a = jac%a*0.5d0
       
@@ -321,9 +321,9 @@ module jacobian_module
       jac%a(1,9) = 0.d0
         
       jac%a(2,1) = jac%pv(2)*jac%a(1,1) + jac%nx(1)
-      jac%a(2,2) = jac%pv(2)*a2 + jac%dv(1)*uuu
-      jac%a(2,3) = jac%pv(2)*a3
-      jac%a(2,4) = jac%pv(2)*a4
+      jac%a(2,2) = jac%pv(2)*jac%a(1,2) + jac%dv(1)*uuu
+      jac%a(2,3) = jac%pv(2)*jac%a(1,3)
+      jac%a(2,4) = jac%pv(2)*jac%a(1,4)
       jac%a(2,5) = jac%pv(2)*jac%a(1,5)
       jac%a(2,6) = jac%pv(2)*jac%a(1,6)
       jac%a(2,7) = jac%pv(2)*jac%a(1,7)
@@ -331,9 +331,9 @@ module jacobian_module
       jac%a(2,9) = 0.d0
         
       jac%a(3,1) = jac%pv(3)*jac%a(1,1) + jac%nx(2)
-      jac%a(3,2) = jac%pv(3)*a2 
-      jac%a(3,3) = jac%pv(3)*a3 + jac%dv(1)*uuu
-      jac%a(3,4) = jac%pv(3)*a4
+      jac%a(3,2) = jac%pv(3)*jac%a(1,2) 
+      jac%a(3,3) = jac%pv(3)*jac%a(1,3) + jac%dv(1)*uuu
+      jac%a(3,4) = jac%pv(3)*jac%a(1,4)
       jac%a(3,5) = jac%pv(3)*jac%a(1,5)
       jac%a(3,6) = jac%pv(3)*jac%a(1,6)
       jac%a(3,7) = jac%pv(3)*jac%a(1,7)
@@ -341,9 +341,9 @@ module jacobian_module
       jac%a(3,9) = 0.d0
 
       jac%a(4,1) = jac%pv(4)*jac%a(1,1) + jac%nx(3)
-      jac%a(4,2) = jac%pv(4)*a2 
-      jac%a(4,3) = jac%pv(4)*a3 
-      jac%a(4,4) = jac%pv(4)*a4 + jac%dv(1)*uuu
+      jac%a(4,2) = jac%pv(4)*jac%a(1,2) 
+      jac%a(4,3) = jac%pv(4)*jac%a(1,3) 
+      jac%a(4,4) = jac%pv(4)*jac%a(1,4) + jac%dv(1)*uuu
       jac%a(4,5) = jac%pv(4)*jac%a(1,5)
       jac%a(4,6) = jac%pv(4)*jac%a(1,6)
       jac%a(4,7) = jac%pv(4)*jac%a(1,7)
@@ -351,39 +351,39 @@ module jacobian_module
       jac%a(4,9) = 0.d0
       
       jac%a(5,1) = jac%dv(1)*uuu*jac%dv(11)+jac%getenthalpy()*jac%a(1,1)-lamda-vis
-      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*a2
-      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*a3
-      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*a4
+      jac%a(5,2) = jac%dv(1)*uuu*jac%pv(2) +jac%getenthalpy()*jac%a(1,2)
+      jac%a(5,3) = jac%dv(1)*uuu*jac%pv(3) +jac%getenthalpy()*jac%a(1,3)
+      jac%a(5,4) = jac%dv(1)*uuu*jac%pv(4) +jac%getenthalpy()*jac%a(1,4)
       jac%a(5,5) = jac%dv(1)*uuu*jac%dv(12)+jac%getenthalpy()*jac%a(1,5)
       jac%a(5,6) = jac%dv(1)*uuu*jac%dv(13)+jac%getenthalpy()*jac%a(1,6)
       jac%a(5,7) = jac%dv(1)*uuu*jac%dv(14)+jac%getenthalpy()*jac%a(1,7)
       jac%a(5,8) = 0.d0
       jac%a(5,9) = 0.d0
         
-      jac%a(6,1) = jac%pv(6)*jac%a(1,1)
-      jac%a(6,2) = jac%pv(6)*a2
-      jac%a(6,3) = jac%pv(6)*a3
-      jac%a(6,4) = jac%pv(6)*a4
-      jac%a(6,5) = jac%pv(6)*jac%a(1,5)
-      jac%a(6,6) = jac%pv(6)*jac%a(1,6)+jac%dv(1)*(lamda+vis)
-      jac%a(6,7) = jac%pv(6)*jac%a(1,7)
+      jac%a(6,1) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,1)
+      jac%a(6,2) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,2)
+      jac%a(6,3) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,3)
+      jac%a(6,4) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,4)
+      jac%a(6,5) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,5)
+      jac%a(6,6) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,6) + jac%dv(1)*(1.d0-jac%pv(7))*uuu
+      jac%a(6,7) = jac%pv(6)*(1.d0-jac%pv(7))*jac%a(1,7) - jac%dv(1)*jac%pv(6)*uuu
       jac%a(6,8) = 0.d0
       jac%a(6,9) = 0.d0
         
-      jac%a(7,1) = jac%pv(7)*jac%a(1,1)
-      jac%a(7,2) = jac%pv(7)*a2
-      jac%a(7,3) = jac%pv(7)*a3
-      jac%a(7,4) = jac%pv(7)*a4
-      jac%a(7,5) = jac%pv(7)*jac%a(1,5)
-      jac%a(7,6) = jac%pv(7)*jac%a(1,6)
-      jac%a(7,7) = jac%pv(7)*jac%a(1,7)+jac%dv(1)*(lamda+vis)
+      jac%a(7,1) = jac%pv(6)*jac%pv(7)*jac%a(1,1)
+      jac%a(7,2) = jac%pv(6)*jac%pv(7)*jac%a(1,2)
+      jac%a(7,3) = jac%pv(6)*jac%pv(7)*jac%a(1,3)
+      jac%a(7,4) = jac%pv(6)*jac%pv(7)*jac%a(1,4)
+      jac%a(7,5) = jac%pv(6)*jac%pv(7)*jac%a(1,5)
+      jac%a(7,6) = jac%pv(6)*jac%pv(7)*jac%a(1,6) + jac%dv(1)*jac%pv(7)*uuu
+      jac%a(7,7) = jac%pv(6)*jac%pv(7)*jac%a(1,7) + jac%dv(1)*jac%pv(6)*uuu
       jac%a(7,8) = 0.d0
       jac%a(7,9) = 0.d0
 
       jac%a(8,1) = jac%pv(8)*jac%a(1,1)
-      jac%a(8,2) = jac%pv(8)*a2
-      jac%a(8,3) = jac%pv(8)*a3
-      jac%a(8,4) = jac%pv(8)*a4
+      jac%a(8,2) = jac%pv(8)*jac%a(1,2)
+      jac%a(8,3) = jac%pv(8)*jac%a(1,3)
+      jac%a(8,4) = jac%pv(8)*jac%a(1,4)
       jac%a(8,5) = jac%pv(8)*jac%a(1,5)
       jac%a(8,6) = jac%pv(8)*jac%a(1,6)
       jac%a(8,7) = jac%pv(8)*jac%a(1,7)
@@ -391,9 +391,9 @@ module jacobian_module
       jac%a(8,9) = 0.d0
 
       jac%a(9,1) = jac%pv(9)*jac%a(1,1)
-      jac%a(9,2) = jac%pv(9)*a2
-      jac%a(9,3) = jac%pv(9)*a3
-      jac%a(9,4) = jac%pv(9)*a4
+      jac%a(9,2) = jac%pv(9)*jac%a(1,2)
+      jac%a(9,3) = jac%pv(9)*jac%a(1,3)
+      jac%a(9,4) = jac%pv(9)*jac%a(1,4)
       jac%a(9,5) = jac%pv(9)*jac%a(1,5)
       jac%a(9,6) = jac%pv(9)*jac%a(1,6)
       jac%a(9,7) = jac%pv(9)*jac%a(1,7)
