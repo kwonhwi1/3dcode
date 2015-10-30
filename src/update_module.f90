@@ -70,7 +70,6 @@ module update_module
   type, extends(t_update) :: t_lusgs
     private
     real(8), dimension(:,:,:,:), allocatable  :: dqs,dcv
-    real(8), dimension(:,:,:,:,:), allocatable :: inv
     contains
       procedure :: construct => construct_lusgs
       procedure :: destruct  => destruct_lusgs
@@ -112,20 +111,20 @@ module update_module
         update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_kwsst::update%eddy)
-        allocate(t_lhs_flowturball::update%lhs) 
+        allocate(t_lhs_flowturball_ex::update%lhs)
       case(-1)
         update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_ke::update%eddy)
-        allocate(t_lhs_flowturball::update%lhs)
+        allocate(t_lhs_flowturball_ex::update%lhs)
       case(-2)
         update%l_tv = .true.
         update%l_turb = .false.
-        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_lhs_flowonly_ex::update%lhs)
       case(-3)
         update%l_tv = .false.
         update%l_turb = .false.
-        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_lhs_flowonly_ex::update%lhs)
       end select
       
       select case(config%getncav())
@@ -198,20 +197,20 @@ module update_module
         update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_kwsst::update%eddy)
-        allocate(t_lhs_flowturball::update%lhs) 
+        allocate(t_lhs_flowturball_ex::update%lhs)
       case(-1)
         update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_ke::update%eddy)
-        allocate(t_lhs_flowturball::update%lhs)
+        allocate(t_lhs_flowturball_ex::update%lhs)
       case(-2)
         update%l_tv = .true.
         update%l_turb = .false.
-        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_lhs_flowonly_ex::update%lhs)
       case(-3)
         update%l_tv = .false.
         update%l_turb = .false.
-        allocate(t_lhs_flowonly::update%lhs)
+        allocate(t_lhs_flowonly_ex::update%lhs)
       end select
       
       select case(config%getncav())
@@ -352,7 +351,6 @@ module update_module
       
       allocate(update%dqs(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
       allocate(update%dcv(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
-      allocate(update%inv(update%npv,update%npv,update%imax,update%jmax,update%kmax))
       
     end subroutine construct_lusgs
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -441,7 +439,7 @@ module update_module
       call update%bc%destruct()
       deallocate(update%bc)
 
-      deallocate(update%dqs,update%dcv,update%inv)
+      deallocate(update%dqs,update%dcv)
       
     end subroutine destruct_lusgs
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -458,7 +456,7 @@ module update_module
       real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
       real(8) :: grd(update%ngrd),dt
       real(8) :: x(7,update%npv)
-      real(8) :: dpv(update%npv)
+      real(8) :: res(update%npv)
 
       
       call update%bc%setbc(grid,variable,eos,prop)
@@ -487,16 +485,10 @@ module update_module
             call update%lhs%setdv(dv)
             call update%lhs%settv(tv)
             call update%lhs%setdt(dt)
-            call update%lhs%inverse()
-            
-            dpv = 0.d0
-            do n=1,update%npv
-              do l=1,update%npv
-                dpv(n) = dpv(n) + update%lhs%getx(n,l)*update%rhs%getres(l,i,j,k)
-              end do
-            end do
-            
-            pv = pv + dpv
+
+            res = update%rhs%getres(l,i,j,k)
+            pv = pv + update%lhs%getx(res)
+
             pv(1) = dmax1(-update%pref+1.d1,pv(1))
             pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
             pv(7) = dmin1(1.d0,dmax1(0.d0,pv(7)))
@@ -572,7 +564,7 @@ module update_module
       real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
       real(8) :: grd(update%ngrd),dt
       real(8) :: x(7,update%npv)
-      real(8) :: dpv(update%npv)
+      real(8) :: res(update%npv)
 
       
       
@@ -602,16 +594,10 @@ module update_module
               call update%lhs%setdv(dv)
               call update%lhs%settv(tv)
               call update%lhs%setdt(dt)
-              call update%lhs%inverse()
+
+              res = update%rhs%getres(l,i,j,k)
             
-              dpv = 0.d0
-              do n=1,update%npv
-                do l=1,update%npv
-                  dpv(n) = dpv(n) + update%lhs%getx(n,l)*update%rhs%getres(l,i,j,k)
-                end do
-              end do
-            
-              pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*dpv
+              pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*update%lhs%getx(res)
           
               pv(1) = dmax1(-update%pref+1.d1,pv(1))
               pv(6) = dmin1(1.d0,dmax1(0.d0,pv(6)))
@@ -700,40 +686,6 @@ module update_module
       do k=2,update%kmax
         do j=2,update%jmax
           do i=2,update%imax
-            nx1 = grid%getcx(i-1,j,k)
-            nx2 = grid%getcx(i,j,k)
-            nx3 = grid%getex(i,j-1,k)
-            nx4 = grid%getex(i,j,k)
-            nx5 = grid%gettx(i,j,k-1)
-            nx6 = grid%gettx(i,j,k)
-            grd = grid%getgrd(i,j,k)
-            pv = variable%getpv(i,j,k)
-            dv = variable%getdv(i,j,k)
-            tv = variable%gettv(i,j,k)
-            dt = update%timestep%getdt(i,j,k)
-            
-            call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
-            call update%lhs%setgrd(grd)
-            call update%lhs%setpv(pv)
-            call update%lhs%setdv(dv)
-            call update%lhs%settv(tv)
-            call update%lhs%setdt(dt)
-            
-            if(update%l_cav) then
-              c = update%rhs%geticav(i,j,k)
-              call update%lhs%setc(c)
-            end if
-            if(update%l_turb) then
-              t = update%rhs%getitt(i,j,k)
-              call update%lhs%sett(t)
-            end if
-            call update%lhs%inverse()
-            
-            do n=1,update%npv
-              do l=1,update%npv
-                update%inv(n,l,i,j,k) = update%lhs%getx(n,l)
-              end do
-            end do
             
             nx1 = grid%getcx(i-1,j,k)
             grd = grid%getgrd(i-1,j,k)
@@ -789,13 +741,36 @@ module update_module
                 update%dcv(n,i,j,k) = update%dcv(n,i,j,k) + update%jac%geta(n,l)*update%dqs(l,i,j,k-1)
               end do
             end do
+
+            nx1 = grid%getcx(i-1,j,k)
+            nx2 = grid%getcx(i,j,k)
+            nx3 = grid%getex(i,j-1,k)
+            nx4 = grid%getex(i,j,k)
+            nx5 = grid%gettx(i,j,k-1)
+            nx6 = grid%gettx(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            pv = variable%getpv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dt = update%timestep%getdt(i,j,k)
             
-            do n=1,update%npv
-              do l=1,update%npv
-                update%dqs(n,i,j,k) = update%dqs(n,i,j,k) + update%inv(n,l,i,j,k)*update%dcv(l,i,j,k)
-              end do
-            end do
+            call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+            call update%lhs%setgrd(grd)
+            call update%lhs%setpv(pv)
+            call update%lhs%setdv(dv)
+            call update%lhs%settv(tv)
+            call update%lhs%setdt(dt)
             
+            if(update%l_cav) then
+              c = update%rhs%geticav(i,j,k)
+              call update%lhs%setc(c)
+            end if
+            if(update%l_turb) then
+              t = update%rhs%getitt(i,j,k)
+              call update%lhs%sett(t)
+            end if
+
+            update%dqs(:,i,j,k) = update%lhs%getx(update%dcv(:,i,j,k))
           end do
         end do
       end do
@@ -858,12 +833,36 @@ module update_module
                 update%dcv(n,i,j,k) = update%dcv(n,i,j,k) - update%jac%geta(n,l)*update%dqs(l,i,j,k+1)
               end do
             end do
+
+            nx1 = grid%getcx(i-1,j,k)
+            nx2 = grid%getcx(i,j,k)
+            nx3 = grid%getex(i,j-1,k)
+            nx4 = grid%getex(i,j,k)
+            nx5 = grid%gettx(i,j,k-1)
+            nx6 = grid%gettx(i,j,k)
+            grd = grid%getgrd(i,j,k)
+            pv = variable%getpv(i,j,k)
+            dv = variable%getdv(i,j,k)
+            tv = variable%gettv(i,j,k)
+            dt = update%timestep%getdt(i,j,k)
             
-            do n=1,update%npv
-              do l=1,update%npv
-                update%dqs(n,i,j,k) = update%dqs(n,i,j,k) + update%inv(n,l,i,j,k)*update%dcv(l,i,j,k)
-              end do
-            end do
+            call update%lhs%setnorm(nx1,nx2,nx3,nx4,nx5,nx6)
+            call update%lhs%setgrd(grd)
+            call update%lhs%setpv(pv)
+            call update%lhs%setdv(dv)
+            call update%lhs%settv(tv)
+            call update%lhs%setdt(dt)
+            
+            if(update%l_cav) then
+              c = update%rhs%geticav(i,j,k)
+              call update%lhs%setc(c)
+            end if
+            if(update%l_turb) then
+              t = update%rhs%getitt(i,j,k)
+              call update%lhs%sett(t)
+            end if
+
+            update%dqs(:,i,j,k) = update%lhs%getx(update%dcv(:,i,j,k))
           end do
         end do
       end do

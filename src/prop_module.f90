@@ -127,13 +127,12 @@ module prop_module
       call prop%prop_l(rhol,t,liquid)
       call prop%prop_v(rhov,t,vapor)
       call prop%prop_g(rhog,t,gas)
-      
-      rho = 1.d0/((1.d0-y1)/rhol + y1*((1.d0-y2)/rhov + y2/rhog))      
-      tv(1) = rho*(liquid%vis*(1.d0-y1)/rhol  + y1*(vapor%vis*(1.d0-y2)/rhov  &
-              + gas%vis*y2/rhog))
-      tv(2) = rho*(liquid%cond*(1.d0-y1)/rhol + y1*(vapor%cond*(1.d0-y2)/rhov &
-              + gas%cond*y2/rhog))
-      
+
+      rho = 1.d0/((1.d0-y1-y2)/rhol + y1/rhov + y2/rhog)
+      tv(1) = rho*(liquid%vis*(1.d0-y1-y2)/rhol  + vapor%vis*y1/rhov  &
+                       + gas%vis*y2/rhog)
+      tv(2) = rho*(liquid%cond*(1.d0-y1-y2)/rhol + vapor%cond*y1/rhov &
+                       + gas%cond*y2/rhog)
     end subroutine detprop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine set_iapws97(prop)

@@ -63,7 +63,7 @@ aoa           : angle of attack
 aos           : angle of sideslip
 tref          : reference temperature
 y1ref         : mass fraction of vapor phase
-y2ref         : relative mass fraction of gas phase
+y2ref         : mass fraction of gas phase
 l_chord       : reference length
 l_character   : characteristic length for strouhal number
 scale         : grid scale

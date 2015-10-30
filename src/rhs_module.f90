@@ -292,10 +292,6 @@ module rhs_module
               
               call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
-              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
-              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
-              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
-              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
               
               if(rhs%l_turbsource) then
                 if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)
@@ -387,11 +383,7 @@ module rhs_module
               
               call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
-              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
-              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
-              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
-              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
-              
+
               if(rhs%l_turbsource) then
                 if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)
                 if((pvr(8).lt.0.d0).and.(x(10,8).gt.0.d0)) pvr(8) = x(10,8)
@@ -482,10 +474,6 @@ module rhs_module
               
               call rhs%muscl%setpv(x)
               call rhs%muscl%interpolation(pvl,pvr)
-              if((pvl(6).lt.0.d0).or.(pvl(6).gt.1.d0)) pvl(6) = x(9,6)
-              if((pvr(6).lt.0.d0).or.(pvr(6).gt.1.d0)) pvr(6) = x(10,6)
-              if((pvl(7).lt.0.d0).or.(pvl(7).gt.1.d0)) pvl(7) = x(9,7)
-              if((pvr(7).lt.0.d0).or.(pvr(7).gt.1.d0)) pvr(7) = x(10,7)
               
               if(rhs%l_turbsource) then
                 if((pvl(8).lt.0.d0).and.(x(9,8).gt.0.d0))  pvl(8) = x(9,8)

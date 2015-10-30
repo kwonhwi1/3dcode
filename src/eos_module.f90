@@ -230,19 +230,22 @@ module eos_module
       dv(4)  = vapor%rho
       dv(5)  = gas%rho
 
-      dv(1)  = 1.d0/((1.d0-y1)/liquid%rho + y1*((1.d0-y2)/vapor%rho + y2/gas%rho))
-      dv(2)  = (1.d0-y1)*liquid%h + y1*((1.d0-y2)*vapor%h + y2*gas%h)
+      dv(1)  = 1.d0/((1.d0-y1-y2)/liquid%rho + y1/vapor%rho + y2/gas%rho)
+      dv(2)  = (1.d0-y1-y2)*liquid%h + y1*vapor%h + y2*gas%h
       
-      dv(7)  = dv(1)**2*((1.d0-y1)/liquid%rho**2*liquid%drdp + &
-                     y1*((1.d0-y2)/vapor%rho**2*vapor%drdp  + y2/gas%rho**2*gas%drdp))
-      dv(8)  = dv(1)**2*((1.d0-y1)/liquid%rho**2*liquid%drdt + &
-                     y1*((1.d0-y2)/vapor%rho**2*vapor%drdt  + y2/gas%rho**2*gas%drdt))
-      dv(9)  = dv(1)**2*(1.d0/liquid%rho - ((1.d0-y2)/vapor%rho + y2/gas%rho))
+      dv(7)  = dv(1)**2*((1.d0-y1-y2)/liquid%rho**2*liquid%drdp &
+                                 + y1/vapor%rho**2*vapor%drdp   &
+                                 + y2/gas%rho**2*gas%drdp)
+      dv(8)  = dv(1)**2*((1.d0-y1-y2)/liquid%rho**2*liquid%drdt &
+                                 + y1/vapor%rho**2*vapor%drdt   &
+                                 + y2/gas%rho**2*gas%drdt)
+      dv(9)  = dv(1)**2*(1.d0/liquid%rho - 1.d0/vapor%rho)
+      dv(10) = dv(1)**2*(1.d0/liquid%rho - 1.d0/gas%rho)
     
-      dv(11) = (1.d0-y1)*liquid%dhdp + y1*((1.d0-y2)*vapor%dhdp + y2*gas%dhdp)
-      dv(12) = (1.d0-y1)*liquid%dhdt + y1*((1.d0-y2)*vapor%dhdt + y2*gas%dhdt)
-      dv(13) = (1.d0-y2)*vapor%h + y2*gas%h - liquid%h
-      dv(14) = y1*(gas%h - vapor%h)
+      dv(11) = (1.d0-y1-y2)*liquid%dhdp + y1*vapor%dhdp + y2*gas%dhdp
+      dv(12) = (1.d0-y1-y2)*liquid%dhdt + y1*vapor%dhdt + y2*gas%dhdt
+      dv(13) = vapor%h - liquid%h
+      dv(14) = gas%h   - liquid%h
       
       dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
       
