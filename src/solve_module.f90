@@ -62,7 +62,12 @@ module solve_module
       
       select case(config%getiread())
       case(0)
-        allocate(t_ini_initial::solve%ini)
+        select case(config%getrotation())
+        case(0)
+          allocate(t_ini_initial::solve%ini)
+        case default
+          allocate(t_ini_initial_rot::solve%ini)
+        end select
       case(1)
         allocate(t_ini_restart::solve%ini)
       end select

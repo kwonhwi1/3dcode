@@ -7,24 +7,29 @@ module initial_module
   use prop_module
   implicit none
   private
-  public :: t_ini,t_ini_initial,t_ini_restart
+  public :: t_ini,t_ini_initial,t_ini_initial_rot,t_ini_restart
   
   type, abstract :: t_ini
     private
     logical :: l_ini
     integer :: size,rank,imax,jmax,kmax
     integer :: iturb,nsteady,rstnum
-    real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref,kref,oref,emutref
+    real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref,kref,oref,emutref,omega(3)
     contains
       procedure :: construct
       procedure :: destruct
-      procedure(p_initialize), deferred :: initialize    
+      procedure(p_initialize), deferred :: initialize
   end type t_ini
   
   type, extends(t_ini) :: t_ini_initial
     contains
       procedure :: initialize => initial
   end type t_ini_initial
+
+  type, extends(t_ini) :: t_ini_initial_rot
+    contains
+      procedure :: initialize => initial_rot
+  end type t_ini_initial_rot
 
   type, extends(t_ini) :: t_ini_restart
     contains
@@ -71,11 +76,13 @@ module initial_module
       ini%kref = config%getkref()
       ini%oref = config%getoref()
       ini%emutref = config%getemutref()
+      ini%omega = config%getomega()
       ini%imax = grid%getimax()
       ini%jmax = grid%getjmax()
       ini%kmax = grid%getkmax()
 
       ini%l_ini = .true.
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(ini)
@@ -296,6 +303,78 @@ module initial_module
       
     end subroutine restart
 #endif
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine initial_rot(ini,grid,variable,eos,prop,nps,nts)
+      implicit none
+      class(t_ini_initial_rot), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      type(t_eos), intent(in) :: eos
+      type(t_prop), intent(in) :: prop
+      integer, intent(out) :: nps,nts
+      integer :: i,j,k,n
+      real(8) :: pv(variable%getnpv()),dv(variable%getndv())
+      real(8) :: tv(variable%getntv()),qq(variable%getnpv())
+      real(8) :: grd(grid%getngrd()),gridvel(3)
+
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            grd = grid%getgrd(i,j,k)
+
+            gridvel(1) = ini%omega(2)*grd(4)-ini%omega(3)*grd(3)
+            gridvel(2) = ini%omega(3)*grd(2)-ini%omega(1)*grd(4)
+            gridvel(3) = ini%omega(1)*grd(3)-ini%omega(2)*grd(2)
+
+            call variable%setpv(1,i,j,k,0.d0)
+            call variable%setpv(2,i,j,k,-gridvel(1))
+            call variable%setpv(3,i,j,k,-gridvel(2))
+            call variable%setpv(4,i,j,k,1.559373336d0-gridvel(3))
+            call variable%setpv(5,i,j,k,ini%tref)
+            call variable%setpv(6,i,j,k,ini%y1ref)
+            call variable%setpv(7,i,j,k,ini%y2ref)
+
+            pv = variable%getpv(i,j,k)
+
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+
+            do n=1,variable%getndv()
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
+
+            if(ini%iturb.ge.-2) then
+              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
+            end if
+
+            if(ini%iturb.ge.-1) then
+              tv(3) = ini%emutref
+              call variable%setpv(8,i,j,k,ini%kref)
+              call variable%setpv(9,i,j,k,ini%oref)
+            end if
+
+            do n=1,variable%getntv()
+              call variable%settv(n,i,j,k,tv(n))
+            end do
+
+            if(ini%nsteady.eq.1) then
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,variable%getnpv()
+                qq(n) = dv(1)*pv(n)
+              end do
+
+              call variable%setqq(1,i,j,k,qq)
+              call variable%setqq(2,i,j,k,qq)
+            end if
+          end do
+        end do
+      end do
+      nps = 1
+      nts = 1
+    end subroutine initial_rot
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
 

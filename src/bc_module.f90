@@ -231,8 +231,8 @@ module bc_module
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCShiftedPeriodic') then
           bc%bcinfo(n)%bctype => bcshiftedperiodic
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCTotalPressureIn') then
-          bc%bcinfo(n)%total_temperature = 0.d0
-          bc%bcinfo(n)%total_pressure = 0.d0
+          bc%bcinfo(n)%total_temperature = 300.0002909d0
+          bc%bcinfo(n)%total_pressure = 51213.39096d0
           bc%bcinfo(n)%bctype => bctotalpressurein
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCCounterRotatingWall') then
           select case(config%getiturb())
