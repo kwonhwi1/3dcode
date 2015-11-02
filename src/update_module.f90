@@ -486,7 +486,9 @@ module update_module
             call update%lhs%settv(tv)
             call update%lhs%setdt(dt)
 
-            res = update%rhs%getres(l,i,j,k)
+            do l=1,update%npv
+              res(l) = update%rhs%getres(l,i,j,k)
+            end do
             pv = pv + update%lhs%getx(res)
 
             pv(1) = dmax1(-update%pref+1.d1,pv(1))
@@ -595,7 +597,9 @@ module update_module
               call update%lhs%settv(tv)
               call update%lhs%setdt(dt)
 
-              res = update%rhs%getres(l,i,j,k)
+              do l=1,update%npv
+                res(l) = update%rhs%getres(l,i,j,k)
+              end do
             
               pv = update%a1(m)*update%rk(:,i,j,k) + update%a2(m)*pv + update%a3(m)*update%lhs%getx(res)
           
