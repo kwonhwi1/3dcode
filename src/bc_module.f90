@@ -14,7 +14,7 @@ module bc_module
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     character(4) :: face
-    real(8) :: massflowrate,total_pressure,total_temperature,omega(3)
+    real(8) :: massflowrate,pressure,omega(3)
     real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -107,27 +107,7 @@ module bc_module
       do n=1,bc%nbc
         bc%bcinfo(n)%omega = config%getomega()
         bc%bcinfo(n)%bcname = grid%getbcname(n)
-        allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
 
-        bc%bcinfo(n)%pv(1) = config%getpref()
-        bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-        bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-        bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-        bc%bcinfo(n)%pv(5) = config%gettref()
-        bc%bcinfo(n)%pv(6) = config%gety1ref()
-        bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-        call eos%deteos(bc%bcinfo(n)%pv(1),bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
-
-        if(config%getiturb().ge.-2) then
-          call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
-                           ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
-        end if
         do m=1,dim
           bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
           bc%bcinfo(n)%iend(m)   = grid%getbciend(n,m)
@@ -206,34 +186,326 @@ module bc_module
           case default
             bc%bcinfo(n)%bctype => bcwallinviscid
           end select
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflow') then
           bc%bcinfo(n)%bctype => bcinflow
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSubsonic') then
           bc%bcinfo(n)%bctype => bcinflowsubsonic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSupersonic') then
           bc%bcinfo(n)%bctype => bcinflowsupersonic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflow') then
           bc%bcinfo(n)%bctype => bcoutflow
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSubsonic') then
           bc%bcinfo(n)%bctype => bcoutflowsubsonic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSupersonic') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCExtrapolate') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCFarfield') then
           bc%bcinfo(n)%bctype => bcfarfield
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegeneratePoint') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegenerateLine') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
           bc%bcinfo(n)%bctype => bcsymmetryplane
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCShiftedPeriodic') then
           bc%bcinfo(n)%bctype => bcshiftedperiodic
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCTotalPressureIn') then
-          bc%bcinfo(n)%total_temperature = 300.0002909d0
-          bc%bcinfo(n)%total_pressure = 51213.39096d0
           bc%bcinfo(n)%bctype => bctotalpressurein
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCCounterRotatingWall') then
           select case(config%getiturb())
           case(0)
@@ -245,6 +517,27 @@ module bc_module
           case default
             bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
           end select
+          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+          bc%bcinfo(n)%pressure = config%getpref()
+          bc%bcinfo(n)%pv(1) = config%getpref()
+          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+          bc%bcinfo(n)%pv(5) = config%gettref()
+          bc%bcinfo(n)%pv(6) = config%gety1ref()
+          bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv)
+
+          if(config%getiturb().ge.-2) then
+            call prop%detprop(bc%bcinfo(n)%dv(3),bc%bcinfo(n)%dv(4),bc%bcinfo(n)%dv(5),bc%bcinfo(n)%pv(5) &
+                             ,bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%tv(1:2))
+            if(config%getiturb().ge.-1) then
+              bc%bcinfo(n)%tv(3) = config%getemutref()
+              bc%bcinfo(n)%pv(8) = config%getkref()
+              bc%bcinfo(n)%pv(9) = config%getoref()
+            end if
+          end if
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
@@ -503,7 +796,7 @@ module bc_module
       do m=1,12
         bc%edge(m)%dir = 0
         allocate(bc%edge(m)%pv(bc%npv),bc%edge(m)%dv(bc%ndv),bc%edge(m)%tv(bc%ntv))
-
+        bc%edge(n)%pressure = config%getpref()
         bc%edge(m)%pv(1) = config%getpref()
         bc%edge(m)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
         bc%edge(m)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
@@ -529,7 +822,7 @@ module bc_module
 
       do m=1,4
         do n=1,bc%nbc
-          if((trim(bc%edge(n)%bcname).eq.'BCWall').or. &
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%edge(m)%neighbor1(1)).and.   &
@@ -872,7 +1165,7 @@ module bc_module
       do n=1,8
         bc%corner(n)%dir = 0
         allocate(bc%corner(n)%pv(bc%npv),bc%corner(n)%dv(bc%ndv),bc%corner(n)%tv(bc%ntv))
-
+        bc%corner(n)%pressure = config%getpref()
         bc%corner(n)%pv(1) = config%getpref()
         bc%corner(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
         bc%corner(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
@@ -1988,7 +2281,7 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
             a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
             a = dsqrt(a)
-            var = pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2))  + nx(2)*(bcinfo%pv(3)-pv_s(3)) &
+            var = bcinfo%pressure - bcinfo%pv(1)+pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2))  + nx(2)*(bcinfo%pv(3)-pv_s(3)) &
                                         + nx(3)*(bcinfo%pv(4)-pv_s(4)))*dl
             pv(1) = var - pv(1)
             pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv(1)/a*dl) - pv(2)
@@ -2033,7 +2326,7 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            pv(1) = -pv(1)
+            pv(1) = 2.d0*(bcinfo%pressure - bcinfo%pv(1))-pv(1)
             pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
@@ -2140,7 +2433,7 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
             a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
             a = dsqrt(a)
-            pv(1) = -pv(1)
+            pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
             pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/a*dl) - pv(2)
             pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/a*dl) - pv(3)
             pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/a*dl) - pv(4)
@@ -2268,19 +2561,19 @@ module bc_module
             if(mach.ge.0.d0) then !out
               if(mach.ge.1.d0) then !super                
               else !sub
-                pv(1) = -pv(1)
+                pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
                 pv(2) = 2.d0*( pv_b(2)+nx(1)*pv_b(1)/dv_b(1)/a*dl) - pv(2)
                 pv(3) = 2.d0*( pv_b(3)+nx(2)*pv_b(1)/dv_b(1)/a*dl) - pv(3)
                 pv(4) = 2.d0*( pv_b(4)+nx(3)*pv_b(1)/dv_b(1)/a*dl) - pv(4)
               end if
             else ! in
               if(mach.le.-1.d0) then !super
-                pv(1) = -pv(1)
+                pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
                 pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
-                var = pv_b(1) - dv_b(1)*a*(nx(1)*(bcinfo%pv(2)-pv_b(2)) + nx(2)*(bcinfo%pv(3)-pv_b(3)) &
+                var = bcinfo%pressure-bcinfo%pv(1)+pv_b(1) - dv_b(1)*a*(nx(1)*(bcinfo%pv(2)-pv_b(2)) + nx(2)*(bcinfo%pv(3)-pv_b(3)) &
                                               + nx(3)*(bcinfo%pv(4)-pv_b(4)))*dl
                 pv(1) = var - pv(1)
                 pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv_b(1)/a*dl) - pv(2)
@@ -2606,7 +2899,7 @@ module bc_module
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
       real(8) :: grd(grid%getngrd()),nx(3),gridvel(3)
-      real(8) :: ua,va,wa,area,uvwa2,x(2),h_total,pa,ta
+      real(8) :: ua,va,wa,area,uvwa2,x(2),pa,ta
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       logical :: check
 
@@ -2628,7 +2921,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*k
                 nx = - grid%getcx(ii-1,jj,kk)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2647,7 +2940,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*k
                 nx = grid%getcx(ii,jj,kk)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2666,7 +2959,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*k
                 nx = - grid%getex(ii,jj-1,kk)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2685,7 +2978,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*k
                 nx = grid%getex(ii,jj,kk)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2704,7 +2997,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
                 nx = - grid%gettx(ii,jj,kk-1)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2723,7 +3016,7 @@ module bc_module
                 kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
                 nx = grid%gettx(ii,jj,kk)
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
-
+                pv = variable%getpv(ii,jj,kk)
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
@@ -2746,16 +3039,12 @@ module bc_module
       ta = ta/area
       uvwa2 = ua**2+va**2+wa**2
 
-      ! reference pv(6), pv(7) should be given as boundary condition
-      call eos%deteos(bcinfo%total_pressure,bcinfo%total_temperature,bcinfo%pv(6),bcinfo%pv(7),dv)
-      h_total = dv(2)
-
       ! initial guess
       ! x(1)=static pressure, x(2)=static temperature
       x(1) = pa+bcinfo%pv(1)
       x(2) = ta
 
-      call newt(eos,2,bcinfo%total_pressure,h_total,bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
+      call newt(eos,2,bcinfo%pressure,bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
