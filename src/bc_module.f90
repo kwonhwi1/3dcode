@@ -529,7 +529,7 @@ module bc_module
 
       do m=1,4
         do n=1,bc%nbc
-          if((trim(bc%edge(n)%bcname).eq.'BCWall').or. &
+          if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
                (bc%bcinfo(n)%iend(1).ge.bc%edge(m)%neighbor1(1)).and.   &
