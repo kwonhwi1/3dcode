@@ -135,7 +135,7 @@ module config_module
       case(3)
         config%omega = (/0.d0,0.d0,config%rpm*2.d0*config%pi/60.d0/)
       case(-3)
-        config%omega = (/0.d0,0.d0,config%rpm*2.d0*config%pi/60.d0/)
+        config%omega = (/0.d0,0.d0,-config%rpm*2.d0*config%pi/60.d0/)
       case(0)
         config%omega = (/0.d0,0.d0,0.d0/)
       case default
