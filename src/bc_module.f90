@@ -3035,6 +3035,7 @@ module bc_module
 
       ua = ua/area
       va = va/area
+      wa = wa/area
       pa = pa/area
       ta = ta/area
       uvwa2 = ua**2+va**2+wa**2
