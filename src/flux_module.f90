@@ -216,13 +216,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -303,13 +297,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -463,13 +451,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
@@ -582,13 +564,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
