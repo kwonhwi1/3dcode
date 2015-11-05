@@ -7,14 +7,15 @@ module muscl_module
 
   type, abstract :: t_muscl
     private
-    integer :: stencil,npv
-    real(8), pointer :: x(:,:)
+    integer :: stencil,npv,ndv
+    real(8), pointer :: x(:,:),dvl1(:),dvl(:),dvr(:),dvr1(:)
     real(8) :: r(2),r1(2),r2(2),alp(2),pref
     procedure(p_limiter), pointer :: limiter
     contains
       procedure :: construct                                !(iturb,lim)
       procedure :: destruct
       procedure :: setpv
+      procedure :: setdv
       procedure(p_interpolation), deferred :: interpolation !(xl(npv),xr(npv))
   end type t_muscl
 
@@ -79,7 +80,8 @@ module muscl_module
       muscl%stencil = config%getstencil()
       muscl%pref = config%getpref()
       muscl%npv  = variable%getnpv()
-  
+      muscl%ndv  = variable%getndv()
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(muscl)
@@ -87,6 +89,10 @@ module muscl_module
       class(t_muscl), intent(inout) :: muscl
       
       if(associated(muscl%x))       nullify(muscl%x)
+      if(associated(muscl%dvl1))    nullify(muscl%dvl1)
+      if(associated(muscl%dvl))     nullify(muscl%dvl)
+      if(associated(muscl%dvr))     nullify(muscl%dvr)
+      if(associated(muscl%dvr1))    nullify(muscl%dvr1)
       if(associated(muscl%limiter)) nullify(muscl%limiter)
 
     end subroutine destruct
@@ -99,13 +105,47 @@ module muscl_module
       muscl%x => x
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setdv(muscl,dvl1,dvl,dvr,dvr1)
+      implicit none
+      class(t_muscl), intent(inout) :: muscl
+      real(8), intent(in), target :: dvl1(muscl%ndv),dvl(muscl%ndv),dvr(muscl%ndv),dvr1(muscl%ndv)
+
+      muscl%dvl1 => dvl1
+      muscl%dvl  => dvl
+      muscl%dvr  => dvr
+      muscl%dvr1 => dvr1
+
+    end subroutine setdv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine tvd(muscl,xl,xr)
       implicit none
       class(t_tvd), intent(inout) :: muscl
       real(8), intent(out) :: xl(muscl%npv),xr(muscl%npv)
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
+      real(8) :: sensor(2),alpha(4),denominator
       real(8), parameter :: eps = 1.d-16
+
+      alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
+      alpha(2) = muscl%dvl(1)*(1.d0-muscl%x(9,6)-muscl%x(9,7))/muscl%dvl(3)
+      alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
+      alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
+
+      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
+      if(dabs(denominator).le.eps) then
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/dsign(eps,denominator)
+      else
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
+      end if
+
+      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
+      if(dabs(denominator).le.eps) then
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/dsign(eps,denominator)
+      else
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
+      end if
+      sensor(1) = dmin1(sensor(1),1.d0)
+      sensor(2) = dmin1(sensor(2),1.d0)
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
@@ -141,8 +181,8 @@ module muscl_module
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
@@ -178,7 +218,30 @@ module muscl_module
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
+      real(8) :: sensor(2),alpha(4),denominator
       real(8), parameter :: eps = 1.d-16, eps2 = 1.d-3
+
+
+      alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
+      alpha(2) = muscl%dvl(1)*(1.d0-muscl%x(9,6)-muscl%x(9,7))/muscl%dvl(3)
+      alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
+      alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
+
+      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
+      if(dabs(denominator).le.eps) then
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/dsign(eps,denominator)
+      else
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
+      end if
+
+      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
+      if(dabs(denominator).le.eps) then
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/dsign(eps,denominator)
+      else
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
+      end if
+      sensor(1) = dmin1(sensor(1),1.d0)
+      sensor(2) = dmin1(sensor(2),1.d0)
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
@@ -293,8 +356,8 @@ module muscl_module
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
