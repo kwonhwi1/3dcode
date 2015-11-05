@@ -134,7 +134,7 @@ module cav_module
         cav_result%icav(1) = - r_c*cav%dv(7)*rho1 - cav%c_c*cav%dv(1)*cav%pv(2,6)*cav%dp_ref*cav%t_ref
         cav_result%icav(2) = - r_c*cav%dv(8)*rho1
         cav_result%icav(3) = - r_c*cav%dv(9)*rho1 - cav%c_c*cav%dv(1)*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*cav%dp_ref*cav%t_ref
-        cav_result%icav(4) = 0.d0
+        cav_result%icav(4) = - r_c*cav%dv(10)*rho1
       end if
       if(r_v.ne.0.d0) then
         cav_result%icav(1) = r_v*cav%dv(7)*rho1 - cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*cav%dp_ref*cav%t_ref
