@@ -216,7 +216,13 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=2,5
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
+      do k=6,7
+        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
+      end do
+      do k=8,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -297,7 +303,13 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=2,5
+        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+      end do
+      do k=6,7
+        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
+      end do
+      do k=8,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -416,7 +428,7 @@ module flux_module
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv)
       real(8) :: amid,zml,zmr,am2mid,rhom
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
@@ -438,11 +450,9 @@ module flux_module
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
     
-      ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
-      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
       do k=2,flux%npv
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
       end do
 
       call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
@@ -529,7 +539,7 @@ module flux_module
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv)
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
@@ -551,11 +561,9 @@ module flux_module
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
     
-      ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
-      ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
       do k=2,flux%npv
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
+        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
       end do
 
       call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
