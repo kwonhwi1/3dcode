@@ -132,15 +132,15 @@ module muscl_module
       alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
 
       denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
-      if(dabs(denominator).le.eps) then
-        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/dsign(eps,denominator)
+      if(denominator.le.eps) then
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/eps
       else
         sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
       end if
 
       denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
-      if(dabs(denominator).le.eps) then
-        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/dsign(eps,denominator)
+      if(denominator.le.eps) then
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/eps
       else
         sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
       end if
