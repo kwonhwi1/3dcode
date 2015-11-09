@@ -9,7 +9,7 @@ module flux_module
 
   type, abstract :: t_flux
     private
-    integer :: npv,ndv,ngrd
+    integer :: npv,ndv,ntv,ngrd
     real(8) :: omega(3)
     real(8) :: uref,str,pref
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
@@ -118,7 +118,8 @@ module flux_module
       flux%ngrd = grid%getngrd()
       flux%npv = variable%getnpv()
       flux%ndv = variable%getndv()
-      
+      flux%ntv = variable%getntv()
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
     subroutine destruct(flux)
@@ -194,7 +195,7 @@ module flux_module
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull,uv2
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d,ravg_ht
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
       real(8) :: df(flux%npv)
@@ -221,7 +222,7 @@ module flux_module
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
 
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
@@ -277,7 +278,7 @@ module flux_module
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
       real(8) :: aaa,add,b1,b2,b1b2,rrr,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
-      real(8) :: rdv(flux%ndv)
+      real(8) :: rdv(flux%ndv),rtv(flux%ntv)
       real(8), parameter :: eps=1.d-16
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
@@ -302,7 +303,7 @@ module flux_module
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
 
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
@@ -416,7 +417,7 @@ module flux_module
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d
       real(8) :: amid,zml,zmr,am2mid,rhom
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
@@ -445,7 +446,7 @@ module flux_module
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
       
       amid = dsqrt(rdv(6))
       
@@ -529,7 +530,7 @@ module flux_module
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
@@ -558,7 +559,7 @@ module flux_module
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv)
+      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
       
       amid = dsqrt(rdv(6))
       

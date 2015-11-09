@@ -137,7 +137,7 @@ module postvariable_module
                 variable%solution(l)%zone(m)%pv(1,i,j,k) = variable%solution(l)%zone(m)%pv(1,i,j,k)+config%getpref()
                 call eos%deteos(variable%solution(l)%zone(m)%pv(1,i,j,k),variable%solution(l)%zone(m)%pv(5,i,j,k) &
                                ,variable%solution(l)%zone(m)%pv(6,i,j,k),variable%solution(l)%zone(m)%pv(7,i,j,k) &
-                               ,variable%solution(l)%zone(m)%dv(:,i,j,k))
+                               ,variable%solution(l)%zone(m)%dv(:,i,j,k),variable%solution(l)%zone(m)%tv(1:2,i,j,k))
               end do
             end do
           end do

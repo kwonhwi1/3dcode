@@ -299,8 +299,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i+1,j,k)
@@ -388,8 +388,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i,j+1,k)
@@ -477,8 +477,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
+              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
+              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i,j,k+1)

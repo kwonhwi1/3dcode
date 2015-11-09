@@ -1,7 +1,6 @@
 module config_module
   use mpi
   use eos_module
-  use prop_module
   implicit none
   private
   public :: t_config
@@ -81,11 +80,10 @@ module config_module
     
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(config,eos,prop)
+    subroutine construct(config,eos)
       implicit none
       class(t_config), intent(out) :: config
       type(t_eos), intent(out) :: eos
-      type(t_prop), intent(out) :: prop
       integer :: n,io,ierr
       
       config%stencil = 38
@@ -103,7 +101,7 @@ module config_module
           read(io,*); read(io,*) config%iturb,config%tcomp
           read(io,*); read(io,*) config%nscheme,config%precd,config%nmuscl,config%nlim
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
-          read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule
+          read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
           read(io,*); read(io,*) config%gravity
           read(io,*); read(io,*) config%rotation,config%rpm
@@ -113,10 +111,15 @@ module config_module
         endif
         call mpi_barrier(mpi_comm_world,ierr)
       end do
-      
-      call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,config%mixingrule)
-      call prop%construct(config%fluid,config%fluid_eostype,config%ngas)
-      
+
+      select case(config%iturb)
+      case(-3)
+        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,0,config%size,config%rank)
+      case(-2)
+        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,2,config%size,config%rank)
+      case(-1,0)
+        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,3,config%size,config%rank)
+      end select
       
       config%pi  = datan(1.d0)*4.d0
       config%aoa = config%aoa*config%pi/180.d0
@@ -141,9 +144,7 @@ module config_module
       case default
       end select
 
-      call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref)
-      call prop%detprop(config%dvref(3),config%dvref(4),config%dvref(5),config%tref,config%y1ref,config%y2ref,config%tvref)
-      
+      call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref,config%tvref(1:2))
       
       if(config%iturb.eq.0) then
         config%oref = 10.d0*config%uref/config%l_domain
@@ -161,15 +162,13 @@ module config_module
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine destruct(config,eos,prop)
+    subroutine destruct(config,eos)
       implicit none
       class(t_config), intent(inout) :: config
       type(t_eos), intent(inout) :: eos
-      type(t_prop), intent(inout) :: prop
       integer :: ierr
           
       call eos%destruct()
-      call prop%destruct()
       
       call mpi_finalize(ierr)
     end subroutine destruct

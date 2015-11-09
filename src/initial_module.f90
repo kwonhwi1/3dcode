@@ -4,7 +4,6 @@ module initial_module
   use grid_module
   use variable_module
   use eos_module
-  use prop_module
   implicit none
   private
   public :: t_ini,t_ini_initial,t_ini_initial_rot,t_ini_restart
@@ -37,18 +36,16 @@ module initial_module
   end type t_ini_restart
   
   abstract interface
-    subroutine p_initialize(ini,grid,variable,eos,prop,nps,nts)
+    subroutine p_initialize(ini,grid,variable,eos,nps,nts)
       import t_ini
       import t_grid
       import t_variable
       import t_eos
-      import t_prop
       implicit none
       class(t_ini), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
     end subroutine p_initialize
   end interface
@@ -93,13 +90,12 @@ module initial_module
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef steadyini
-    subroutine restart(ini,grid,variable,eos,prop,nps,nts)
+    subroutine restart(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
@@ -164,7 +160,7 @@ module initial_module
               call variable%settv(n,i,j,k,tv(n,i,j,k))
             end do      
             
-            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv,tv(1:2))
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
@@ -196,13 +192,12 @@ module initial_module
     end subroutine restart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #else
-    subroutine restart(ini,grid,variable,eos,prop,nps,nts)
+    subroutine restart(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
@@ -274,7 +269,7 @@ module initial_module
               call variable%settv(n,i,j,k,tv(n,i,j,k))
             end do      
             
-            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv,tv(1:2,i,j,k))
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
@@ -304,13 +299,12 @@ module initial_module
     end subroutine restart
 #endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine initial_rot(ini,grid,variable,eos,prop,nps,nts)
+    subroutine initial_rot(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_initial_rot), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n
       real(8) :: pv(variable%getnpv()),dv(variable%getndv())
@@ -336,15 +330,11 @@ module initial_module
 
             pv = variable%getpv(i,j,k)
 
-            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
 
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
             end do
-
-            if(ini%iturb.ge.-2) then
-              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
-            end if
 
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
@@ -379,13 +369,12 @@ module initial_module
 #ifdef test
 
 #elif lax3d
-     subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+     subroutine initial(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n
       real(8) :: pv(variable%getnpv()),dv(variable%getndv())
@@ -416,15 +405,11 @@ module initial_module
             end if
             pv = variable%getpv(i,j,k)   
         
-            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
-            if(ini%iturb.ge.-2) then
-              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
-            end if
             
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
@@ -457,13 +442,12 @@ module initial_module
     end subroutine initial
 
 #elif shocktube
-    subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+    subroutine initial(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n
       real(8) :: pv(variable%getnpv()),dv(variable%getndv())
@@ -493,15 +477,11 @@ module initial_module
             end if
             pv = variable%getpv(i,j,k)   
         
-            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
-            if(ini%iturb.ge.-2) then
-              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
-            end if
             
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
@@ -533,13 +513,12 @@ module initial_module
       nts = 1
     end subroutine initial
 #else
-    subroutine initial(ini,grid,variable,eos,prop,nps,nts)
+    subroutine initial(ini,grid,variable,eos,nps,nts)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer, intent(out) :: nps,nts
       integer :: i,j,k,n
       real(8) :: pv(variable%getnpv()),dv(variable%getndv())
@@ -558,15 +537,11 @@ module initial_module
             
             pv = variable%getpv(i,j,k)   
         
-            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
             
             do n=1,variable%getndv()
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
-            if(ini%iturb.ge.-2) then
-              call prop%detprop(dv(3),dv(4),dv(5),pv(5),pv(6),pv(7),tv(1:2))
-            end if
             
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref

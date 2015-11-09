@@ -1,7 +1,6 @@
 module solve_module
   use config_module
   use eos_module
-  use prop_module
   use grid_module
   use variable_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -33,14 +32,13 @@ module solve_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(solve,config,grid,variable,eos,prop)
+    subroutine construct(solve,config,grid,variable,eos)
       implicit none
       class(t_solve), intent(out) :: solve
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       
       solve%npmax = config%getnpmax()
       solve%ntmax = config%getntmax()
@@ -80,7 +78,7 @@ module solve_module
       end select
       
       if(allocated(solve%update)) then
-        call solve%update%construct(config,grid,variable,eos,prop)
+        call solve%update%construct(config,grid,variable,eos)
         solve%l_update = .true.
       end if
       
@@ -119,22 +117,21 @@ module solve_module
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine solve_equation(solve,grid,variable,eos,prop)
+    subroutine solve_equation(solve,grid,variable,eos)
       implicit none
       class(t_solve), intent(inout) :: solve
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       type(t_eos), intent(in) :: eos
-      type(t_prop), intent(in) :: prop
       integer :: nt_phy,nt,nps,nts
       
-      call solve%ini%initialize(grid,variable,eos,prop,nps,nts)
+      call solve%ini%initialize(grid,variable,eos,nps,nts)
 
       do nt_phy=nps,solve%npmax
         call solve%resi%setl_converge(.false.)
         do nt=nts,solve%ntmax
           call solve%resi%setqres(variable)
-          call solve%update%timeinteg(grid,variable,eos,prop,nt_phy,nt)
+          call solve%update%timeinteg(grid,variable,eos,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
           if(solve%resi%getconverge()) exit
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then

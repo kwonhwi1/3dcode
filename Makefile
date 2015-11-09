@@ -62,14 +62,12 @@ AR = xiar rcs
 
 # target obj list
 OBJS_POST =   $(OBJ_DIR)/eos_module.o\
-              $(OBJ_DIR)/prop_module.o\
               $(OBJ_DIR)/config_module.o\
               $(OBJ_DIR)/postgrid_module.o\
               $(OBJ_DIR)/postvariable_module.o\
               $(OBJ_DIR)/postprocess.o
 
 OBJS_MAIN =   $(OBJ_DIR)/eos_module.o\
-              $(OBJ_DIR)/prop_module.o\
               $(OBJ_DIR)/config_module.o\
               $(OBJ_DIR)/grid_module.o\
               $(OBJ_DIR)/variable_module.o\

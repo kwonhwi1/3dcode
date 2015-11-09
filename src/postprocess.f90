@@ -1,14 +1,12 @@
 program postprocess
   use config_module
   use eos_module
-  use prop_module
   use postgrid_module
   use postvariable_module
   
   implicit none
   type(t_config) :: config
   type(t_eos) :: eos
-  type(t_prop) :: prop
   type(t_grid) :: grid
   type(t_variable) :: variable
   
@@ -23,7 +21,7 @@ program postprocess
   read(io,*); read(io,*) area
   close(io)
       
-  call config%construct(eos,prop) !eos & prop are also constructed
+  call config%construct(eos) !eos is also constructed
   call grid%construct(config)
   call variable%construct(config,grid,eos,istart,iend,nsolution)
   
@@ -39,5 +37,5 @@ program postprocess
   
   call variable%destruct(grid)
   call grid%destruct()
-  call config%destruct(eos,prop) !eos & prop are destructed
+  call config%destruct(eos) !eos is destructed
 end program postprocess
