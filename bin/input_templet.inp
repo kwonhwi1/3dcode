@@ -12,8 +12,8 @@ nscheme       precd          nmuscl         nlim
 0             0              0              0
 timemethod    local          prec           cfl
 0             0              0              0.d0
-fluid         fluid_eostype  ngas           gas_eostype    mixingrule
-0             0              0              0              0
+fluid         fluid_eostype  ngas           gas_eostype
+0             0              0              0
 ncav          c_v            c_c
 0             0.d0           0.d0
 gravity
