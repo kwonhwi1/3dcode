@@ -216,13 +216,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -281,8 +275,8 @@ module flux_module
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
-      real(8) :: aaa,add,add1,b1,b2,b1b2,rrr,rrr1,ff,gg,sdst(18),pp_l,pp_r
-      real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),bdq1(flux%npv),dq(flux%npv)
+      real(8) :: aaa,add,b1,b2,b1b2,rrr,ff,gg,sdst(18),pp_l,pp_r
+      real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
       real(8), parameter :: eps=1.d-16
       
@@ -303,13 +297,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
       ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
@@ -392,40 +380,30 @@ module flux_module
       else
         gg = 1.d0
       end if
-      
-      add1 = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
-      add = c_star_cut-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
+
+      add = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
       aaa = (c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)
       
-      rrr = m_star*uup-c_star_cut
+      rrr = m_star*uup-c_star
       if(dabs(rrr).le.eps) then
         rrr = -1.d0/dsign(eps,rrr)
       else
         rrr = -1.d0/rrr
       end if
 
-      rrr1 = m_star*uup-c_star
-      if(dabs(rrr1).le.eps) then
-        rrr1 = -1.d0/dsign(eps,rrr1)
-      else
-        rrr1 = -1.d0/rrr1
-      end if 
-
       bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
-      bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*dqp(2)
-      bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*dqp(3)
-      bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*dqp(4)
+      bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*(dqp(2)-nx*(uurr-uull))
+      bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*(dqp(3)-ny*(uurr-uull))
+      bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*(dqp(4)-nz*(uurr-uull))
       bdq(5) = bdq(1)*ravg_ht  + rdv(1)*add*(flux%getenthalpy_r()-flux%getenthalpy_l())
       do k=6,flux%npv
         bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
       end do
-      bdq1 = 0.d0
-      bdq1(2) = -rdv(1)*add1*nx*(uurr-uull)
-      bdq1(3) = -rdv(1)*add1*ny*(uurr-uull)
-      bdq1(4) = -rdv(1)*add1*nz*(uurr-uull)
+
       b1b2 = b1*b2 + ddd_cut**2 - ddd*ddd_cut
+
       do k=1,flux%npv
-        fx(k) = (b1*fl(k)-b2*fr(k)+b1*b2*dq(k)-gg*b1*b2*rrr*bdq(k)-gg*b1b2*rrr1*bdq1(k))/(b1-b2)*dl
+        fx(k) = (b1*fl(k)-b2*fr(k)+b1b2*dq(k)-gg*b1b2*rrr*bdq(k))/(b1-b2)*dl
       end do
     
     end subroutine roem
@@ -463,13 +441,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
@@ -507,7 +479,7 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr
-      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - (1.d0-fmid1)*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - (1.d0-fmid1)*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       rhom = dmin1(flux%dvl(1),flux%dvr(1))
       do k=1,18
@@ -582,13 +554,7 @@ module flux_module
       ! roe average - 1/2 values
       ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,5
-        ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
-      end do
-      do k=6,7
-        ravg(k) = 0.5d0*(flux%pvl(k)+flux%pvr(k))
-      end do
-      do k=8,flux%npv
+      do k=2,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
