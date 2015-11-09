@@ -289,9 +289,9 @@ module bc_module
             bc%bcinfo(n)%pv(9) = config%getoref()
           end if
 
-            open(newunit=bc%bcinfo(n)%ioout,file='./track_out.plt',status='unknown',action='write')
-            write(bc%bcinfo(n)%ioout,*) 'variables="nt","mdot_out","p_out"'
-            write(bc%bcinfo(n)%ioout,*) 'zone t="out"'
+          open(newunit=bc%bcinfo(n)%ioout,file='./track_out.plt',status='unknown',action='write')
+          write(bc%bcinfo(n)%ioout,*) 'variables="nt","mdot_out","p_out"'
+          write(bc%bcinfo(n)%ioout,*) 'zone t="out"'
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSupersonic') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
           allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
@@ -2415,7 +2415,7 @@ module bc_module
       end do
 
       pa=pa/area
-      mdot=mdot/area
+      mdot=mdot
       nt=nt+1
       write(bcinfo%ioout,*) nt,mdot,pa+bcinfo%pv(1)
 
@@ -3012,7 +3012,7 @@ module bc_module
       wa = wa/area
       pa = pa/area
       ta = ta/area
-      mdot = mdot/area
+      mdot = mdot
       uvwa2 = ua**2+va**2+wa**2
 
       ! initial guess
