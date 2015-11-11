@@ -1319,10 +1319,8 @@ module bc_module
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
       end do
 
-      if(bc%rank.eq.0) then
-        close(bc%bcinfo(n)%ioout)
-        close(bc%bcinfo(n)%ioin)
-      end if
+      close(bc%bcinfo(n)%ioout)
+      close(bc%bcinfo(n)%ioin)
 
       deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
       deallocate(bc%mpitemp)
