@@ -47,10 +47,9 @@ local         : -1 = fixed time, 0 = min time, 1 = local time
 prec          : system prec. 0 = no, 1 = steady, 2 = unsteady
 cfl           : cfl number
 fluid         : 1 = water, 2 = nitrogen, 3 = oxygen, 4 = hydrogen
-fluid_eostype : 1 = fitting, 2 = srk (2 = iapws97, 3 = stiffend for water)
+fluid_eostype : 1 = database, (2 = iapws97, 3 = stiffend only for water)
 ngas          : 1 = ideal gas, 2 = nitrogen, 3 = oxygen, 4 = hydrogen, 5 = helium
-gas_eostype   : 1 = fitting (1 = ideal gas law for ideal gas), 2 = srk 
-mixingrule    : 1 = amagat's law, 2 = dalton's law
+gas_eostype   : 1 = database (1 = ideal gas law only for ideal gas), 2 = srk
 ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
 c_v           : vaporization coefficient
 c_c           : condensation coefficient

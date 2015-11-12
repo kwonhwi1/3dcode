@@ -8,5 +8,5 @@ mode(1:post, 2:surface pressure, 3:clcd)
 0
 planform area
 0.d0
-! name, nsteady, nexport, iturb, fluid, fluid_eostype, ngas, gas_eostype, mixingrule must check in  input.inp for postprocessing
+! name, nsteady, nexport, iturb, fluid, fluid_eostype, ngas, gas_eostype must check in  input.inp for postprocessing
 ! uref, rhoref, area, aoa for clcd calculation
