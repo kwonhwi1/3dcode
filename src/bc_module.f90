@@ -2321,7 +2321,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(1)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2333,7 +2333,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(1)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2345,7 +2345,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(2)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2357,7 +2357,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(2)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2369,7 +2369,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(3)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2381,7 +2381,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(3)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2413,7 +2413,6 @@ module bc_module
       end do
 
       pa=pa/area
-      mdot=mdot
       nt=nt+1
       write(bcinfo%ioout,*) nt,mdot,pa+bcinfo%pv(1)
 
