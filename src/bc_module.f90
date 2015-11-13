@@ -1296,6 +1296,7 @@ module bc_module
       implicit none
       class(t_bc), intent(inout) :: bc
       integer :: n
+      logical :: ok
 
       if(associated(bc%prec%getsndp2)) nullify(bc%prec%getsndp2)
 
@@ -1319,8 +1320,14 @@ module bc_module
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
       end do
 
-      close(bc%bcinfo(n)%ioout)
-      close(bc%bcinfo(n)%ioin)
+      do n=1,bc%nbc
+        ok=.false.
+        inquire(unit=bc%bcinfo(n)%ioout,opened=ok) 
+        if(ok) close(bc%bcinfo(n)%ioout)
+        ok=.false.
+        inquire(unit=bc%bcinfo(n)%ioin,opened=ok)
+        if(ok) close(bc%bcinfo(n)%ioin)
+      end do
 
       deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
       deallocate(bc%mpitemp)
