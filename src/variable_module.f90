@@ -19,10 +19,6 @@ module variable_module
     contains
       procedure :: construct
       procedure :: destruct
-      procedure :: getnpv
-      procedure :: getndv
-      procedure :: getntv
-      procedure :: getnqq
       procedure :: getpv
       procedure :: getdv
       procedure :: gettv
@@ -42,28 +38,14 @@ module variable_module
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       integer :: ier,i
-      select case(config%getiturb())
-      case(-3)
-        variable%npv = 7
-        variable%ntv = 0  
-      case(-2)
-        variable%npv = 7
-        variable%ntv = 2      
-      case(-1,0)
-        variable%npv = 9
-        variable%ntv = 3      
-      end select
-      variable%ndv = 18
-      select case(config%getnsteady())
-      case(0)
-        variable%nqq = 0
-      case(1)
-        variable%nqq = 2
-      end select
 
       call mpi_type_size(mpi_integer,variable%intsize,ier)
       call mpi_type_size(mpi_real8,variable%realsize,ier)
 
+      variable%npv = config%getnpv()
+      variable%ndv = config%getndv()
+      variable%ntv = config%getntv()
+      variable%nqq = config%getnqq()
       variable%size = config%getsize()
       variable%rank = config%getrank()
       variable%nsteady = config%getnsteady()
@@ -143,42 +125,6 @@ module variable_module
       call mpi_file_close(io,ier)
 
     end subroutine export_variable
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getnpv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getnpv
-
-      getnpv = variable%npv
-
-    end function getnpv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getndv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getndv
-      
-      getndv = variable%ndv
-      
-    end function getndv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getntv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getntv
-      
-      getntv = variable%ntv
-      
-    end function getntv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getnqq(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getnqq
-      
-      getnqq = variable%nqq
-      
-    end function getnqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getpv(variable,i,j,k)
       implicit none

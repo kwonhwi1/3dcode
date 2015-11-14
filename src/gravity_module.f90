@@ -1,6 +1,5 @@
 module gravity_module
   use config_module
-  use variable_module
   use grid_module
   implicit none
   private
@@ -21,13 +20,14 @@ module gravity_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(gravity,config,grid,variable)
+    subroutine construct(gravity,config,grid)
       implicit none
       class(t_gravity), intent(out) :: gravity
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
 
+      gravity%npv = config%getnpv()
+      gravity%ndv = config%getndv()
 
       select case(config%getgravity())
       case(-1)
@@ -46,8 +46,6 @@ module gravity_module
         gravity%gravity =(/0.d0,0.d0,0.d0/)
       end select
 
-      gravity%npv = variable%getnpv()
-      gravity%ndv = variable%getndv()
       gravity%ngrd = grid%getngrd()
 
     end subroutine construct

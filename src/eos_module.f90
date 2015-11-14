@@ -1,8 +1,9 @@
 module eos_module
   use mpi
+  use config_module
   implicit none
   private
-  public :: t_eos
+  public :: t_eos,t_eosonly,t_eos_prop
     
   type t_iapws_coeff_eos
     integer, dimension(:), allocatable :: i,j,ir,jr
@@ -21,36 +22,64 @@ module eos_module
   type t_db_data
     integer :: p_ndata
     real(8) :: t
-    real(8),allocatable :: dbv(:,:) !p,rho,h,drdp,drdt,dhdp,dhdt,vis,cond
+    real(8), allocatable :: dbv(:,:) !p,rho,h,drdp,drdt,dhdp,dhdt,vis,cond
   end type t_db_data
 
   type t_db_const
     integer :: tndata_db
     real(8) :: delta_t_db,delta_p_db
-    type(t_db_data),allocatable :: db(:)
+    type(t_db_data), allocatable :: db(:)
   end type t_db_const
 
-  type t_eos
+  type, abstract :: t_eos
     private
-    integer :: ntv,rank,size
+    logical :: prop
+    integer :: ndv,ntv,rank,size
     procedure(p_pww), public, pointer :: get_pww
     procedure(p_sigma), public, pointer :: get_sigma
     procedure(p_eos_l), pointer :: eos_l
     procedure(p_eos_v), pointer :: eos_v
     procedure(p_eos_g), pointer :: eos_g
-    type(t_iapws_coeff_eos) :: iapws_liquid_coeff,iapws_vapor_coeff,iapws_m_vapor_coeff
+    procedure(p_eos_l_prop), pointer :: eos_l_prop
+    procedure(p_eos_v_prop), pointer :: eos_v_prop
+    procedure(p_eos_g_prop), pointer :: eos_g_prop
+    type(t_iapws_coeff_eos)  :: iapws_liquid_coeff,iapws_vapor_coeff,iapws_m_vapor_coeff
     type(t_iapws_coeff_prop) :: iapws_prop_coeff
     type(t_srk_property) :: srk_gas_property
     type(t_db_const) :: db_const(3) ! 1=liquid,2=vapor,3=gas
     contains
-      procedure :: construct !(fluid,fluid_eostype,ngas,gas_eostype,size,rank)
-      procedure :: deteos
+      procedure :: construct
+      procedure :: destruct
+      procedure :: deteos_simple
       procedure, private :: set_iapws97_eos
       procedure, private :: set_iapws97_prop
       procedure, private :: set_srk_property
       procedure, private :: set_database
-      procedure :: destruct
+      procedure(p_deteos), deferred :: deteos
   end type t_eos
+
+
+  abstract interface
+    subroutine p_deteos(eos,p,t,y1,y2,dv,tv)
+      import t_eos
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t,y1,y2
+      real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      real(8), intent(inout) :: tv(eos%ntv)
+    end subroutine p_deteos
+  end interface
+
+  type, extends(t_eos) :: t_eosonly
+    contains
+      procedure :: deteos => deteosonly
+  end type t_eosonly
+
+  type, extends(t_eos) :: t_eos_prop
+    contains
+      procedure :: construct => construct_eos_prop
+      procedure :: deteos => deteos_prop
+  end type t_eos_prop
 
   type t_eos2
     real(8) :: rho,h,drdp,drdt,dhdp,dhdt
@@ -63,7 +92,7 @@ module eos_module
   type t_srk_coeff
     real(8) :: a,alpha,b,s
   end type t_srk_coeff
-  
+
   interface
     function p_pww(eos,t) result(pww)
       import t_eos
@@ -81,31 +110,37 @@ module eos_module
       real(8) :: sigma
     end function p_sigma
     
-    subroutine p_eos_l(eos,p,t,phase,eos2,prop2)
+    subroutine p_eos_l(eos,p,t,phase,eos2)
       import t_eos
       import t_eos2
-      import t_prop2
       implicit none
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
     end subroutine p_eos_l
     
-    subroutine p_eos_v(eos,p,t,phase,eos2,prop2)
+    subroutine p_eos_v(eos,p,t,phase,eos2)
       import t_eos
       import t_eos2
-      import t_prop2
       implicit none
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
     end subroutine p_eos_v
     
-    subroutine p_eos_g(eos,p,t,phase,eos2,prop2)
+    subroutine p_eos_g(eos,p,t,phase,eos2)
+      import t_eos
+      import t_eos2
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+    end subroutine p_eos_g
+
+    subroutine p_eos_l_prop(eos,p,t,phase,eos2,prop2)
       import t_eos
       import t_eos2
       import t_prop2
@@ -115,86 +150,203 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
-    end subroutine p_eos_g
+    end subroutine p_eos_l_prop
+    
+    subroutine p_eos_v_prop(eos,p,t,phase,eos2,prop2)
+      import t_eos
+      import t_eos2
+      import t_prop2
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out) :: prop2
+    end subroutine p_eos_v_prop
+    
+    subroutine p_eos_g_prop(eos,p,t,phase,eos2,prop2)
+      import t_eos
+      import t_eos2
+      import t_prop2
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out) :: prop2
+    end subroutine p_eos_g_prop
   end interface
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
-    subroutine construct(eos,fluid,fluid_eostype,ngas,gas_eostype,ntv,size,rank)
+    subroutine construct(eos,config)
       implicit none
       class(t_eos), intent(out) :: eos
-      integer, intent(in) :: fluid,fluid_eostype,ngas,gas_eostype,ntv,size,rank
+      type(t_config), intent(in) :: config
 
-      eos%ntv = ntv
-      eos%size  = size
-      eos%rank  = rank
+      eos%ndv = config%getndv()
+      eos%ntv = config%getntv()
+      eos%size  = config%getsize()
+      eos%rank  = config%getrank()
 
-      select case(ngas)
-      case(1) ! ideal gas
-        select case(gas_eostype)
-        case(1) ! ideal gas law
-          eos%eos_g  => ideal
-        case default
-        end select
-      case(2,3,4,5) ! nitrogen,oxygen,hydrogen,helium
-        select case(gas_eostype)
-        case(1) ! database
-          call eos%set_database(ngas,3)
-          eos%eos_g  => database
-        case(2) ! srk
-          call eos%set_srk_property(ngas)
-          if(ntv.ge.2) call eos%set_database(ngas,3)
-          eos%eos_g  => srk_g
-        case default
-        end select
-      case default
-      end select
-
-      select case(fluid_eostype)
-      case(1) ! database
-        call eos%set_database(fluid,1)
-        eos%eos_l  => database
-        call eos%set_database(fluid,2)
-        eos%eos_v  => database
-      case(2) ! iapws97 for water
-        call eos%set_iapws97_eos()
-        if(ntv.ge.2) call eos%set_iapws97_prop()
-        eos%eos_l  => iapws97_l
-        eos%eos_v  => iapws97_v
-      case(3) ! stiffened for water
+      select case(config%getfluid())
+      case(1) ! stiffened for water
         eos%eos_l  => stiffened
         eos%eos_v  => ideal
-      case default
-      end select
-
-      select case(fluid)
-      case(1) ! water
         eos%get_pww => h2o_pww
         eos%get_sigma => h2o_sigma
-      case(2) ! nitrogen
+      case(2) ! iapws97 for water
+        call eos%set_iapws97_eos()
+        eos%eos_l  => iapws97_l
+        eos%eos_v  => iapws97_v
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(3)! database water
+        call eos%set_database(1,1)
+        call eos%set_database(1,2)
+        eos%eos_l  => database
+        eos%eos_v  => database
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(4)! database nitrogen
+        call eos%set_database(2,1)
+        call eos%set_database(2,2)
+        eos%eos_l  => database
+        eos%eos_v  => database
         eos%get_pww => n2_pww
         eos%get_sigma => n2_sigma
-      case(3) ! oxygen
+      case(5)! database oxygen
+        call eos%set_database(3,1)
+        call eos%set_database(3,2)
+        eos%eos_l  => database
+        eos%eos_v  => database
         eos%get_pww => o2_pww
         eos%get_sigma => o2_sigma
-      case(4) ! hydrogen
+      case(6)! database hydrogen
+        call eos%set_database(4,1)
+        call eos%set_database(4,2)
+        eos%eos_l  => database
+        eos%eos_v  => database
         eos%get_pww => h2_pww
         eos%get_sigma => h2_sigma
       case default
       end select
+
+      select case(config%getngas())
+      case(1) ! ideal gas
+        eos%eos_g  => ideal
+      case(2,3,4,5) ! nitrogen,oxygen,hydrogen,helium
+        call eos%set_database(config%getngas(),3)
+        eos%eos_g  => database
+      case(6,7,8,9) ! nitrogen,oxygen,hydrogen,helium
+        call eos%set_srk_property(config%getngas()-4)
+        eos%eos_g  => srk_g
+      case default
+      end select
+
+      eos%eos_l_prop => null()
+      eos%eos_v_prop => null()
+      eos%eos_g_prop => null()
     
     end subroutine construct
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    subroutine construct_eos_prop(eos,config)
+      implicit none
+      class(t_eos_prop), intent(out) :: eos
+      type(t_config), intent(in) :: config
+
+      eos%ndv = config%getndv()
+      eos%ntv = config%getntv()
+      eos%size  = config%getsize()
+      eos%rank  = config%getrank()
+
+      select case(config%getfluid())
+      case(1) ! stiffened for water
+        eos%eos_l  => stiffened
+        eos%eos_v  => ideal
+        eos%eos_l_prop  => stiffened_prop
+        eos%eos_v_prop  => ideal_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(2) ! iapws97 for water
+        call eos%set_iapws97_eos()
+        call eos%set_iapws97_prop()
+        eos%eos_l  => iapws97_l
+        eos%eos_v  => iapws97_v
+        eos%eos_l_prop  => iapws97_l_prop
+        eos%eos_v_prop  => iapws97_v_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(3)! database water
+        call eos%set_database(1,1)
+        call eos%set_database(1,2)
+        eos%eos_l  => database
+        eos%eos_l_prop  => database_prop
+        eos%eos_v  => database
+        eos%eos_v_prop  => database_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(4)! database nitrogen
+        call eos%set_database(2,1)
+        call eos%set_database(2,2)
+        eos%eos_l  => database
+        eos%eos_l_prop  => database_prop
+        eos%eos_v  => database
+        eos%eos_v_prop  => database_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(5)! database oxygen
+        call eos%set_database(3,1)
+        call eos%set_database(3,2)
+        eos%eos_l  => database
+        eos%eos_l_prop  => database_prop
+        eos%eos_v  => database
+        eos%eos_v_prop  => database_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case(6)! database hydrogen
+        call eos%set_database(4,1)
+        call eos%set_database(4,2)
+        eos%eos_l  => database
+        eos%eos_l_prop  => database_prop
+        eos%eos_v  => database
+        eos%eos_v_prop  => database_prop
+        eos%get_pww => h2o_pww
+        eos%get_sigma => h2o_sigma
+      case default
+      end select
+
+      select case(config%getngas())
+      case(1) ! ideal gas
+        eos%eos_g  => ideal
+        eos%eos_g_prop  => ideal_prop
+      case(2,3,4,5) ! nitrogen,oxygen,hydrogen,helium
+        call eos%set_database(config%getngas(),3)
+        eos%eos_g  => database
+        eos%eos_g_prop  => database_prop
+      case(6,7,8,9) ! nitrogen,oxygen,hydrogen,helium
+        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_database(config%getngas()-4,3)
+        eos%eos_g  => srk_g
+        eos%eos_g_prop  => srk_g_prop
+      case default
+      end select
+    
+    end subroutine construct_eos_prop
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(eos)
       implicit none
       class(t_eos), intent(inout) :: eos
       integer :: m,n
 
-      if(associated(eos%get_pww))   nullify(eos%get_pww)
-      if(associated(eos%get_sigma)) nullify(eos%get_sigma)
-      if(associated(eos%eos_l))     nullify(eos%eos_l)
-      if(associated(eos%eos_v))     nullify(eos%eos_v)
-      if(associated(eos%eos_g))     nullify(eos%eos_g)
+      if(associated(eos%get_pww))    nullify(eos%get_pww)
+      if(associated(eos%get_sigma))  nullify(eos%get_sigma)
+      if(associated(eos%eos_l))      nullify(eos%eos_l)
+      if(associated(eos%eos_v))      nullify(eos%eos_v)
+      if(associated(eos%eos_g))      nullify(eos%eos_g)
+      if(associated(eos%eos_l_prop)) nullify(eos%eos_l_prop)
+      if(associated(eos%eos_v_prop)) nullify(eos%eos_v_prop)
+      if(associated(eos%eos_g_prop)) nullify(eos%eos_g_prop)
 
       do n=1,3
         do m=1,eos%db_const(n)%tndata_db
@@ -222,388 +374,6 @@ module eos_module
       if(allocated(eos%iapws_prop_coeff%ll))    deallocate(eos%iapws_prop_coeff%ll)
 
     end subroutine destruct
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine deteos(eos,p,t,y1,y2,dv,tv)
-      implicit none
-      class(t_eos), intent(in) :: eos
-      real(8), intent(in) :: p,t,y1,y2
-      real(8), intent(out) :: dv(18) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
-      real(8), intent(inout) :: tv(eos%ntv)
-      type(t_eos2)  :: l_eos,v_eos,g_eos
-      type(t_prop2) :: l_prop,v_prop,g_prop
-
-      call eos%eos_l(p,t,1,l_eos,l_prop)
-      call eos%eos_v(p,t,2,v_eos,v_prop)
-      call eos%eos_g(p,t,3,g_eos,g_prop)
-      
-      dv(3)  = l_eos%rho
-      dv(4)  = v_eos%rho
-      dv(5)  = g_eos%rho
-
-      dv(1)  = 1.d0/((1.d0-y1-y2)/l_eos%rho + y1/v_eos%rho + y2/g_eos%rho)
-      dv(2)  = (1.d0-y1-y2)*l_eos%h + y1*v_eos%h + y2*g_eos%h
-
-      dv(7)  = dv(1)**2*((1.d0-y1-y2)/l_eos%rho**2*l_eos%drdp &
-                                 + y1/v_eos%rho**2*v_eos%drdp   &
-                                 + y2/g_eos%rho**2*g_eos%drdp)
-      dv(8)  = dv(1)**2*((1.d0-y1-y2)/l_eos%rho**2*l_eos%drdt &
-                                 + y1/v_eos%rho**2*v_eos%drdt   &
-                                 + y2/g_eos%rho**2*g_eos%drdt)
-      dv(9)  = dv(1)**2*(1.d0/l_eos%rho - 1.d0/v_eos%rho)
-      dv(10) = dv(1)**2*(1.d0/l_eos%rho - 1.d0/g_eos%rho)
-    
-      dv(11) = (1.d0-y1-y2)*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
-      dv(12) = (1.d0-y1-y2)*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
-      dv(13) = v_eos%h - l_eos%h
-      dv(14) = g_eos%h - l_eos%h
-      
-      dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
-      
-      dv(15) = v_eos%drdp
-      dv(16) = v_eos%drdt
-      dv(17) = l_eos%drdp
-      dv(18) = l_eos%drdt
-
-      if(eos%ntv.ge.2) then
-        tv(1) = dv(1)*(l_prop%vis*(1.d0-y1-y2)/dv(3)  + v_prop%vis*y1/dv(4)  &
-                       + g_prop%vis*y2/dv(5))
-        tv(2) = dv(1)*(l_prop%cond*(1.d0-y1-y2)/dv(3) + v_prop%cond*y1/dv(4) &
-                       + g_prop%cond*y2/dv(5))
-      end if
-
-    end subroutine deteos
-   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine ideal(eos,p,t,phase,eos2,prop2)
-      implicit none
-      class(t_eos), intent(in) :: eos
-      real(8), intent(in) :: p,t
-      integer, intent(in) :: phase
-      type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
-      real(8), parameter :: r1 = 1.4d0/0.4d0/1004.64
-      real(8) :: tau
-
-      tau = 1.d0/t
-
-      ! ideal gas law
-      eos2%rho  = p*r1*tau
-      eos2%h    = 1004.64d0*t
-      eos2%drdp = r1*tau
-      eos2%drdt = -p*r1*tau**2
-      eos2%dhdp = 0.d0
-      eos2%dhdt = 1004.64d0
-
-      !sutherland
-      if(eos%ntv.ge.2) then
-#ifdef shocktube
-      prop2%vis = 0.006d0
-#else
-      prop2%vis  = 1.716d-5*(t/273.11d0)**1.5d0*383.67d0/(t+110.56d0)
-      !prop2%cond = 0.0241d0*(t/273.d0)**1.5d0*467.d0/(t+194.d0)
-#endif
-      prop2%cond = 1004.64d0/0.72d0*prop2%vis
-      end if
-
-    end subroutine ideal
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine set_database(eos,fluid,phase)
-      implicit none
-      class(t_eos), intent(inout) :: eos
-      integer, intent(in) :: fluid,phase
-      integer :: n,m,l,k,ierr
-
-      do k=0,eos%size-1
-        if(k.eq.eos%rank) then
-
-          select case(phase)
-          case(1) ! liquid
-            select case(fluid)
-            case(1) ! water
-              open(unit = 10, file = "./../database/DATABASE_WATER_LIQ.DAT", FORM = "BINARY")
-            case(2) ! nitrogen
-              open(unit = 10, file = "./../database/DATABASE_NITROGEN_LIQ.DAT", FORM = "BINARY")
-            case(3) ! oxygen
-              open(unit = 10, file = "./../database/DATABASE_OXYGEN_LIQ.DAT", FORM = "BINARY")
-            case(4) ! hydrogen
-              open(unit = 10, file = "./../database/DATABASE_HYDROGEN_LIQ.DAT", FORM = "BINARY")
-            end select
-
-          case(2,3) ! vapor, gas
-            select case(fluid)
-            case(1) ! water
-              open(unit = 10, file = "./../database/DATABASE_WATER_GAS.DAT", FORM = "BINARY")
-            case(2) ! nitrogen
-              open(unit = 10, file = "./../database/DATABASE_NITROGEN_GAS.DAT", FORM = "BINARY")
-            case(3) ! oxygen
-              open(unit = 10, file = "./../database/DATABASE_OXYGEN_GAS.DAT", FORM = "BINARY")
-            case(4) ! hydrogen
-              open(unit = 10, file = "./../database/DATABASE_HYDROGEN_GAS.DAT", FORM = "BINARY")
-            case(5) ! helium
-              open(unit = 10, file = "./../database/DATABASE_HELIUM_GAS.DAT", FORM = "BINARY")
-            end select
-          end select
-
-          read(10) eos%db_const(phase)%tndata_db
-          read(10) eos%db_const(phase)%delta_t_db
-          read(10) eos%db_const(phase)%delta_p_db
-
-          allocate(eos%db_const(phase)%db(eos%db_const(phase)%tndata_db))
-
-          do m=1,eos%db_const(phase)%tndata_db
-            read(10) eos%db_const(phase)%db(m)%t
-            read(10) eos%db_const(phase)%db(m)%p_ndata
-
-            allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
-
-            do n=1,eos%db_const(phase)%db(m)%p_ndata
-              do l=1,9
-                read(10) eos%db_const(phase)%db(m)%dbv(n,l)
-              end do
-            end do
-          end do
-
-          close(10)
-
-        end if
-      end do
-
-    end subroutine set_database
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine database(eos,p,t,phase,eos2,prop2)
-      implicit none
-      class(t_eos), intent(in) :: eos
-      real(8), intent(in) :: p,t
-      integer, intent(in) :: phase
-      type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
-      integer :: t_index,p_index
-      integer :: n1,n2,m1,m2
-      real(8) :: x(2),y(2)
-      real(8) :: a0,a1,a2,a3,a4
-
-      ! defining the temperature index
-      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
-      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
-      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
-        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
-        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
-      else
-        n1 = max0(t_index-1,1)
-        n2 = max0(t_index,2)
-      end if
-      
-      x(1) = eos%db_const(phase)%db(n1)%t
-      x(2) = eos%db_const(phase)%db(n2)%t
-      
-      ! defining the pressure index
-      
-      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
-      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
-      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
-        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
-      else
-        m1 = max0(p_index-1,1)
-        m2 = max0(p_index,2)
-      end if
-      
-      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
-      
-      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-      a1 = dabs((x(2)-t)*(y(2)-p))
-      a2 = dabs((t-x(1))*(y(2)-p))
-      a3 = dabs((x(2)-t)*(p-y(1)))
-      a4 = dabs((t-x(1))*(p-y(1)))
-
-
-      eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
-      eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
-      eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,4)*a4 )*a0
-      eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,5)*a4 )*a0
-      eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,6)*a4 )*a0
-      eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,7)*a4 )*a0
-
-      if(eos%ntv.ge.2) then
-      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
-      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
-      end if
-
-    end subroutine database
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine set_srk_property(eos,fluid)
-      implicit none
-      class(t_eos), intent(inout) :: eos
-      integer, intent(in) :: fluid
-      type(t_srk_property) :: srk_property
-
-      select case(fluid)
-      case(2) ! nitrogen
-        srk_property%tc  = 126.19d0
-        srk_property%pc  = 3.3958d6
-        srk_property%tb  = 77.355d0
-        srk_property%mw  = 28.013d-3
-        srk_property%w   = 0.0372d0
-        srk_property%cv0 = 742.2d0
-        
-      case(3) ! oxyten
-        srk_property%tc  = 154.58d0
-        srk_property%pc  = 5.043d6
-        srk_property%tb  = 90.188d0
-        srk_property%mw  = 31.999d-3
-        srk_property%w   = 0.0222d0
-        srk_property%cv0 = 650.d0
-
-      case(4) ! hydrogen
-        srk_property%tc  = 33.145d0
-        srk_property%pc  = 1.2964d6
-        srk_property%tb  = 20.369d0
-        srk_property%mw  = 2.0159d-3
-        srk_property%w   = -0.219d0
-        srk_property%cv0 = 0.d0         ! should be filled
-        
-      case(5) ! helium
-        srk_property%tc  = 5.1953d0
-        srk_property%pc  = 0.22746d6
-        srk_property%tb  = 4.23d0
-        srk_property%mw  = 4.0026d-3
-        srk_property%w   = -0.382d0
-        srk_property%cv0 = 0.d0         ! should be filled
-      case default
-      end select
-
-      eos%srk_gas_property = srk_property
-
-    end subroutine set_srk_property
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine set_srk_coeff(p,t,srk_property,srk_coeff)
-      implicit none
-      real(8), intent(in) :: p,t
-      type(t_srk_property), intent(in) :: srk_property
-      type(t_srk_coeff), intent(out) :: srk_coeff
-      real(8),parameter :: ru=8.314d0
-
-      srk_coeff%s     = 0.48508d0 + 1.5517d0*srk_property%w - 0.15613d0*srk_property%w**2
-      srk_coeff%a     = 0.42747d0*(ru*srk_property%tc)**2/srk_property%pc
-      srk_coeff%alpha = (1.d0 + srk_coeff%s*(1.d0-dsqrt(t/srk_property%tc)))**2
-      srk_coeff%b     = 0.08664d0*ru*srk_property%tc/srk_property%pc
-
-    end subroutine set_srk_coeff
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine srk_g(eos,p,t,phase,eos2,prop2)
-      implicit none
-      class(t_eos), intent(in) :: eos
-      real(8), intent(in) :: p,t
-      integer, intent(in) :: phase
-      type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
-      type(t_srk_coeff) :: srk_coeff
-      real(8),parameter :: ru=8.314d0
-      real(8) :: a,alpha,b,mw,s,tc,pc,cv0
-      real(8) :: rho,e,h,pv
-      real(8) :: dpdt,dpdr
-      real(8) :: daadt,dsaadt,daidt
-      real(8) :: ddaaddt,ddsaaddt,ddaiddt
-      real(8) :: cv,cp,bp,bt,ap,ar
-      integer :: t_index,p_index
-      integer :: n1,n2,m1,m2
-      real(8) :: x(2),y(2)
-      real(8) :: a0,a1,a2,a3,a4
-
-      call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
-
-      a     = srk_coeff%a
-      alpha = srk_coeff%alpha
-      b     = srk_coeff%b
-      mw    = eos%srk_gas_property%mw
-      s     = srk_coeff%s
-      tc    = eos%srk_gas_property%tc
-      pc    = eos%srk_gas_property%pc
-      cv0   = eos%srk_gas_property%cv0
-
-      pv = computepv(tc,pc,eos%srk_gas_property%tb,t)
-      !if ((p.le.pv).and.(t.le.tc)) then
-      if ((p.le.pv)) then
-        alpha = pv/pc
-      end if
-
-      rho = cubicsolver(p,t,a*alpha,b,mw)
-
-      ! find daadt for dpdt
-      daidt  = -s/dsqrt(t*tc)*(1.d0+s*(1.d0-dsqrt(t/tc)))
-      dsaadt = daidt
-      daadt  = a*dsaadt
-
-      ! dpdt, dpdr
-      dpdt = rho*ru/(mw-b*rho) - daadt*rho**2/(mw*(mw+b*rho))
-      dpdr = mw*ru*t/(mw-b*rho)**2 - a*alpha*rho*(2.d0*mw+b*rho)/(mw*(mw+b*rho)**2)
-
-      ! find ddaaddt for cv
-      ddaiddt  = 0.5d0*s* (s/(t*tc) + (1.d0+s*(1.d0-dsqrt(t/tc)))/dsqrt(t**3*tc))
-      ddsaaddt = ddaiddt
-      ddaaddt  = a*ddsaaddt
-
-      ! cv for dhdt & e
-      cv = cv0 + t*ddaaddt*dlog(1.d0+b*rho/mw)/(b*mw)
-      cp = cv + t*dpdt**2/(rho**2*dpdr)
-
-      ! dhdp, dhdt
-      bp = 1.d0/rho - p/(rho**2*dpdr)
-      bt = cv + dpdt*p/(rho**2*dpdr)
-
-      ap = cv/dpdt+1.d0/rho
-      ar = -cv/dpdt*dpdr - p/rho**2
-
-      e = cv0*t + (t*daadt-a*alpha)*dlog(1.d0+b*rho/mw)/(b*mw)
-      h = e + dpdr*(1.d0-rho*bp)
-
-      eos2%rho  = rho
-      eos2%h    = h
-      eos2%drdp = 1.d0/dpdr
-      eos2%drdt = -dpdt/dpdr
-      eos2%dhdp = bp
-      eos2%dhdt = cp
-
-      if(eos%ntv.ge.2) then
-      ! defining the temperature index
-      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
-      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
-      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
-        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
-        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
-      else
-        n1 = max0(t_index-1,1)
-        n2 = max0(t_index,2)
-      end if
-
-      x(1) = eos%db_const(phase)%db(n1)%t
-      x(2) = eos%db_const(phase)%db(n2)%t
-
-      ! defining the pressure index
-      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
-      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
-      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
-        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
-      else
-        m1 = max0(p_index-1,1)
-        m2 = max0(p_index,2)
-      end if
-
-      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
-
-      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-      a1 = dabs((x(2)-t)*(y(2)-p))
-      a2 = dabs((t-x(1))*(y(2)-p))
-      a3 = dabs((x(2)-t)*(p-y(1)))
-      a4 = dabs((t-x(1))*(p-y(1)))
-
-      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
-      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
-      end if
-
-    end subroutine srk_g
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine set_iapws97_eos(eos)
       implicit none
@@ -791,19 +561,381 @@ module eos_module
       eos%iapws_prop_coeff%ll(4,5) =   0.d0
     end subroutine set_iapws97_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine iapws97_l(eos,p,t,phase,eos2,prop2)
+    subroutine set_srk_property(eos,fluid)
+      implicit none
+      class(t_eos), intent(inout) :: eos
+      integer, intent(in) :: fluid
+      type(t_srk_property) :: srk_property
+
+      select case(fluid)
+      case(2) ! nitrogen
+        srk_property%tc  = 126.19d0
+        srk_property%pc  = 3.3958d6
+        srk_property%tb  = 77.355d0
+        srk_property%mw  = 28.013d-3
+        srk_property%w   = 0.0372d0
+        srk_property%cv0 = 742.2d0
+        
+      case(3) ! oxyten
+        srk_property%tc  = 154.58d0
+        srk_property%pc  = 5.043d6
+        srk_property%tb  = 90.188d0
+        srk_property%mw  = 31.999d-3
+        srk_property%w   = 0.0222d0
+        srk_property%cv0 = 650.d0
+
+      case(4) ! hydrogen
+        srk_property%tc  = 33.145d0
+        srk_property%pc  = 1.2964d6
+        srk_property%tb  = 20.369d0
+        srk_property%mw  = 2.0159d-3
+        srk_property%w   = -0.219d0
+        srk_property%cv0 = 0.d0         ! should be filled
+        
+      case(5) ! helium
+        srk_property%tc  = 5.1953d0
+        srk_property%pc  = 0.22746d6
+        srk_property%tb  = 4.23d0
+        srk_property%mw  = 4.0026d-3
+        srk_property%w   = -0.382d0
+        srk_property%cv0 = 0.d0         ! should be filled
+      case default
+      end select
+
+      eos%srk_gas_property = srk_property
+
+    end subroutine set_srk_property
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine set_srk_coeff(p,t,srk_property,srk_coeff)
+      implicit none
+      real(8), intent(in) :: p,t
+      type(t_srk_property), intent(in) :: srk_property
+      type(t_srk_coeff), intent(out) :: srk_coeff
+      real(8),parameter :: ru=8.314d0
+
+      srk_coeff%s     = 0.48508d0 + 1.5517d0*srk_property%w - 0.15613d0*srk_property%w**2
+      srk_coeff%a     = 0.42747d0*(ru*srk_property%tc)**2/srk_property%pc
+      srk_coeff%alpha = (1.d0 + srk_coeff%s*(1.d0-dsqrt(t/srk_property%tc)))**2
+      srk_coeff%b     = 0.08664d0*ru*srk_property%tc/srk_property%pc
+
+    end subroutine set_srk_coeff
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine set_database(eos,fluid,phase)
+      implicit none
+      class(t_eos), intent(inout) :: eos
+      integer, intent(in) :: fluid,phase
+      integer :: n,m,l,k,ierr
+
+      do k=0,eos%size-1
+        if(k.eq.eos%rank) then
+
+          select case(phase)
+          case(1) ! liquid
+            select case(fluid)
+            case(1) ! water
+              open(unit = 10, file = './../database/database_water_liq.dat')!, form = 'binary')
+            case(2) ! nitrogen
+              open(unit = 10, file = './../database/database_nitrogen_liq.dat')!, form = 'binary')
+            case(3) ! oxygen
+              open(unit = 10, file = './../database/database_oxygen_liq.dat')!, form = 'binary')
+            case(4) ! hydrogen
+              open(unit = 10, file = './../database/database_hydrogen_liq.dat')!, form = 'binary')
+            end select
+
+          case(2,3) ! vapor, gas
+            select case(fluid)
+            case(1) ! water
+              open(unit = 10, file = './../database/database_water_gas.dat')!, form = 'binary')
+            case(2) ! nitrogen
+              open(unit = 10, file = './../database/database_nitrogen_gas.dat')!, form = 'binary')
+            case(3) ! oxygen
+              open(unit = 10, file = './../database/database_oxygen_gas.dat')!, form = 'binary')
+            case(4) ! hydrogen
+              open(unit = 10, file = './../database/database_hydrogen_gas.dat')!, form = 'binary')
+            case(5) ! helium
+              open(unit = 10, file = './../database/database_helium_gas.dat')!, form = 'binary')
+            end select
+          end select
+
+          read(10) eos%db_const(phase)%tndata_db
+          read(10) eos%db_const(phase)%delta_t_db
+          read(10) eos%db_const(phase)%delta_p_db
+
+          allocate(eos%db_const(phase)%db(eos%db_const(phase)%tndata_db))
+
+          do m=1,eos%db_const(phase)%tndata_db
+            read(10) eos%db_const(phase)%db(m)%t
+            read(10) eos%db_const(phase)%db(m)%p_ndata
+
+            allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
+
+            do n=1,eos%db_const(phase)%db(m)%p_ndata
+              do l=1,9
+                read(10) eos%db_const(phase)%db(m)%dbv(n,l)
+              end do
+            end do
+          end do
+
+          close(10)
+
+        end if
+      end do
+
+    end subroutine set_database
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine deteos_simple(eos,p,t,y1,y2,dv)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t,y1,y2
+      real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      type(t_eos2)  :: l_eos,v_eos,g_eos
+      real(8) :: irhol,irhov,irhog,irho,yl
+
+      call eos%eos_l(p,t,1,l_eos)
+      call eos%eos_v(p,t,2,v_eos)
+      call eos%eos_g(p,t,3,g_eos)
+      
+      dv(3)  = l_eos%rho
+      dv(4)  = v_eos%rho
+      dv(5)  = g_eos%rho
+
+      irhol = 1.d0/dv(3)
+      irhov = 1.d0/dv(4)
+      irhog = 1.d0/dv(5)
+      yl = 1.d0-y1-y2
+      irho = yl*irhol + y1*irhov + y2*irhog
+      dv(1)  = 1.d0/irho
+      dv(2)  = yl*l_eos%h + y1*v_eos%h + y2*g_eos%h
+
+      dv(7)  = dv(1)**2*(yl*irhol**2*l_eos%drdp   &
+                       + y1*irhov**2*v_eos%drdp   &
+                       + y2*irhog**2*g_eos%drdp)
+      dv(8)  = dv(1)**2*(yl*irhol**2*l_eos%drdt   &
+                       + y1*irhov**2*v_eos%drdt   &
+                       + y2*irhog**2*g_eos%drdt)
+      dv(9)  = dv(1)**2*(irhol - irhov)
+      dv(10) = dv(1)**2*(irhol - irhog)
+    
+      dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
+      dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
+      dv(13) = v_eos%h - l_eos%h
+      dv(14) = g_eos%h - l_eos%h
+      
+      dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
+      
+      dv(15) = v_eos%drdp
+      dv(16) = v_eos%drdt
+      dv(17) = l_eos%drdp
+      dv(18) = l_eos%drdt
+
+    end subroutine deteos_simple
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine deteosonly(eos,p,t,y1,y2,dv,tv)
+      implicit none
+      class(t_eosonly), intent(in) :: eos
+      real(8), intent(in) :: p,t,y1,y2
+      real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      real(8), intent(inout) :: tv(eos%ntv)
+      type(t_eos2)  :: l_eos,v_eos,g_eos
+      real(8) :: irhol,irhov,irhog,irho,yl
+
+      call eos%eos_l(p,t,1,l_eos)
+      call eos%eos_v(p,t,2,v_eos)
+      call eos%eos_g(p,t,3,g_eos)
+      
+      dv(3)  = l_eos%rho
+      dv(4)  = v_eos%rho
+      dv(5)  = g_eos%rho
+
+      irhol = 1.d0/dv(3)
+      irhov = 1.d0/dv(4)
+      irhog = 1.d0/dv(5)
+      yl = 1.d0-y1-y2
+      irho = yl*irhol + y1*irhov + y2*irhog
+      dv(1)  = 1.d0/irho
+      dv(2)  = yl*l_eos%h + y1*v_eos%h + y2*g_eos%h
+
+      dv(7)  = dv(1)**2*(yl*irhol**2*l_eos%drdp   &
+                       + y1*irhov**2*v_eos%drdp   &
+                       + y2*irhog**2*g_eos%drdp)
+      dv(8)  = dv(1)**2*(yl*irhol**2*l_eos%drdt   &
+                       + y1*irhov**2*v_eos%drdt   &
+                       + y2*irhog**2*g_eos%drdt)
+      dv(9)  = dv(1)**2*(irhol - irhov)
+      dv(10) = dv(1)**2*(irhol - irhog)
+    
+      dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
+      dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
+      dv(13) = v_eos%h - l_eos%h
+      dv(14) = g_eos%h - l_eos%h
+      
+      dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
+      
+      dv(15) = v_eos%drdp
+      dv(16) = v_eos%drdt
+      dv(17) = l_eos%drdp
+      dv(18) = l_eos%drdt
+
+    end subroutine deteosonly
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine deteos_prop(eos,p,t,y1,y2,dv,tv)
+      implicit none
+      class(t_eos_prop), intent(in) :: eos
+      real(8), intent(in) :: p,t,y1,y2
+      real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
+      real(8), intent(inout) :: tv(eos%ntv)
+      type(t_eos2)  :: l_eos,v_eos,g_eos
+      type(t_prop2) :: l_prop,v_prop,g_prop
+      real(8) :: irhol,irhov,irhog,irho,yl
+
+      call eos%eos_l_prop(p,t,1,l_eos,l_prop)
+      call eos%eos_v_prop(p,t,2,v_eos,v_prop)
+      call eos%eos_g_prop(p,t,3,g_eos,g_prop)
+      
+      dv(3)  = l_eos%rho
+      dv(4)  = v_eos%rho
+      dv(5)  = g_eos%rho
+
+      irhol = 1.d0/dv(3)
+      irhov = 1.d0/dv(4)
+      irhog = 1.d0/dv(5)
+      yl = 1.d0-y1-y2
+      irho = yl*irhol + y1*irhov + y2*irhog
+      dv(1)  = 1.d0/irho
+      dv(2)  = yl*l_eos%h + y1*v_eos%h + y2*g_eos%h
+
+      dv(7)  = dv(1)**2*(yl*irhol**2*l_eos%drdp   &
+                       + y1*irhov**2*v_eos%drdp   &
+                       + y2*irhog**2*g_eos%drdp)
+      dv(8)  = dv(1)**2*(yl*irhol**2*l_eos%drdt   &
+                       + y1*irhov**2*v_eos%drdt   &
+                       + y2*irhog**2*g_eos%drdt)
+      dv(9)  = dv(1)**2*(irhol - irhov)
+      dv(10) = dv(1)**2*(irhol - irhog)
+    
+      dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
+      dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
+      dv(13) = v_eos%h - l_eos%h
+      dv(14) = g_eos%h - l_eos%h
+      
+      dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
+      
+      dv(15) = v_eos%drdp
+      dv(16) = v_eos%drdt
+      dv(17) = l_eos%drdp
+      dv(18) = l_eos%drdt
+
+      tv(1) = dv(1)*(l_prop%vis*yl*irhol  + v_prop%vis*y1*irhov + g_prop%vis*y2*irhog)
+      tv(2) = dv(1)*(l_prop%cond*yl*irhol + v_prop%cond*y1*irhov + g_prop%cond*y2*irhog)
+
+    end subroutine deteos_prop
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine ideal(eos,p,t,phase,eos2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      real(8), parameter :: r1 = 0.00348383500557d0 !1.4d0/0.4d0/1004.64
+      real(8) :: tau
+
+      tau = 1.d0/t
+
+      ! ideal gas law
+      eos2%rho  = p*r1*tau
+      eos2%h    = 1004.64d0*t
+      eos2%drdp = r1*tau
+      eos2%drdt = -p*r1*tau**2
+      eos2%dhdp = 0.d0
+      eos2%dhdt = 1004.64d0
+
+    end subroutine ideal
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine ideal_prop(eos,p,t,phase,eos2,prop2)
       implicit none
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
+      real(8), parameter :: r1 = 0.00348383500557d0 !1.4d0/0.4d0/1004.64
+      real(8) :: tau
+
+      tau = 1.d0/t
+
+      ! ideal gas law
+      eos2%rho  = p*r1*tau
+      eos2%h    = 1004.64d0*t
+      eos2%drdp = r1*tau
+      eos2%drdt = -p*r1*tau**2
+      eos2%dhdp = 0.d0
+      eos2%dhdt = 1004.64d0
+
+      !sutherland
+      prop2%vis  = 1.716d-5*(t/273.11d0)**1.5d0*383.67d0/(t+110.56d0)
+      !prop2%cond = 0.0241d0*(t/273.d0)**1.5d0*467.d0/(t+194.d0)
+      prop2%cond = 1395.333333d0*prop2%vis !pr = 0.72
+
+    end subroutine ideal_prop
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine stiffened(eos,p,t,phase,eos2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      real(8), parameter :: r1 = 0.00037160906726d0 !1.d0/2691.d0
+      real(8) :: tau
+
+      tau = 1.d0/t
+
+      eos2%rho  = (p+8.5d8)*r1*tau
+      eos2%h    = 4186.d0*t-917822.36d0
+      eos2%drdp = r1*tau
+      eos2%drdt = -(p+8.5d8)*r1*tau**2
+      eos2%dhdp = 0.d0
+      eos2%dhdt = 4186.d0
+
+    end subroutine stiffened
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine stiffened_prop(eos,p,t,phase,eos2,prop2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out):: prop2
+      real(8), parameter :: r1 = 0.00037160906726d0 !1.d0/2691.d0
+      real(8) :: tau,temp
+
+      tau = 1.d0/t
+
+      eos2%rho  = (p+8.5d8)*r1*tau
+      eos2%h    = 4186.d0*t-917822.36d0
+      eos2%drdp = r1*tau
+      eos2%drdt = -(p+8.5d8)*r1*tau**2
+      eos2%dhdp = 0.d0
+      eos2%dhdt = 4186.d0
+
+      temp = dmax1(273.d0,t)
+
+      prop2%vis  = 1.788d-3*dexp(-1.704d0 - 5.306d0*273.d0/temp + 7.003d0*(273.d0/temp)**2)
+      !prop2%cond = -0.000009438d0*t**2 + 0.007294d0*t - 0.7284d0
+      prop2%cond = 4598.d0*prop2%vis !pr = 7
+
+    end subroutine stiffened_prop
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine iapws97_l(eos,p,t,phase,eos2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
       real(8) :: pi,tau,gt,gp,gpp,gtt,gpt
       real(8) :: g,g1,g2,g3,g4,g5,pi1,tau1,gp1
-      real(8) :: tt,rr,mu0,mu1,mu2,lam0,lam1,lam2,tt1
-      integer :: i,j,k
+      integer :: k
 
-      pi = p/16.53d6
+      pi = p*0.00000006049607d0!/16.53d6
       tau = 1386d0/t
       
       pi1 = 1.d0/(7.1d0-pi)
@@ -836,60 +968,26 @@ module eos_module
       eos2%dhdp = 0.03869782431941923775*gpt
       eos2%dhdt = -461.526d0*tau**2*gtt
 
-      if(eos%ntv.ge.2) then
-      tt = t/647.27d0
-      rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))/317.763d0
-      tt1 = 647.27d0/t
-      
-      mu0 = dsqrt(tt)/(eos%iapws_prop_coeff%h(0) + eos%iapws_prop_coeff%h(1)*tt1  &
-                  + eos%iapws_prop_coeff%h(2)*tt1**2 + eos%iapws_prop_coeff%h(3)*tt1**3)
-
-      mu1 = 0.d0
-      do i = 0,5
-        do j = 0,6
-          mu1 = mu1 + eos%iapws_prop_coeff%hh(i,j)*(tt1-1.d0)**i*(rr-1.d0)**j
-        end do
-      end do
-      mu1 = dexp(rr*mu1)
-      mu2 = 1.d0
-
-      prop2%vis = 55.071d-6*mu0*mu1*mu2
-
-      lam0 = dsqrt(tt)/(eos%iapws_prop_coeff%l(0) + eos%iapws_prop_coeff%l(1)*tt1  &
-                   + eos%iapws_prop_coeff%l(2)*tt1**2 + eos%iapws_prop_coeff%l(3)*tt1**3)
-      lam1 = 0.d0
-      do i = 0,4
-        do j = 0,5
-          lam1 = lam1 + eos%iapws_prop_coeff%ll(i,j)*(tt1-1.d0)**i*(rr-1.d0)**j
-        end do
-      end do
-      lam1 = dexp(rr*lam1)
-      lam2 = 0.d0
-
-      prop2%cond = 0.4945d0*(lam0*lam1 + lam2)
-      end if
     end subroutine iapws97_l
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine iapws97_v(eos,p,t,phase,eos2,prop2)
+    subroutine iapws97_v(eos,p,t,phase,eos2)
       implicit none
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out) :: prop2
       real(8) :: pww
       real(8) :: pi,tau,g0t,g0p,g0pp,g0tt,g0pt,grt,grp,grpp,grtt,grpt
       real(8) :: g0,g01,g02
       real(8) :: gr,gr1,gr2,gr3,gr4,gr5,pi1,tau1,tau2,gp1
-      real(8) :: tt,rr,mu0,mu1,mu2,lam0,lam1,lam2,tt1
-      integer :: i,j,k
+      integer :: k
       
       pww = eos%get_pww(t)
       
-      pi = p/1d6
+      pi = p*1d-6
       tau = 540d0/t
       
-      pi1 = 1.d0/pi
+      pi1 = 1.d6/p
       tau1 = 1.d0/tau
       tau2 = 1.d0/(tau-0.5d0)
       
@@ -956,10 +1054,56 @@ module eos_module
       eos2%drdt = -eos2%rho*0.00185185185185185185*tau + 0.0074304703986495518*(g0pt+grpt)*tau**3*gp1**2
       eos2%dhdp = 0.24922404d0*(g0pt+grpt)
       eos2%dhdt = -461.526d0*tau**2*(g0tt+grtt)
+
+    end subroutine iapws97_v
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine iapws97_l_prop(eos,p,t,phase,eos2,prop2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out) :: prop2
+      real(8) :: pi,tau,gt,gp,gpp,gtt,gpt
+      real(8) :: g,g1,g2,g3,g4,g5,pi1,tau1,gp1
+      real(8) :: tt,rr,mu0,mu1,mu2,lam0,lam1,lam2,tt1
+      integer :: i,j,k
+
+      pi = p*0.00000006049607d0!/16.53d6
+      tau = 1386d0/t
       
-      if(eos%ntv.ge.2) then
-      tt = t/647.27d0
-      rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))/317.763d0
+      pi1 = 1.d0/(7.1d0-pi)
+      tau1 = 1.d0/(tau-1.222d0)
+      gt = 0.d0
+      gp = 0.d0
+      gpp = 0.d0
+      gtt = 0.d0
+      gpt = 0.d0
+      do k = 1,34
+        g = eos%iapws_liquid_coeff%n(k)*(7.1d0-pi)**eos%iapws_liquid_coeff%i(k)*(tau-1.222d0)**eos%iapws_liquid_coeff%j(k)
+        g1 = dble(eos%iapws_liquid_coeff%j(k))*g*tau1
+        g2 = - dble(eos%iapws_liquid_coeff%i(k))*g*pi1
+        g3 = - dble(eos%iapws_liquid_coeff%i(k)-1)*g2*pi1
+        g4 = dble(eos%iapws_liquid_coeff%j(k)-1)*g1*tau1
+        g5 = dble(eos%iapws_liquid_coeff%j(k))*g2*tau1
+        gt = gt + g1
+        gp = gp + g2
+        gpp = gpp + g3
+        gtt = gtt + g4
+        gpt = gpt + g5
+      end do      
+      
+      gp1 = 1.d0/gp
+      
+      eos2%rho  = 25.841246054191803727*tau*gp1
+      eos2%h    = 639675.036d0*gt
+      eos2%drdp = -gpp*1.5632937721834122d-6*tau*gp1**2
+      eos2%drdt = -eos2%rho*7.215007215007215d-4*tau + 0.01864447767257706*gpt*tau**3*gp1**2
+      eos2%dhdp = 0.03869782431941923775*gpt
+      eos2%dhdt = -461.526d0*tau**2*gtt
+
+      tt = t*0.00154495032985d0!/647.27d0
+      rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))*0.00314699949333d0!/317.763d0
       tt1 = 647.27d0/t
       
       mu0 = dsqrt(tt)/(eos%iapws_prop_coeff%h(0) + eos%iapws_prop_coeff%h(1)*tt1  &
@@ -988,35 +1132,427 @@ module eos_module
       lam2 = 0.d0
 
       prop2%cond = 0.4945d0*(lam0*lam1 + lam2)
-      end if
-    end subroutine iapws97_v
+
+    end subroutine iapws97_l_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine stiffened(eos,p,t,phase,eos2,prop2)
+    subroutine iapws97_v_prop(eos,p,t,phase,eos2,prop2)
       implicit none
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      type(t_prop2), intent(out):: prop2
-      real(8), parameter :: r1 = 1.d0/2691.d0
-      real(8) :: tau,temp
-
-      tau = 1.d0/t
-
-      eos2%rho  = (p+8.5d8)*r1*tau
-      eos2%h    = 4186.d0*t-917822.36d0
-      eos2%drdp = r1*tau
-      eos2%drdt = -(p+8.5d8)*r1*tau**2
-      eos2%dhdp = 0.d0
-      eos2%dhdt = 4186.d0
-
-      if(eos%ntv.ge.2) then
-      temp = dmax1(273.d0,t)
-
-      prop2%vis  = 1.788d-3*dexp(-1.704d0 - 5.306d0*273.d0/temp + 7.003d0*(273.d0/temp)**2)
-      prop2%cond = -0.000009438d0*t**2 + 0.007294d0*t - 0.7284d0
+      type(t_prop2), intent(out) :: prop2
+      real(8) :: pww
+      real(8) :: pi,tau,g0t,g0p,g0pp,g0tt,g0pt,grt,grp,grpp,grtt,grpt
+      real(8) :: g0,g01,g02
+      real(8) :: gr,gr1,gr2,gr3,gr4,gr5,pi1,tau1,tau2,gp1
+      real(8) :: tt,rr,mu0,mu1,mu2,lam0,lam1,lam2,tt1
+      integer :: i,j,k
+      
+      pww = eos%get_pww(t)
+      
+      pi = p*1d-6
+      tau = 540d0/t
+      
+      pi1 = 1.d6/p
+      tau1 = 1.d0/tau
+      tau2 = 1.d0/(tau-0.5d0)
+      
+      g0t = 0.d0
+      g0p = pi1
+      g0pp = -pi1**2
+      g0tt = 0.d0
+      g0pt = 0.d0
+      grt = 0.d0
+      grp = 0.d0
+      grpp = 0.d0
+      grtt = 0.d0
+      grpt = 0.d0
+    
+      if(p.gt.pww) then
+        do k = 1,13
+          if(k.le.9) then
+            g0 = eos%iapws_m_vapor_coeff%n(k)*tau**eos%iapws_m_vapor_coeff%j(k)
+            g01 = dble(eos%iapws_m_vapor_coeff%j(k))*g0*tau1
+            g02 = dble(eos%iapws_m_vapor_coeff%j(k)-1)*g01*tau1
+            g0t = g0t + g01
+            g0tt = g0tt + g02
+          end if
+          gr = eos%iapws_m_vapor_coeff%nr(k)*pi**eos%iapws_m_vapor_coeff%ir(k)*(tau-0.5d0)**eos%iapws_m_vapor_coeff%jr(k)
+          gr1 = dble(eos%iapws_m_vapor_coeff%jr(k))*gr*tau2
+          gr2 = dble(eos%iapws_m_vapor_coeff%ir(k))*gr*pi1
+          gr3 = dble(eos%iapws_m_vapor_coeff%ir(k)-1)*gr2*pi1
+          gr4 = dble(eos%iapws_m_vapor_coeff%jr(k)-1)*gr1*tau2
+          gr5 = dble(eos%iapws_m_vapor_coeff%jr(k))*gr2*tau2
+          grt = grt + gr1
+          grp = grp + gr2
+          grpp = grpp + gr3
+          grtt = grtt + gr4
+          grpt = grpt + gr5
+        end do
+      else
+        do k = 1,43
+          if(k.le.9) then
+            g0 = eos%iapws_vapor_coeff%n(k)*tau**eos%iapws_vapor_coeff%j(k)
+            g01 = dble(eos%iapws_vapor_coeff%j(k))*g0*tau1
+            g02 = dble(eos%iapws_vapor_coeff%j(k)-1)*g01*tau1
+            g0t = g0t + g01
+            g0tt = g0tt + g02
+          end if
+          gr = eos%iapws_vapor_coeff%nr(k)*pi**eos%iapws_vapor_coeff%ir(k)*(tau-0.5d0)**eos%iapws_vapor_coeff%jr(k)
+          gr1 = dble(eos%iapws_vapor_coeff%jr(k))*gr*tau2
+          gr2 = dble(eos%iapws_vapor_coeff%ir(k))*gr*pi1
+          gr3 = dble(eos%iapws_vapor_coeff%ir(k)-1)*gr2*pi1
+          gr4 = dble(eos%iapws_vapor_coeff%jr(k)-1)*gr1*tau2
+          gr5 = dble(eos%iapws_vapor_coeff%jr(k))*gr2*tau2
+          grt = grt + gr1
+          grp = grp + gr2
+          grpp = grpp + gr3
+          grtt = grtt + gr4
+          grpt = grpt + gr5
+        end do
       end if
-    end subroutine stiffened
+      
+      gp1 = 1.d0/(g0p+grp)
+      
+      eos2%rho  = 4.01245401527075799d0*tau*gp1
+      eos2%h    = 249224.04d0*(g0t+grt)
+      eos2%drdp = -(g0pp+grpp)*4.01245401527075799d-6*tau*gp1**2
+      eos2%drdt = -eos2%rho*0.00185185185185185185*tau + 0.0074304703986495518*(g0pt+grpt)*tau**3*gp1**2
+      eos2%dhdp = 0.24922404d0*(g0pt+grpt)
+      eos2%dhdt = -461.526d0*tau**2*(g0tt+grtt)
+
+      tt = t*0.00154495032985d0!/647.27d0
+      rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))*0.00314699949333d0!/317.763d0
+      tt1 = 647.27d0/t
+      
+      mu0 = dsqrt(tt)/(eos%iapws_prop_coeff%h(0) + eos%iapws_prop_coeff%h(1)*tt1  &
+                  + eos%iapws_prop_coeff%h(2)*tt1**2 + eos%iapws_prop_coeff%h(3)*tt1**3)
+
+      mu1 = 0.d0
+      do i = 0,5
+        do j = 0,6
+          mu1 = mu1 + eos%iapws_prop_coeff%hh(i,j)*(tt1-1.d0)**i*(rr-1.d0)**j
+        end do
+      end do
+      mu1 = dexp(rr*mu1)
+      mu2 = 1.d0
+
+      prop2%vis = 55.071d-6*mu0*mu1*mu2
+
+      lam0 = dsqrt(tt)/(eos%iapws_prop_coeff%l(0) + eos%iapws_prop_coeff%l(1)*tt1  &
+                   + eos%iapws_prop_coeff%l(2)*tt1**2 + eos%iapws_prop_coeff%l(3)*tt1**3)
+      lam1 = 0.d0
+      do i = 0,4
+        do j = 0,5
+          lam1 = lam1 + eos%iapws_prop_coeff%ll(i,j)*(tt1-1.d0)**i*(rr-1.d0)**j
+        end do
+      end do
+      lam1 = dexp(rr*lam1)
+      lam2 = 0.d0
+
+      prop2%cond = 0.4945d0*(lam0*lam1 + lam2)
+
+    end subroutine iapws97_v_prop
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine database(eos,p,t,phase,eos2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      integer :: t_index,p_index
+      integer :: n1,n2,m1,m2
+      real(8) :: x(2),y(2)
+      real(8) :: a0,a1,a2,a3,a4
+
+      ! defining the temperature index
+      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
+      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
+      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
+        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
+        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      else
+        n1 = max0(t_index-1,1)
+        n2 = max0(t_index,2)
+      end if
+      
+      x(1) = eos%db_const(phase)%db(n1)%t
+      x(2) = eos%db_const(phase)%db(n2)%t
+      
+      ! defining the pressure index
+      
+      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
+      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
+      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
+        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      else
+        m1 = max0(p_index-1,1)
+        m2 = max0(p_index,2)
+      end if
+      
+      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
+      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+      
+      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+      a1 = dabs((x(2)-t)*(y(2)-p))
+      a2 = dabs((t-x(1))*(y(2)-p))
+      a3 = dabs((x(2)-t)*(p-y(1)))
+      a4 = dabs((t-x(1))*(p-y(1)))
+
+
+      eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
+      eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
+      eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,4)*a4 )*a0
+      eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,5)*a4 )*a0
+      eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,6)*a4 )*a0
+      eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,7)*a4 )*a0
+
+    end subroutine database
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine database_prop(eos,p,t,phase,eos2,prop2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out) :: prop2
+      integer :: t_index,p_index
+      integer :: n1,n2,m1,m2
+      real(8) :: x(2),y(2)
+      real(8) :: a0,a1,a2,a3,a4
+
+      ! defining the temperature index
+      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
+      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
+      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
+        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
+        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      else
+        n1 = max0(t_index-1,1)
+        n2 = max0(t_index,2)
+      end if
+      
+      x(1) = eos%db_const(phase)%db(n1)%t
+      x(2) = eos%db_const(phase)%db(n2)%t
+      
+      ! defining the pressure index
+      
+      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
+      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
+      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
+        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      else
+        m1 = max0(p_index-1,1)
+        m2 = max0(p_index,2)
+      end if
+      
+      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
+      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+      
+      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+      a1 = dabs((x(2)-t)*(y(2)-p))
+      a2 = dabs((t-x(1))*(y(2)-p))
+      a3 = dabs((x(2)-t)*(p-y(1)))
+      a4 = dabs((t-x(1))*(p-y(1)))
+
+
+      eos2%rho   = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
+      eos2%h     = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
+      eos2%drdp  = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,4)*a4 )*a0
+      eos2%drdt  = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,5)*a4 )*a0
+      eos2%dhdp  = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,6)*a4 )*a0
+      eos2%dhdt  = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,7)*a4 )*a0
+      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
+      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
+
+    end subroutine database_prop
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine srk_g(eos,p,t,phase,eos2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_srk_coeff) :: srk_coeff
+      real(8),parameter :: ru=8.314d0
+      real(8) :: a,alpha,b,mw,s,tc,pc,cv0
+      real(8) :: rho,e,h,pv
+      real(8) :: dpdt,dpdr
+      real(8) :: daadt,dsaadt,daidt
+      real(8) :: ddaaddt,ddsaaddt,ddaiddt
+      real(8) :: cv,cp,bp,bt,ap,ar
+
+      call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
+
+      a     = srk_coeff%a
+      alpha = srk_coeff%alpha
+      b     = srk_coeff%b
+      mw    = eos%srk_gas_property%mw
+      s     = srk_coeff%s
+      tc    = eos%srk_gas_property%tc
+      pc    = eos%srk_gas_property%pc
+      cv0   = eos%srk_gas_property%cv0
+
+      pv = computepv(tc,pc,eos%srk_gas_property%tb,t)
+      !if ((p.le.pv).and.(t.le.tc)) then
+      if ((p.le.pv)) then
+        alpha = pv/pc
+      end if
+
+      rho = cubicsolver(p,t,a*alpha,b,mw)
+
+      ! find daadt for dpdt
+      daidt  = -s/dsqrt(t*tc)*(1.d0+s*(1.d0-dsqrt(t/tc)))
+      dsaadt = daidt
+      daadt  = a*dsaadt
+
+      ! dpdt, dpdr
+      dpdt = rho*ru/(mw-b*rho) - daadt*rho**2/(mw*(mw+b*rho))
+      dpdr = mw*ru*t/(mw-b*rho)**2 - a*alpha*rho*(2.d0*mw+b*rho)/(mw*(mw+b*rho)**2)
+
+      ! find ddaaddt for cv
+      ddaiddt  = 0.5d0*s* (s/(t*tc) + (1.d0+s*(1.d0-dsqrt(t/tc)))/dsqrt(t**3*tc))
+      ddsaaddt = ddaiddt
+      ddaaddt  = a*ddsaaddt
+
+      ! cv for dhdt & e
+      cv = cv0 + t*ddaaddt*dlog(1.d0+b*rho/mw)/(b*mw)
+      cp = cv + t*dpdt**2/(rho**2*dpdr)
+
+      ! dhdp, dhdt
+      bp = 1.d0/rho - p/(rho**2*dpdr)
+      bt = cv + dpdt*p/(rho**2*dpdr)
+
+      ap = cv/dpdt+1.d0/rho
+      ar = -cv/dpdt*dpdr - p/rho**2
+
+      e = cv0*t + (t*daadt-a*alpha)*dlog(1.d0+b*rho/mw)/(b*mw)
+      h = e + dpdr*(1.d0-rho*bp)
+
+      eos2%rho  = rho
+      eos2%h    = h
+      eos2%drdp = 1.d0/dpdr
+      eos2%drdt = -dpdt/dpdr
+      eos2%dhdp = bp
+      eos2%dhdt = cp
+
+    end subroutine srk_g
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine srk_g_prop(eos,p,t,phase,eos2,prop2)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p,t
+      integer, intent(in) :: phase
+      type(t_eos2), intent(out) :: eos2
+      type(t_prop2), intent(out) :: prop2
+      type(t_srk_coeff) :: srk_coeff
+      real(8),parameter :: ru=8.314d0
+      real(8) :: a,alpha,b,mw,s,tc,pc,cv0
+      real(8) :: rho,e,h,pv
+      real(8) :: dpdt,dpdr
+      real(8) :: daadt,dsaadt,daidt
+      real(8) :: ddaaddt,ddsaaddt,ddaiddt
+      real(8) :: cv,cp,bp,bt,ap,ar
+      integer :: t_index,p_index
+      integer :: n1,n2,m1,m2
+      real(8) :: x(2),y(2)
+      real(8) :: a0,a1,a2,a3,a4
+
+      call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
+
+      a     = srk_coeff%a
+      alpha = srk_coeff%alpha
+      b     = srk_coeff%b
+      mw    = eos%srk_gas_property%mw
+      s     = srk_coeff%s
+      tc    = eos%srk_gas_property%tc
+      pc    = eos%srk_gas_property%pc
+      cv0   = eos%srk_gas_property%cv0
+
+      pv = computepv(tc,pc,eos%srk_gas_property%tb,t)
+      !if ((p.le.pv).and.(t.le.tc)) then
+      if ((p.le.pv)) then
+        alpha = pv/pc
+      end if
+
+      rho = cubicsolver(p,t,a*alpha,b,mw)
+
+      ! find daadt for dpdt
+      daidt  = -s/dsqrt(t*tc)*(1.d0+s*(1.d0-dsqrt(t/tc)))
+      dsaadt = daidt
+      daadt  = a*dsaadt
+
+      ! dpdt, dpdr
+      dpdt = rho*ru/(mw-b*rho) - daadt*rho**2/(mw*(mw+b*rho))
+      dpdr = mw*ru*t/(mw-b*rho)**2 - a*alpha*rho*(2.d0*mw+b*rho)/(mw*(mw+b*rho)**2)
+
+      ! find ddaaddt for cv
+      ddaiddt  = 0.5d0*s* (s/(t*tc) + (1.d0+s*(1.d0-dsqrt(t/tc)))/dsqrt(t**3*tc))
+      ddsaaddt = ddaiddt
+      ddaaddt  = a*ddsaaddt
+
+      ! cv for dhdt & e
+      cv = cv0 + t*ddaaddt*dlog(1.d0+b*rho/mw)/(b*mw)
+      cp = cv + t*dpdt**2/(rho**2*dpdr)
+
+      ! dhdp, dhdt
+      bp = 1.d0/rho - p/(rho**2*dpdr)
+      bt = cv + dpdt*p/(rho**2*dpdr)
+
+      ap = cv/dpdt+1.d0/rho
+      ar = -cv/dpdt*dpdr - p/rho**2
+
+      e = cv0*t + (t*daadt-a*alpha)*dlog(1.d0+b*rho/mw)/(b*mw)
+      h = e + dpdr*(1.d0-rho*bp)
+
+      eos2%rho  = rho
+      eos2%h    = h
+      eos2%drdp = 1.d0/dpdr
+      eos2%drdt = -dpdt/dpdr
+      eos2%dhdp = bp
+      eos2%dhdt = cp
+
+      ! defining the temperature index
+      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
+      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
+      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
+        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
+        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      else
+        n1 = max0(t_index-1,1)
+        n2 = max0(t_index,2)
+      end if
+
+      x(1) = eos%db_const(phase)%db(n1)%t
+      x(2) = eos%db_const(phase)%db(n2)%t
+
+      ! defining the pressure index
+      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
+      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
+      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
+        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      else
+        m1 = max0(p_index-1,1)
+        m2 = max0(p_index,2)
+      end if
+
+      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
+      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+
+      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+      a1 = dabs((x(2)-t)*(y(2)-p))
+      a2 = dabs((t-x(1))*(y(2)-p))
+      a3 = dabs((x(2)-t)*(p-y(1)))
+      a4 = dabs((t-x(1))*(p-y(1)))
+
+      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
+      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
+
+    end subroutine srk_g_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_pww(eos,t) result(pww)
       implicit none

@@ -1,7 +1,6 @@
 module turbsource_module
   use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_turbsource,t_kepsilon,t_kwsst,t_turb_result
@@ -51,12 +50,11 @@ module turbsource_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(turbsource,config,grid,variable)
+    subroutine construct(turbsource,config,grid)
       implicit none
       class(t_turbsource), intent(out) :: turbsource
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
      
       select case(config%gettcomp())
       case(0)
@@ -66,10 +64,10 @@ module turbsource_module
       end select
 
       turbsource%stencil = config%getstencil()
+      turbsource%npv = config%getnpv()
+      turbsource%ndv = config%getndv()
+      turbsource%ntv = config%getntv()
       turbsource%ngrd = grid%getngrd()
-      turbsource%npv = variable%getnpv()
-      turbsource%ndv = variable%getndv()
-      turbsource%ntv = variable%getntv()
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

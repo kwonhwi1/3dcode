@@ -1,7 +1,6 @@
 module unsteady_module
   use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_unsteady
@@ -23,20 +22,19 @@ module unsteady_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(unsteady,config,grid,variable)
+    subroutine construct(unsteady,config,grid)
       implicit none
       class(t_unsteady), intent(out) :: unsteady
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
  
       unsteady%stencil = config%getstencil()
+      unsteady%npv = config%getnpv()
+      unsteady%ndv = config%getndv()
       unsteady%pref = config%getpref()
       unsteady%dt_phy = config%getdt_phy()
 
       unsteady%ngrd = grid%getngrd()
-      unsteady%npv = variable%getnpv()
-      unsteady%ndv = variable%getndv()
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

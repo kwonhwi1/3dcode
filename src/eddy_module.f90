@@ -1,6 +1,6 @@
 module eddy_module
+  use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_eddy,t_eddy_ke,t_eddy_kwsst
@@ -42,16 +42,16 @@ module eddy_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(eddy,grid,variable)
+    subroutine construct(eddy,config,grid)
       implicit none
       class(t_eddy), intent(out) :: eddy
+      type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-    
+
+      eddy%npv  = config%getnpv()
+      eddy%ndv  = config%getndv()
+      eddy%ntv  = config%getntv()
       eddy%ngrd = grid%getngrd()
-      eddy%npv  = variable%getnpv()
-      eddy%ndv  = variable%getndv()
-      eddy%ntv  = variable%getntv()      
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

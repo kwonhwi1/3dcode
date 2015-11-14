@@ -1,7 +1,6 @@
 module lhs_module
   use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_lhs,t_lhs_flowonly,t_lhs_flowturball,t_lhs_flowonly_ex,t_lhs_flowturball_ex
@@ -89,17 +88,16 @@ module lhs_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(lhs,config,grid,variable)
+    subroutine construct(lhs,config,grid)
       implicit none
       class(t_lhs), intent(out) :: lhs
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
       
       lhs%ngrd = grid%getngrd()
-      lhs%npv = variable%getnpv()
-      lhs%ndv = variable%getndv()
-      lhs%ntv = variable%getntv()
+      lhs%npv = config%getnpv()
+      lhs%ndv = config%getndv()
+      lhs%ntv = config%getntv()
 
       lhs%uref = config%geturef()
       lhs%str  = config%getstr()

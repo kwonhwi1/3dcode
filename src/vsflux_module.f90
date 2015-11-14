@@ -1,7 +1,6 @@
 module vsflux_module
   use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_vsflux,t_vsflux_laminar,t_vsflux_turbulent
@@ -61,12 +60,11 @@ module vsflux_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    subroutine construct(vsflux,config,grid,variable)
+    subroutine construct(vsflux,config,grid)
       implicit none
       class(t_vsflux), intent(out) :: vsflux
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
       
       select case(config%getiturb())
       case(-1)
@@ -93,10 +91,10 @@ module vsflux_module
       end select
       
       vsflux%stencil = config%getstencil()
+      vsflux%npv = config%getnpv()
+      vsflux%ndv = config%getndv()
+      vsflux%ntv = config%getntv()
       vsflux%ngrd = grid%getngrd()
-      vsflux%npv = variable%getnpv()
-      vsflux%ndv = variable%getndv()
-      vsflux%ntv = variable%getntv()
       
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    

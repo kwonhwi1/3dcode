@@ -12,6 +12,7 @@ module bc_module
     integer :: origin(3),dir(3),ioin,ioout
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
+    integer :: npv,ntv,ndv,ngrd
     character(4) :: face
     real(8) :: massflowrate,pressure,omega(3)
     real(8), dimension(:), allocatable :: pv,tv,dv
@@ -56,19 +57,18 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
     end subroutine p_bctype
   end interface
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(bc,config,grid,variable,eos)
+    subroutine construct(bc,config,grid,eos)
       implicit none
       class(t_bc), intent(out) :: bc
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer :: l,n,m
       integer, parameter :: dim = 3
       logical :: isurf_edge(12),jsurf_edge(12),ksurf_edge(12)
@@ -76,14 +76,15 @@ module bc_module
 
       bc%rank = config%getrank() 
       bc%size = config%getsize()
+      bc%npv = config%getnpv()
+      bc%ndv = config%getndv()
+      bc%ntv = config%getntv()
       bc%iturb = config%getiturb()
-      
+
       bc%nbc = grid%getnbc()
       bc%ncon = grid%getncon()
-      bc%npv = variable%getnpv()
-      bc%ntv = variable%getntv()
-      bc%ndv = variable%getndv()
       bc%ngrd = grid%getngrd()
+
 
       bc%prec%uref = config%geturef()
       bc%prec%str  = config%getstr()
@@ -100,7 +101,31 @@ module bc_module
 
       allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
 
+      !cccccccccccccccccc construct nbc ccccccccccccccccccccccccccccc
       do n=1,bc%nbc
+
+        bc%bcinfo(n)%npv = bc%npv
+        bc%bcinfo(n)%ndv = bc%ndv
+        bc%bcinfo(n)%ntv = bc%ntv
+        bc%bcinfo(n)%ngrd = bc%ngrd
+
+        allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
+
+        bc%bcinfo(n)%pressure = config%getpref()
+        bc%bcinfo(n)%pv(1) = config%getpref()
+        bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
+        bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
+        bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
+        bc%bcinfo(n)%pv(5) = config%gettref()
+        bc%bcinfo(n)%pv(6) = config%gety1ref()
+        bc%bcinfo(n)%pv(7) = config%gety2ref()
+
+        if(config%getiturb().ge.-1) then
+          bc%bcinfo(n)%tv(3) = config%getemutref()
+          bc%bcinfo(n)%pv(8) = config%getkref()
+          bc%bcinfo(n)%pv(9) = config%getoref()
+        end if
+
         bc%bcinfo(n)%omega = config%getomega()
         bc%bcinfo(n)%bcname = grid%getbcname(n)
 
@@ -182,284 +207,45 @@ module bc_module
           case default
             bc%bcinfo(n)%bctype => bcwallinviscid
           end select
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflow') then
           bc%bcinfo(n)%bctype => bcinflow
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSubsonic') then
           bc%bcinfo(n)%bctype => bcinflowsubsonic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSupersonic') then
           bc%bcinfo(n)%bctype => bcinflowsupersonic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflow') then
           bc%bcinfo(n)%bctype => bcoutflow
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSubsonic') then
           bc%bcinfo(n)%bctype => bcoutflowsubsonic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
           bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
-
           open(newunit=bc%bcinfo(n)%ioout,file='./track_out.plt',status='unknown',action='write')
           write(bc%bcinfo(n)%ioout,*) 'variables="nt","mdot_out","p_out"'
           write(bc%bcinfo(n)%ioout,*) 'zone t="out"'
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSupersonic') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCExtrapolate') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCFarfield') then
           bc%bcinfo(n)%bctype => bcfarfield
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
           bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegeneratePoint') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCDegenerateLine') then
           bc%bcinfo(n)%bctype => bcdegeneratepoint
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane') then
           bc%bcinfo(n)%bctype => bcsymmetryplane
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCShiftedPeriodic') then
           bc%bcinfo(n)%bctype => bcshiftedperiodic
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCMassflowrateIn') then
           bc%bcinfo(n)%bctype => bcmassflowratein
           bc%bcinfo(n)%massflowrate = 0.d0
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
-
           open(newunit=bc%bcinfo(n)%ioin,file='./track_in.plt',status='unknown',action='write')
           write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
           write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCTotalPressureIn') then
           bc%bcinfo(n)%bctype => bctotalpressurein
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
           bc%bcinfo(n)%pressure = 51551.30907d0
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
           bc%bcinfo(n)%pv(5) = 300.0003719d0
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
-
           open(newunit=bc%bcinfo(n)%ioin,file='./track_in.plt',status='unknown',action='write')
           write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
           write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
@@ -474,26 +260,13 @@ module bc_module
           case default
             bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
           end select
-          allocate(bc%bcinfo(n)%pv(bc%npv),bc%bcinfo(n)%dv(bc%ndv),bc%bcinfo(n)%tv(bc%ntv))
-          bc%bcinfo(n)%pressure = config%getpref()
-          bc%bcinfo(n)%pv(1) = config%getpref()
-          bc%bcinfo(n)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
-          bc%bcinfo(n)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
-          bc%bcinfo(n)%pv(4) = config%geturef()*dsin(config%getaos())
-          bc%bcinfo(n)%pv(5) = config%gettref()
-          bc%bcinfo(n)%pv(6) = config%gety1ref()
-          bc%bcinfo(n)%pv(7) = config%gety2ref()
-
-          call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv(1:2))
-          if(config%getiturb().ge.-1) then
-            bc%bcinfo(n)%tv(3) = config%getemutref()
-            bc%bcinfo(n)%pv(8) = config%getkref()
-            bc%bcinfo(n)%pv(9) = config%getoref()
-          end if
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
         end if
+
+        call eos%deteos(bc%bcinfo(n)%pressure,bc%bcinfo(n)%pv(5),bc%bcinfo(n)%pv(6),bc%bcinfo(n)%pv(7),bc%bcinfo(n)%dv,bc%bcinfo(n)%tv)
+
         bc%bcinfo(n)%neighbor1 = 0 ! meaningless
         bc%bcinfo(n)%neighbor2 = 0 ! meaningless
         bc%bcinfo(n)%neighbor3 = 0 ! meaningless
@@ -501,7 +274,10 @@ module bc_module
         bc%bcinfo(n)%neighbor5 = 0 ! meaningless
         bc%bcinfo(n)%neighbor6 = 0 ! meaningless
       end do
+      !cccccccccccccccccc construct nbc ccccccccccccccccccccccccccccc
 
+
+      !cccccccccccccccccc construct ncon ccccccccccccccccccccccccccccc
       do n=1,bc%ncon
         bc%connectinfo(n)%donor = grid%getconnectdonor(n)
         
@@ -622,9 +398,12 @@ module bc_module
                            *(bc%npv+bc%ntv+bc%ndv)
         allocate(bc%mpitemp(n)%sendbuf(bc%mpitemp(n)%num),bc%mpitemp(n)%recvbuf(bc%mpitemp(n)%num))
       end do
-      
+      !cccccccccccccccccc construct ncon ccccccccccccccccccccccccccccc
+
+
       allocate(bc%edge(12),bc%corner(8))
 
+      !cccccccccccccccccc construct edge ccccccccccccccccccccccccccccc
       bc%edge(1)%istart(1)  = -1                  ; bc%edge(1)%iend(1)  = 1
       bc%edge(1)%istart(2)  = -1                  ; bc%edge(1)%iend(2)  = 1
       bc%edge(1)%istart(3)  =   2                 ; bc%edge(1)%iend(3)  = grid%getkmax()
@@ -746,9 +525,14 @@ module bc_module
       bc%edge(12)%neighbor3(3) = grid%getkmax()+1 ; bc%edge(12)%origin(3) = grid%getkmax()
       
       do m=1,12
+        bc%edge(m)%npv = bc%npv
+        bc%edge(m)%ndv = bc%ndv
+        bc%edge(m)%ntv = bc%ntv
+        bc%edge(m)%ngrd = bc%ngrd
+
         bc%edge(m)%dir = 0
         allocate(bc%edge(m)%pv(bc%npv),bc%edge(m)%dv(bc%ndv),bc%edge(m)%tv(bc%ntv))
-        bc%edge(n)%pressure = config%getpref()
+        bc%edge(m)%pressure = config%getpref()
         bc%edge(m)%pv(1) = config%getpref()
         bc%edge(m)%pv(2) = config%geturef()*dcos(config%getaos())*dcos(config%getaoa())
         bc%edge(m)%pv(3) = config%geturef()*dcos(config%getaos())*dsin(config%getaoa())
@@ -757,12 +541,14 @@ module bc_module
         bc%edge(m)%pv(6) = config%gety1ref()
         bc%edge(m)%pv(7) = config%gety2ref()
 
-        call eos%deteos(bc%edge(m)%pv(1),bc%edge(m)%pv(5),bc%edge(m)%pv(6),bc%edge(m)%pv(7),bc%edge(m)%dv,bc%edge(m)%tv(1:2))
         if(config%getiturb().ge.-1) then
           bc%edge(m)%tv(3) = config%getemutref()
           bc%edge(m)%pv(8) = config%getkref()
           bc%edge(m)%pv(9) = config%getoref()
         end if
+
+        call eos%deteos(bc%edge(m)%pressure,bc%edge(m)%pv(5),bc%edge(m)%pv(6),bc%edge(m)%pv(7),bc%edge(m)%dv,bc%edge(m)%tv)
+
       end do
 
       isurf_edge = .false.; jsurf_edge = .false.; ksurf_edge = .false.
@@ -980,7 +766,11 @@ module bc_module
         end if
         bc%edge(m)%dir(1) = 1
       end do
-      
+      !cccccccccccccccccc construct edge ccccccccccccccccccccccccccccc
+
+
+      !cccccccccccccccccc construct corner ccccccccccccccccccccccccccccc
+
       bc%corner(1)%istart(1) = -1                   ; bc%corner(1)%iend(1) = 1
       bc%corner(1)%istart(2) = -1                   ; bc%corner(1)%iend(2) = 1
       bc%corner(1)%istart(3) = -1                   ; bc%corner(1)%iend(3) = 1
@@ -1110,6 +900,11 @@ module bc_module
       bc%corner(8)%neighbor6(3) = grid%getkmax()
       
       do n=1,8
+        bc%corner(n)%npv = bc%npv
+        bc%corner(n)%ndv = bc%ndv
+        bc%corner(n)%ntv = bc%ntv
+        bc%corner(n)%ngrd = bc%ngrd
+
         bc%corner(n)%dir = 0
         allocate(bc%corner(n)%pv(bc%npv),bc%corner(n)%dv(bc%ndv),bc%corner(n)%tv(bc%ntv))
         bc%corner(n)%pressure = config%getpref()
@@ -1121,12 +916,13 @@ module bc_module
         bc%corner(n)%pv(6) = config%gety1ref()
         bc%corner(n)%pv(7) = config%gety2ref()
 
-        call eos%deteos(bc%corner(n)%pv(1),bc%corner(n)%pv(5),bc%corner(n)%pv(6),bc%corner(n)%pv(7),bc%corner(n)%dv,bc%corner(n)%tv(1:2))
         if(config%getiturb().ge.-1) then
           bc%corner(n)%tv(3) = config%getemutref()
           bc%corner(n)%pv(8) = config%getkref()
           bc%corner(n)%pv(9) = config%getoref()
         end if
+
+        call eos%deteos(bc%corner(n)%pressure,bc%corner(n)%pv(5),bc%corner(n)%pv(6),bc%corner(n)%pv(7),bc%corner(n)%dv,bc%corner(n)%tv)
       end do
 
       isurf_corner = .false.; jsurf_corner = .false.; ksurf_corner = .false.
@@ -1289,6 +1085,7 @@ module bc_module
           bc%corner(m)%bctype => cornernowall
         end if 
       end do
+      !cccccccccccccccccc construct corner ccccccccccccccccccccccccccccc
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1296,6 +1093,7 @@ module bc_module
       implicit none
       class(t_bc), intent(inout) :: bc
       integer :: n
+      logical :: ok
 
       if(associated(bc%prec%getsndp2)) nullify(bc%prec%getsndp2)
 
@@ -1319,10 +1117,14 @@ module bc_module
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
       end do
 
-      if(bc%rank.eq.0) then
-        close(bc%bcinfo(n)%ioout)
-        close(bc%bcinfo(n)%ioin)
-      end if
+      do n=1,bc%nbc
+        ok=.false.
+        inquire(unit=bc%bcinfo(n)%ioout,opened=ok)
+        if(ok) close(bc%bcinfo(n)%ioout)
+        ok=.false.
+        inquire(unit=bc%bcinfo(n)%ioin,opened=ok)
+        if(ok) close(bc%bcinfo(n)%ioin)
+      end do
 
       deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
       deallocate(bc%mpitemp)
@@ -1333,7 +1135,7 @@ module bc_module
       class(t_bc), intent(inout) :: bc
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer :: i,j,k,n,m,l
       integer :: ii,jj,kk
       integer :: ier
@@ -1494,11 +1296,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: ppv(bcinfo%npv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1528,7 +1330,7 @@ module bc_module
               kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8,9)
                 call variable%setpv(m,i,j,k,ppv(m))
@@ -1536,10 +1338,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1552,11 +1354,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: ppv(bcinfo%npv),opv(bcinfo%npv),grd(bcinfo%ngrd)
       real(8) :: var
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -1590,7 +1392,7 @@ module bc_module
               ppv = ppv - variable%getpv(ii,jj,kk)
             end if
             opv = 4.d0*var + ppv
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8)
                 call variable%setpv(m,i,j,k,ppv(m))
@@ -1600,10 +1402,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1616,11 +1418,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: ppv(bcinfo%npv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1663,7 +1465,7 @@ module bc_module
             kk = bcinfo%neighbor6(3)+bcinfo%dir(3)*k
             ppv = ppv -variable%getpv(ii,jj,kk)
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8,9)
                 call variable%setpv(m,i,j,k,ppv(m))
@@ -1671,10 +1473,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1687,11 +1489,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: ppv(variable%getnpv()),opv(variable%getnpv()),grd(grid%getngrd())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: ppv(bcinfo%npv),opv(bcinfo%npv),grd(bcinfo%ngrd)
       real(8) :: var
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -1738,7 +1540,7 @@ module bc_module
             ppv = ppv -variable%getpv(ii,jj,kk)
 
             opv = 8.d0*var + ppv
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8)
                 call variable%setpv(m,i,j,k,ppv(m))
@@ -1748,10 +1550,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1764,10 +1566,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
  
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1800,14 +1602,14 @@ module bc_module
             end if
             pv = 1.d0/3.d0*pv
             tv = 1.d0/3.d0*tv
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1821,10 +1623,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
  
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1866,14 +1668,14 @@ module bc_module
             tv = tv + variable%gettv(ii,jj,kk)
             pv = 1.d0/7.d0*pv
             tv = 1.d0/7.d0*tv
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1887,11 +1689,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
-      real(8) :: dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
+      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: nx(3),var
   
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -1941,7 +1743,7 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2)
                 var = 2.d0*(pv_s(2)-nx(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)) - pv(2)
@@ -1956,10 +1758,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -1973,10 +1775,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -1987,7 +1789,7 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
                 call variable%setpv(m,i,j,k,-pv(m))
@@ -1995,10 +1797,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2012,10 +1814,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2026,7 +1828,7 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8,9)
                 call variable%setpv(m,i,j,k,-pv(m))
@@ -2034,10 +1836,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               select case(m)
               case(3)
                 call variable%settv(m,i,j,k,-tv(m))
@@ -2056,11 +1858,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv()),grd(grid%getngrd())
-      real(8) :: dv_b(variable%getndv()),tv_b(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv),grd(bcinfo%ngrd)
+      real(8) :: dv_b(bcinfo%ndv),tv_b(bcinfo%ntv)
       real(8) :: var
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -2101,7 +1903,7 @@ module bc_module
             dv_b = variable%getdv(ii,jj,kk)
             tv_b = variable%gettv(ii,jj,kk)
             grd = grid%getgrd(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4,8)
                 call variable%setpv(m,i,j,k,-pv(m))
@@ -2112,10 +1914,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               select case(m)
               case(3)
                 call variable%settv(m,i,j,k,-tv(m))
@@ -2133,7 +1935,7 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k
     
@@ -2152,11 +1954,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: pv_s(variable%getnpv()),nx(3),var,dl,a
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_s(bcinfo%npv),nx(3),var,dl,a
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2219,17 +2021,17 @@ module bc_module
             pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv(1)/a*dl) - pv(2)
             pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv(1)/a*dl) - pv(3)
             pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv(1)/a*dl) - pv(4)
-            pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
+            pv(5:bcinfo%npv) = 2.d0*bcinfo%pv(5:bcinfo%npv) - pv(5:bcinfo%npv)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2243,9 +2045,9 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       integer :: i,j,k,ii,jj,kk,m
       
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -2257,17 +2059,17 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             pv(1) = 2.d0*(bcinfo%pressure - bcinfo%pv(1))-pv(1)
-            pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+            pv(2:bcinfo%npv) = 2.d0*bcinfo%pv(2:bcinfo%npv) - pv(2:bcinfo%npv)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2281,7 +2083,7 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k
       
@@ -2300,11 +2102,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: pv_s(variable%getnpv()),nx(3),dl,a,mdot,area,pa
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_s(bcinfo%npv),nx(3),dl,a,mdot,area,pa
       integer,save :: nt=0
 
       pa = 0.d0
@@ -2323,7 +2125,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(1)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2335,7 +2137,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(1)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2347,7 +2149,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(2)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2359,7 +2161,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(2)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2371,7 +2173,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(3)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2383,7 +2185,7 @@ module bc_module
               pv_s = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(3)) then
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                pa = pa + pv_s(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
                 mdot = mdot + dv(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
@@ -2400,14 +2202,14 @@ module bc_module
             pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/a*dl) - pv(2)
             pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/a*dl) - pv(3)
             pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/a*dl) - pv(4)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2426,10 +2228,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2440,13 +2242,13 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2459,12 +2261,12 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: nx(3),vel,mach,dl,var,a
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: pv_b(variable%getnpv()),dv_b(variable%getndv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_b(bcinfo%npv),dv_b(bcinfo%ndv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2534,7 +2336,7 @@ module bc_module
             else ! in
               if(mach.le.-1.d0) then !super
                 pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
-                pv(2:variable%getnpv()) = 2.d0*bcinfo%pv(2:variable%getnpv()) - pv(2:variable%getnpv())
+                pv(2:bcinfo%npv) = 2.d0*bcinfo%pv(2:bcinfo%npv) - pv(2:bcinfo%npv)
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               else !sub
@@ -2544,19 +2346,19 @@ module bc_module
                 pv(2) = 2.d0*( bcinfo%pv(2)+nx(1)*0.5d0*var/dv_b(1)/a*dl) - pv(2)
                 pv(3) = 2.d0*( bcinfo%pv(3)+nx(2)*0.5d0*var/dv_b(1)/a*dl) - pv(3)
                 pv(4) = 2.d0*( bcinfo%pv(4)+nx(3)*0.5d0*var/dv_b(1)/a*dl) - pv(4)
-                pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
+                pv(5:bcinfo%npv) = 2.d0*bcinfo%pv(5:bcinfo%npv) - pv(5:bcinfo%npv)
                 pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
                 pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
               end if
             end if
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2570,10 +2372,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2584,13 +2386,13 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2604,11 +2406,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
-      real(8) :: dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
+      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: nx(3),var
   
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -2658,7 +2460,7 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2)
                 var = 2.d0*(pv_s(2)-nx(1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2)) - pv(2)
@@ -2673,10 +2475,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -2689,10 +2491,10 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
  
       ! h=1/16
       select case(bcinfo%face)
@@ -2703,13 +2505,13 @@ module bc_module
               pv = variable%getpv(i+16,j+16,k)
               dv = variable%getdv(i+16,j+16,k)
               tv = variable%gettv(i+16,j+16,k)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2720,13 +2522,13 @@ module bc_module
               pv = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               tv = variable%gettv(ii,jj,kk)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2740,13 +2542,13 @@ module bc_module
               pv = variable%getpv(i-16,j-16,k)
               dv = variable%getdv(i-16,j-16,k)
               tv = variable%gettv(i-16,j-16,k)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2757,13 +2559,13 @@ module bc_module
               pv = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               tv = variable%gettv(ii,jj,kk)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2777,13 +2579,13 @@ module bc_module
               pv = variable%getpv(i+16,j,k+16)
               dv = variable%getdv(i+16,j,k+16)
               tv = variable%gettv(i+16,j,k+16)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2794,13 +2596,13 @@ module bc_module
               pv = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               tv = variable%gettv(ii,jj,kk)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2814,13 +2616,13 @@ module bc_module
               pv = variable%getpv(i-16,j,k-16)
               dv = variable%getdv(i-16,j,k-16)
               tv = variable%gettv(i-16,j,k-16)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2831,13 +2633,13 @@ module bc_module
               pv = variable%getpv(ii,jj,kk)
               dv = variable%getdv(ii,jj,kk)
               tv = variable%gettv(ii,jj,kk)
-              do m=1,variable%getnpv()
+              do m=1,bcinfo%npv
                 call variable%setpv(m,i,j,k,pv(m))
               end do
-              do m=1,variable%getndv()
+              do m=1,bcinfo%ndv
                 call variable%setdv(m,i,j,k,dv(m))
               end do
-              do m=1,variable%getntv()
+              do m=1,bcinfo%ntv
                 call variable%settv(m,i,j,k,tv(m))
               end do
             end do
@@ -2854,11 +2656,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: grd(grid%getngrd()),nx(3),gridvel(3)
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: grd(bcinfo%ngrd),nx(3),gridvel(3)
       real(8) :: ua,va,wa,area,uvwa2,x(2),pa,ta,mdot
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
@@ -3020,7 +2822,7 @@ module bc_module
       x(1) = pa+bcinfo%pv(1)
       x(2) = ta
 
-      call newt(eos,variable,2,bcinfo%pressure,bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
+      call newt(eos,bcinfo%ndv,2,bcinfo%pressure,bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3038,14 +2840,14 @@ module bc_module
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -3062,11 +2864,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: grd(grid%getngrd()),gridvel(3)
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: grd(bcinfo%ngrd),gridvel(3)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3123,7 +2925,7 @@ module bc_module
               gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
             end select
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
                 call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
@@ -3131,10 +2933,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -3149,11 +2951,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: grd(grid%getngrd()),gridvel(3)
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: grd(bcinfo%ngrd),gridvel(3)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3210,7 +3012,7 @@ module bc_module
               gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
             end select
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
                 call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
@@ -3220,10 +3022,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               select case(m)
               case(3)
                 call variable%settv(m,i,j,k,-tv(m))
@@ -3242,12 +3044,12 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: dv_b(variable%getndv()),tv_b(variable%getntv())
-      real(8) :: grd(grid%getngrd()),gridvel(3),var
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: dv_b(bcinfo%ndv),tv_b(bcinfo%ntv)
+      real(8) :: grd(bcinfo%ngrd),gridvel(3),var
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3306,7 +3108,7 @@ module bc_module
             dv_b = variable%getdv(ii,jj,kk)
             tv_b = variable%gettv(ii,jj,kk)
             grd = grid%getgrd(ii,jj,kk)
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
                 call variable%setpv(m,i,j,k,-pv(m)-2.d0*gridvel(m-1))
@@ -3319,10 +3121,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               select case(m)
               case(3)
                 call variable%settv(m,i,j,k,-tv(m))
@@ -3341,12 +3143,12 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
-      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
-      real(8) :: dv(variable%getndv()),tv(variable%getntv())
-      real(8) :: grd(grid%getngrd()),gridvel(3),nx(3),var
+      real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
+      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: grd(bcinfo%ngrd),gridvel(3),nx(3),var
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3415,7 +3217,7 @@ module bc_module
               gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
             end select
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
                 var = 2.d0*(pv_s(m) - nx(m-1)*(pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))/(nx(1)**2+nx(2)**2+nx(3)**2) - gridvel(m-1)) - pv(m)
@@ -3424,10 +3226,10 @@ module bc_module
                 call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
-            do m=1,variable%getndv()
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -3441,11 +3243,11 @@ module bc_module
       class(t_bcinfo2), intent(in) :: bcinfo
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(variable%getnpv()),pv_s(variable%getnpv())
-      real(8) :: dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
+      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: nx(3),x(3),dl,area,pp,v
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
@@ -3523,7 +3325,7 @@ module bc_module
       end do
 
       pp = pp/area
-      call eos%deteos(pp+bcinfo%pv(1),bcinfo%pv(5),bcinfo%pv(6),bcinfo%pv(7),dv,tv(1:2))
+      call eos%deteos_simple(pp+bcinfo%pv(1),bcinfo%pv(5),bcinfo%pv(6),bcinfo%pv(7),dv)
       v = bcinfo%massflowrate/(dv(1)*area)
 
       nt=nt+1
@@ -3574,18 +3376,18 @@ module bc_module
             pv(2) = -v*nx(1)*dl
             pv(3) = -v*nx(2)*dl
             pv(4) = -v*nx(3)*dl
-            pv(5:variable%getnpv()) = 2.d0*bcinfo%pv(5:variable%getnpv()) - pv(5:variable%getnpv())
+            pv(5:bcinfo%npv) = 2.d0*bcinfo%pv(5:bcinfo%npv) - pv(5:bcinfo%npv)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
 
-            do m=1,variable%getnpv()
+            do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
-            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv(1:2))
-            do m=1,variable%getndv()
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
               call variable%setdv(m,i,j,k,dv(m))
             end do
-            do m=1,variable%getntv()
+            do m=1,bcinfo%ntv
               call variable%settv(m,i,j,k,tv(m))
             end do
           end do
@@ -3624,11 +3426,10 @@ module bc_module
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine newt(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,check)
+    subroutine newt(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,check)
       implicit none
-      type(t_eos), intent(in) :: eos
-      type(t_variable), intent(in) :: variable
-      integer, intent(in) :: n
+      class(t_eos), intent(in) :: eos
+      integer, intent(in) :: ndv,n
       real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
       logical, intent(out) :: check
       real(8), intent(inout) :: x(n)
@@ -3639,7 +3440,7 @@ module bc_module
       real(8) :: d,den,f,fold,stpmax,sum,temp,test
       real(8) :: fjac(n,n),g(n),p(n),xold(n)
 
-      f=fmin(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      f=fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
       test=0.d0
 
       do i=1,n
@@ -3656,7 +3457,7 @@ module bc_module
       end do
       stpmax=stpmx*dmax1(dsqrt(sum),dble(n))
       do its=1,maxits
-        call fdjac(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec,fjac)
+        call fdjac(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec,fjac)
         do i=1,n
           sum=0.d0
           do j=1,n
@@ -3674,7 +3475,7 @@ module bc_module
 
         call ludcmp(fjac,n,indx,d)
         call lubksb(fjac,n,indx,p)
-        call lnsrch(eos,variable,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+        call lnsrch(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
         test=0.d0
         do i=1,n
           if(dabs(fvec(i)).gt.test) test=dabs(fvec(i))
@@ -3709,17 +3510,16 @@ module bc_module
 
     end subroutine newt
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function fmin(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+    function fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
       implicit none
-      type(t_eos), intent(in) :: eos
-      type(t_variable), intent(in) :: variable
-      integer, intent(in) :: n
+      class(t_eos), intent(in) :: eos
+      integer, intent(in) :: ndv,n
       real(8), intent(in) :: h_total,p_total,y1,y2,uvwa2,x(n)
       real(8), intent(out) :: fvec(n)
       integer :: i
       real(8) :: fmin,sum
 
-      call funcv(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      call funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
 
       sum=0.d0
       do i=1,n
@@ -3729,26 +3529,24 @@ module bc_module
       return
     end function fmin
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine funcv(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+    subroutine funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
       implicit none
-      type(t_eos), intent(in) :: eos
-      type(t_variable), intent(in) :: variable
-      integer, intent(in) :: n
+      class(t_eos), intent(in) :: eos
+      integer, intent(in) :: ndv,n
       real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n)
       real(8), intent(out) :: fvec(n)
-      real(8) :: dv(variable%getndv()),tv(variable%getntv())
+      real(8) :: dv(ndv)
 
-      call eos%deteos(x(1),x(2),y1,y2,dv,tv(1:2))
+      call eos%deteos_simple(x(1),x(2),y1,y2,dv)
 
       fvec(1) = p_total - (x(1)+0.5d0*dv(1)*uvwa2)
       fvec(2) = h_total - (dv(2)+0.5d0*uvwa2)
     end subroutine funcv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine fdjac(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec,df)
+    subroutine fdjac(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec,df)
       implicit none
-      type(t_eos), intent(in) :: eos
-      type(t_variable), intent(in) :: variable
-      integer, intent(in) :: n
+      class(t_eos), intent(in) :: eos
+      integer, intent(in) :: ndv,n
       real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n),fvec(n)
       real(8), intent(out) :: df(n,n)
       real(8),parameter :: eps=1.0d-4
@@ -3761,7 +3559,7 @@ module bc_module
         if(h.eq.0.0d0) h=eps
         temp(j)=temp(j)+h
         h=temp(j)-x(j)
-        call funcv(eos,variable,n,p_total,h_total,y1,y2,uvwa2,temp,f)
+        call funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,temp,f)
         do i=1,n
           df(i,j)=(f(i)-fvec(i))/h
         enddo
@@ -3770,11 +3568,10 @@ module bc_module
       return
     end subroutine fdjac
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine lnsrch(eos,variable,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+    subroutine lnsrch(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
       implicit none
-      type(t_eos), intent(in) :: eos
-      type(t_variable), intent(in) :: variable
-      integer, intent(in) :: n
+      class(t_eos), intent(in) :: eos
+      integer, intent(in) :: ndv,n
       real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
       logical :: check
       real(8) :: f,fold,stpmax,g(n),p(n),x(n),xold(n),fvec(n)
@@ -3810,7 +3607,7 @@ module bc_module
       do i=1,n
         x(i)=xold(i)+alam*p(i)
       enddo
-      f=fmin(eos,variable,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      f=fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
       if(alam.lt.alamin) then
         do i=1,n
           x(i)=xold(i)

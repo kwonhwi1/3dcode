@@ -1,6 +1,5 @@
 module rotation_module
   use config_module
-  use variable_module
   use grid_module
   implicit none
   private
@@ -22,17 +21,16 @@ module rotation_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(rotation,config,grid,variable)
+    subroutine construct(rotation,config,grid)
       implicit none
       class(t_rotation), intent(out) :: rotation
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
 
       rotation%stencil = config%getstencil()
+      rotation%npv = config%getnpv()
+      rotation%ndv = config%getndv()
       rotation%omega = config%getomega()
-      rotation%npv = variable%getnpv()
-      rotation%ndv = variable%getndv()
       rotation%ngrd = grid%getngrd()
 
     end subroutine construct

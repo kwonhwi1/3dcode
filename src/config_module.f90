@@ -1,6 +1,5 @@
 module config_module
   use mpi
-  use eos_module
   implicit none
   private
   public :: t_config
@@ -9,6 +8,7 @@ module config_module
     private
     character(30) :: name
     integer :: rank,size,stencil
+    integer :: npv,ndv,ntv,nqq
     integer :: iread,rstnum
     integer :: nsteady,npmax,ntmax,bond
     real(8) :: dt_phy
@@ -17,18 +17,23 @@ module config_module
     integer :: nscheme,precd,nmuscl,nlim
     integer :: timemethod,local,prec
     real(8) :: cfl
-    integer :: fluid,fluid_eostype,ngas,gas_eostype,mixingrule
+    integer :: fluid,ngas
     integer :: ncav,gravity,rotation
     real(8) :: rpm,omega(3)
     real(8) :: c_v,c_c
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref
     real(8) :: l_chord,l_character,scale,l_domain
     real(8) :: str,pi
-    real(8) :: dvref(18),tvref(2)
-    real(8) :: kref,oref,emutref
+    real(8), dimension(:), allocatable :: dvref,tvref
+    real(8) :: kref,oref
     contains
       procedure :: construct
       procedure :: destruct
+      procedure :: setref
+      procedure :: getnpv
+      procedure :: getndv
+      procedure :: getntv
+      procedure :: getnqq
       procedure :: getrank
       procedure :: getsize
       procedure :: getstencil
@@ -58,6 +63,8 @@ module config_module
       procedure :: getrotation
       procedure :: getomega
       procedure :: getcfl
+      procedure :: getfluid
+      procedure :: getngas
       procedure :: getpref
       procedure :: geturef
       procedure :: getaoa
@@ -80,10 +87,9 @@ module config_module
     
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(config,eos)
+    subroutine construct(config)
       implicit none
       class(t_config), intent(out) :: config
-      type(t_eos), intent(out) :: eos
       integer :: n,io,ierr
       
       config%stencil = 38
@@ -101,7 +107,7 @@ module config_module
           read(io,*); read(io,*) config%iturb,config%tcomp
           read(io,*); read(io,*) config%nscheme,config%precd,config%nmuscl,config%nlim
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
-          read(io,*); read(io,*) config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype
+          read(io,*); read(io,*) config%fluid,config%ngas
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
           read(io,*); read(io,*) config%gravity
           read(io,*); read(io,*) config%rotation,config%rpm
@@ -111,15 +117,6 @@ module config_module
         endif
         call mpi_barrier(mpi_comm_world,ierr)
       end do
-
-      select case(config%iturb)
-      case(-3)
-        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,0,config%size,config%rank)
-      case(-2)
-        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,2,config%size,config%rank)
-      case(-1,0)
-        call eos%construct(config%fluid,config%fluid_eostype,config%ngas,config%gas_eostype,3,config%size,config%rank)
-      end select
       
       config%pi  = datan(1.d0)*4.d0
       config%aoa = config%aoa*config%pi/180.d0
@@ -144,35 +141,100 @@ module config_module
       case default
       end select
 
-      call eos%deteos(config%pref,config%tref,config%y1ref,config%y2ref,config%dvref,config%tvref(1:2))
-      
-      if(config%iturb.eq.0) then
-        config%oref = 10.d0*config%uref/config%l_domain
-        config%emutref = 10.d0**(-5)*config%tvref(1)
-        config%kref = config%emutref/config%dvref(1)*config%oref
-      else if(config%iturb.eq.-1) then
-        config%kref = 1.5d0*(0.0001d0*config%uref)**2
-        config%emutref =  10.d0**(-5)*config%tvref(1)
-        config%oref = 0.09d0*config%dvref(1)*config%kref**2/config%emutref
-      else
-        config%kref = 0.d0
-        config%oref = 0.d0
-        config%emutref =  0.d0    
-      end if
+      select case(config%getiturb())
+      case(-3)
+        config%npv = 7
+        config%ntv = 0  
+      case(-2)
+        config%npv = 7
+        config%ntv = 2      
+      case(-1,0)
+        config%npv = 9
+        config%ntv = 3      
+      end select
+      config%ndv = 18
+      select case(config%getnsteady())
+      case(0)
+        config%nqq = 0
+      case(1)
+        config%nqq = 2
+      end select
+
+      allocate(config%dvref(config%ndv),config%tvref(config%ntv))
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine destruct(config,eos)
+    subroutine destruct(config)
       implicit none
       class(t_config), intent(inout) :: config
-      type(t_eos), intent(inout) :: eos
       integer :: ierr
-          
-      call eos%destruct()
-      
+
+      if(allocated(config%dvref)) deallocate(config%dvref)
+      if(allocated(config%tvref)) deallocate(config%tvref)
+
       call mpi_finalize(ierr)
     end subroutine destruct
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setref(config,dv,tv)
+      implicit none
+      class(t_config), intent(inout) :: config
+      real(8), intent(in) :: dv(config%ndv), tv(config%ntv)
+
+      config%dvref = dv
+      config%tvref = tv
+      
+      if(config%iturb.eq.0) then
+        config%oref = 10.d0*config%uref/config%l_domain
+        config%tvref(3) = 10.d0**(-5)*config%tvref(1)
+        config%kref = config%tvref(3)/config%dvref(1)*config%oref
+      else if(config%iturb.eq.-1) then
+        config%kref = 1.5d0*(0.0001d0*config%uref)**2
+        config%tvref(3) =  10.d0**(-5)*config%tvref(1)
+        config%oref = 0.09d0*config%dvref(1)*config%kref**2/config%tvref(3)
+      else
+        config%kref = 0.d0
+        config%oref = 0.d0
+        config%tvref(3) =  0.d0
+      end if
+
+    end subroutine setref
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getnpv(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnpv
+
+      getnpv = config%npv
+
+    end function getnpv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getndv(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getndv
+      
+      getndv = config%ndv
+      
+    end function getndv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getntv(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getntv
+      
+      getntv = config%ntv
+      
+    end function getntv
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getnqq(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getnqq
+      
+      getnqq = config%nqq
+      
+    end function getnqq
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getrank(config)
       implicit none
       class(t_config), intent(in) :: config
@@ -431,7 +493,25 @@ module config_module
       getcfl = config%cfl
       
     end function getcfl
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getfluid(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getfluid
+
+      getfluid = config%fluid
+
+    end function getfluid
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getngas(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getngas
+
+      getngas = config%ngas
+
+    end function getngas
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getpref(config)
       implicit none
       class(t_config), intent(in) :: config
@@ -536,7 +616,7 @@ module config_module
       class(t_config), intent(in) :: config
       real(8) :: getemutref
       
-      getemutref = config%emutref
+      getemutref = config%tvref(3)
       
     end function getemutref
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 

@@ -70,13 +70,15 @@ module timestep_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(timestep,config,grid,variable)
+    subroutine construct(timestep,config,grid)
       implicit none
       class(t_timestep), intent(out) :: timestep
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      
+
+      timestep%npv = config%getnpv()
+      timestep%ndv = config%getndv()
+      timestep%ntv = config%getntv()
       timestep%rank = config%getrank()
       timestep%nprint = config%getnprint()
       timestep%cfl  = config%getcfl()
@@ -105,10 +107,6 @@ module timestep_module
       timestep%imax = grid%getimax()
       timestep%jmax = grid%getjmax()
       timestep%kmax = grid%getkmax()
-
-      timestep%npv = variable%getnpv()
-      timestep%ndv = variable%getndv()
-      timestep%ntv = variable%getntv()
       
       allocate(timestep%dt(2:timestep%imax,2:timestep%jmax,2:timestep%kmax))
       
