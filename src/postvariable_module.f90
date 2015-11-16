@@ -27,9 +27,6 @@ module postvariable_module
       procedure :: destruct
       procedure :: getnps
       procedure :: getnts
-      procedure :: getnpv
-      procedure :: getntv
-      procedure :: getndv
       procedure :: getnsolution
       procedure :: getpv
       procedure :: gettv
@@ -46,7 +43,7 @@ module postvariable_module
       class(t_variable), intent(out) :: variable
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer, intent(in) :: istart,iend,nsolution
       character(7) :: iter_tag
       integer :: i,j,k,m,l,io,iter,num,ier
@@ -56,24 +53,11 @@ module postvariable_module
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
 
-      select case(config%getiturb())
-      case(-3)
-        variable%npv = 7
-        variable%ntv = 0  
-      case(-2)
-        variable%npv = 7
-        variable%ntv = 2      
-      case(-1,0)
-        variable%npv = 9
-        variable%ntv = 3      
-      end select
-      variable%ndv = 18
-      select case(config%getnsteady())
-      case(0)
-        variable%nqq = 0
-      case(1)
-        variable%nqq = 2
-      end select
+      variable%npv = config%getnpv()
+      variable%ndv = config%getndv()
+      variable%ntv = config%getntv()
+      variable%nqq = config%getnqq()
+
       variable%nsolution = nsolution
 
       if(variable%nsolution.eq.1) then
@@ -135,9 +119,9 @@ module postvariable_module
             do j=2,grid%getjmax(m)
               do i=2,grid%getimax(m)
                 variable%solution(l)%zone(m)%pv(1,i,j,k) = variable%solution(l)%zone(m)%pv(1,i,j,k)+config%getpref()
-                call eos%deteos(variable%solution(l)%zone(m)%pv(1,i,j,k),variable%solution(l)%zone(m)%pv(5,i,j,k) &
+                call eos%deteos_simple(variable%solution(l)%zone(m)%pv(1,i,j,k),variable%solution(l)%zone(m)%pv(5,i,j,k) &
                                ,variable%solution(l)%zone(m)%pv(6,i,j,k),variable%solution(l)%zone(m)%pv(7,i,j,k) &
-                               ,variable%solution(l)%zone(m)%dv(:,i,j,k),variable%solution(l)%zone(m)%tv(1:2,i,j,k))
+                               ,variable%solution(l)%zone(m)%dv(:,i,j,k))
               end do
             end do
           end do
@@ -566,33 +550,6 @@ module postvariable_module
 
       getnts = variable%solution(l)%nts
     end function getnts
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getnpv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getnpv
-
-      getnpv = variable%npv
-
-    end function getnpv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getntv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getntv
-
-      getntv = variable%ntv
-
-    end function getntv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function getndv(variable)
-      implicit none
-      class(t_variable), intent(in) :: variable
-      integer :: getndv
-
-      getndv = variable%ndv
-
-    end function getndv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getnsolution(variable)
       implicit none

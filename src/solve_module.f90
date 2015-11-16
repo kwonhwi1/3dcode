@@ -32,14 +32,15 @@ module solve_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(solve,config,grid,variable,eos)
+    subroutine construct(solve,config,grid,eos)
       implicit none
       class(t_solve), intent(out) :: solve
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
-      
+      class(t_eos), intent(in) :: eos
+
+      solve%npv = config%getnpv()
+      solve%ndv = config%getndv()
       solve%npmax = config%getnpmax()
       solve%ntmax = config%getntmax()
       solve%nexport = config%getnexport()
@@ -78,7 +79,7 @@ module solve_module
       end select
       
       if(allocated(solve%update)) then
-        call solve%update%construct(config,grid,variable,eos)
+        call solve%update%construct(config,grid,eos)
         solve%l_update = .true.
       end if
       
@@ -88,13 +89,11 @@ module solve_module
       end if
       
       allocate(solve%resi)
-      call solve%resi%construct(config,grid,variable)
+      call solve%resi%construct(config,grid)
      
       solve%imax = grid%getimax()
       solve%jmax = grid%getjmax()
       solve%kmax = grid%getkmax()
-      solve%npv = variable%getnpv()
-      solve%ndv = variable%getndv()
       
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -122,7 +121,7 @@ module solve_module
       class(t_solve), intent(inout) :: solve
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer :: nt_phy,nt,nps,nts
       
       call solve%ini%initialize(grid,variable,eos,nps,nts)

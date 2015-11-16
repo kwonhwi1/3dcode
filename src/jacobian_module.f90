@@ -1,7 +1,6 @@
 module jacobian_module
   use config_module
   use grid_module
-  use variable_module
   implicit none
   private
   public :: t_jac,t_jac_flowonly,t_jac_flowturball
@@ -74,13 +73,15 @@ module jacobian_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(jac,config,grid,variable)
+    subroutine construct(jac,config,grid)
       implicit none
       class(t_jac), intent(out) :: jac
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-            
+
+      jac%npv  = config%getnpv()
+      jac%ntv  = config%getntv()
+      jac%ndv  = config%getndv()
       jac%uref = config%geturef()
       jac%str  = config%getstr()
       jac%omega = config%getomega()
@@ -112,9 +113,7 @@ module jacobian_module
       end select
 
       jac%ngrd = grid%getngrd()
-      jac%npv  = variable%getnpv()
-      jac%ntv  = variable%getntv()
-      jac%ndv  = variable%getndv()   
+
       allocate(jac%a(jac%npv,jac%npv))
     
     end subroutine construct

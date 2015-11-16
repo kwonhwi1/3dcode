@@ -26,20 +26,19 @@ module residual_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(resi,config,grid,variable)
+    subroutine construct(resi,config,grid)
       implicit none
       class(t_resi), intent(out) :: resi
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
       
       resi%rank = config%getrank()
+      resi%npv = config%getnpv()
       resi%npmax = config%getnpmax()      
       resi%ntmax = config%getntmax()
       resi%imax = grid%getimax()
       resi%jmax = grid%getjmax()
       resi%kmax = grid%getkmax()
-      resi%npv = variable%getnpv()
       resi%nprint = config%getnprint()
       resi%bond = 10.d0**(-config%getbond())
       

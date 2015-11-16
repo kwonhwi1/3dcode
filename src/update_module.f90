@@ -44,7 +44,7 @@ module update_module
       class(t_update), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
     end subroutine p_timeinteg
   end interface
@@ -76,14 +76,16 @@ module update_module
 
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct_eulerex(update,config,grid,variable,eos)
+    subroutine construct_eulerex(update,config,grid,eos)
       implicit none
       class(t_update), intent(out) :: update
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
-      
+      class(t_eos), intent(in) :: eos
+
+      update%npv = config%getnpv()
+      update%ndv = config%getndv()
+      update%ntv = config%getntv()
       update%pref = config%getpref()
       update%kref = config%getkref()*1.d-12
       update%oref = config%getoref()*1.d-12
@@ -131,29 +133,26 @@ module update_module
       end select
       
       if(allocated(update%timestep)) then
-        call update%timestep%construct(config,grid,variable)
+        call update%timestep%construct(config,grid)
         update%l_timestep = .true.
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,grid,variable)
+        call update%lhs%construct(config,grid)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct(grid,variable)
+        call update%eddy%construct(config,grid)
         update%l_eddy = .true.
       end if
       
       allocate(update%rhs)
-      call update%rhs%construct(config,grid,variable)
+      call update%rhs%construct(config,grid)
 
       allocate(update%bc)
-      call update%bc%construct(config,grid,variable,eos)
-      
-      update%npv = variable%getnpv()
-      update%ndv = variable%getndv()
-      update%ntv = variable%getntv()
+      call update%bc%construct(config,grid,eos)
+
       update%ngrd = grid%getngrd()
       update%imax = grid%getimax()
       update%jmax = grid%getjmax()
@@ -161,14 +160,16 @@ module update_module
       
     end subroutine construct_eulerex
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct_rk3rd(update,config,grid,variable,eos)
+    subroutine construct_rk3rd(update,config,grid,eos)
       implicit none
       class(t_rk3rd), intent(out) :: update
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
-      
+      class(t_eos), intent(in) :: eos
+
+      update%npv = config%getnpv()
+      update%ndv = config%getndv()
+      update%ntv = config%getntv()
       update%pref = config%getpref()
       update%kref = config%getkref()*1.d-12
       update%oref = config%getoref()*1.d-12
@@ -216,29 +217,26 @@ module update_module
       end select
       
       if(allocated(update%timestep)) then
-        call update%timestep%construct(config,grid,variable)
+        call update%timestep%construct(config,grid)
         update%l_timestep = .true.
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,grid,variable)
+        call update%lhs%construct(config,grid)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct(grid,variable)
+        call update%eddy%construct(config,grid)
         update%l_eddy = .true.
       end if
       
       allocate(update%rhs)
-      call update%rhs%construct(config,grid,variable)
+      call update%rhs%construct(config,grid)
 
       allocate(update%bc)
-      call update%bc%construct(config,grid,variable,eos)
-      
-      update%npv = variable%getnpv()
-      update%ndv = variable%getndv()
-      update%ntv = variable%getntv()
+      call update%bc%construct(config,grid,eos)
+
       update%ngrd = grid%getngrd()
       update%imax = grid%getimax()
       update%jmax = grid%getjmax()
@@ -251,14 +249,16 @@ module update_module
       allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
     end subroutine construct_rk3rd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct_lusgs(update,config,grid,variable,eos)
+    subroutine construct_lusgs(update,config,grid,eos)
       implicit none
       class(t_lusgs), intent(out) :: update
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
-      
+      class(t_eos), intent(in) :: eos
+
+      update%npv = config%getnpv()
+      update%ndv = config%getndv()
+      update%ntv = config%getntv()
       update%pref = config%getpref()
       update%kref = config%getkref()*1.d-12
       update%oref = config%getoref()*1.d-12
@@ -310,34 +310,31 @@ module update_module
       end select
       
       if(allocated(update%timestep)) then
-        call update%timestep%construct(config,grid,variable)
+        call update%timestep%construct(config,grid)
         update%l_timestep = .true.
       end if
 
       if(allocated(update%lhs)) then
-        call update%lhs%construct(config,grid,variable)
+        call update%lhs%construct(config,grid)
         update%l_lhs = .true.
       end if
       
       if(allocated(update%eddy)) then
-        call update%eddy%construct(grid,variable)
+        call update%eddy%construct(config,grid)
         update%l_eddy = .true.
       end if
       
       if(allocated(update%jac)) then
-        call update%jac%construct(config,grid,variable)
+        call update%jac%construct(config,grid)
         update%l_jac = .true.
       end if
       
       allocate(update%rhs)
-      call update%rhs%construct(config,grid,variable)
+      call update%rhs%construct(config,grid)
 
       allocate(update%bc)
-      call update%bc%construct(config,grid,variable,eos)
-      
-      update%npv = variable%getnpv()
-      update%ndv = variable%getndv()
-      update%ntv = variable%getntv()
+      call update%bc%construct(config,grid,eos)
+
       update%ngrd = grid%getngrd()
       update%imax = grid%getimax()
       update%jmax = grid%getjmax()
@@ -442,7 +439,7 @@ module update_module
       class(t_eulerex), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
@@ -495,7 +492,7 @@ module update_module
               call variable%setpv(n,i,j,k,pv(n))
             end do
             
-            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
+            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv)
             
             do n=1,update%ndv
               call variable%setdv(n,i,j,k,dv(n))
@@ -547,7 +544,7 @@ module update_module
       class(t_rk3rd), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l,m
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
@@ -602,7 +599,7 @@ module update_module
                 call variable%setpv(n,i,j,k,pv(n))
               end do
                      
-              call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
+              call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv)
             
               do n=1,update%ndv
                 call variable%setdv(n,i,j,k,dv(n))
@@ -656,7 +653,7 @@ module update_module
       class(t_lusgs), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
       integer :: i,j,k,n,l
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
@@ -871,7 +868,7 @@ module update_module
               call variable%setpv(n,i,j,k,pv(n))
             end do
             
-            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv(1:2))
+            call eos%deteos(pv(1)+update%pref,pv(5),pv(6),pv(7),dv,tv)
             
             do n=1,update%ndv
               call variable%setdv(n,i,j,k,dv(n))

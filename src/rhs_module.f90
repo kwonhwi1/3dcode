@@ -48,14 +48,16 @@ module rhs_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(rhs,config,grid,variable)
+    subroutine construct(rhs,config,grid)
       implicit none
       class(t_rhs), intent(out) :: rhs
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
       
       rhs%stencil = config%getstencil()
+      rhs%npv = config%getnpv()
+      rhs%ndv = config%getndv()
+      rhs%ntv = config%getntv()
       rhs%pref = config%getpref()
       rhs%omega = config%getomega()
 
@@ -137,30 +139,26 @@ module rhs_module
       rhs%imax = grid%getimax()
       rhs%jmax = grid%getjmax()
       rhs%kmax = grid%getkmax()
-      rhs%npv = variable%getnpv()
-      rhs%ndv = variable%getndv()
-      rhs%ntv = variable%getntv()
-      
       
       if(allocated(rhs%flux)) then
-        call rhs%flux%construct(config,grid,variable)
+        call rhs%flux%construct(config,grid)
         rhs%l_flux = .true.
         allocate(rhs%ea(rhs%npv,rhs%imax),rhs%fa(rhs%npv,rhs%jmax),rhs%ga(rhs%npv,rhs%kmax))
       end if
       
       if(allocated(rhs%vsflux)) then
-        call rhs%vsflux%construct(config,grid,variable)
+        call rhs%vsflux%construct(config,grid)
         rhs%l_vsflux = .true.
         allocate(rhs%eva(rhs%npv,rhs%imax),rhs%fva(rhs%npv,rhs%jmax),rhs%gva(rhs%npv,rhs%kmax))
       end if
       
       if(allocated(rhs%muscl)) then
-        call rhs%muscl%construct(config,variable)
+        call rhs%muscl%construct(config)
         rhs%l_muscl = .true.
       end if
    
       if(allocated(rhs%cav)) then
-        call rhs%cav%construct(config,grid,variable)
+        call rhs%cav%construct(config,grid)
         if(config%gettimemethod().eq.3) then
           allocate(rhs%icav(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
         end if
@@ -168,7 +166,7 @@ module rhs_module
       end if
       
       if(allocated(rhs%turbsource)) then
-        call rhs%turbsource%construct(config,grid,variable)
+        call rhs%turbsource%construct(config,grid)
         if(config%gettimemethod().eq.3) then
           allocate(rhs%itt(4,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
         end if
@@ -177,17 +175,17 @@ module rhs_module
       end if
       
       if(allocated(rhs%unsteady)) then
-        call rhs%unsteady%construct(config,grid,variable)
+        call rhs%unsteady%construct(config,grid)
         rhs%l_unsteady   = .true.
       end if
 
       if(allocated(rhs%gravity)) then
-        call rhs%gravity%construct(config,grid,variable)
+        call rhs%gravity%construct(config,grid)
         rhs%l_gravity = .true.
       end if
 
       if(allocated(rhs%rotation)) then
-        call rhs%rotation%construct(config,grid,variable)
+        call rhs%rotation%construct(config,grid)
         rhs%l_rotation = .true.
       end if
 
@@ -244,7 +242,7 @@ module rhs_module
       class(t_rhs), intent(inout) :: rhs
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       integer :: i,j,k
       integer :: ii,jj,kk,ll
       real(8) :: nx(3)
@@ -299,8 +297,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
+              call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i+1,j,k)
@@ -388,8 +386,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
+              call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i,j+1,k)
@@ -477,8 +475,8 @@ module rhs_module
               call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
-              call eos%deteos(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl,tvl(1:2))
-              call eos%deteos(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr,tvr(1:2))
+              call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
+              call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
               pvl = variable%getpv(i,j,k) 
               pvr = variable%getpv(i,j,k+1)

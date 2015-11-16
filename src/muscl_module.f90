@@ -1,6 +1,5 @@
 module muscl_module
   use config_module
-  use variable_module
   implicit none
   private
   public :: t_muscl,t_tvd,t_mlp
@@ -50,11 +49,10 @@ module muscl_module
   
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine construct(muscl,config,variable)
+    subroutine construct(muscl,config)
       implicit none
       class(t_muscl), intent(out) :: muscl
       type(t_config), intent(in) :: config
-      type(t_variable), intent(in) :: variable
       
       select case(config%getnlim())
       case(0)
@@ -78,9 +76,9 @@ module muscl_module
       end select
       
       muscl%stencil = config%getstencil()
+      muscl%npv  = config%getnpv()
+      muscl%ndv  = config%getndv()
       muscl%pref = config%getpref()
-      muscl%npv  = variable%getnpv()
-      muscl%ndv  = variable%getndv()
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

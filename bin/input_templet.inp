@@ -12,8 +12,8 @@ nscheme       precd          nmuscl         nlim
 0             0              0              0
 timemethod    local          prec           cfl
 0             0              0              0.d0
-fluid         fluid_eostype  ngas           gas_eostype
-0             0              0              0
+fluid         ngas
+0             0
 ncav          c_v            c_c
 0             0.d0           0.d0
 gravity
@@ -46,10 +46,9 @@ timemethod    : 1 = euler_explicit, 2 = 3rd-rk, 3 = lu-sgs
 local         : -1 = fixed time, 0 = min time, 1 = local time
 prec          : system prec. 0 = no, 1 = steady, 2 = unsteady
 cfl           : cfl number
-fluid         : 1 = water, 2 = nitrogen, 3 = oxygen, 4 = hydrogen
-fluid_eostype : 1 = database, (2 = iapws97, 3 = stiffend only for water)
-ngas          : 1 = ideal gas, 2 = nitrogen, 3 = oxygen, 4 = hydrogen, 5 = helium
-gas_eostype   : 1 = database (1 = ideal gas law only for ideal gas), 2 = srk
+fluid         : 1 = stiffened water-ideal gas, 2 = iapws97, 3 = water database, 4 = nitrogen database, 5 = oxygen database, 6 = hydrogen database
+ngas          : 1 = ideal gas, 2 = nitrogen database, 3 = oxygen database, 4 = hydrogen database, 5 = helium database,
+                               6 = nigrogen srk,      7 = oxygen srk,      8 = hydrogen database, 9 = helium database
 ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
 c_v           : vaporization coefficient
 c_c           : condensation coefficient
@@ -64,6 +63,7 @@ tref          : reference temperature
 y1ref         : mass fraction of vapor phase
 y2ref         : mass fraction of gas phase
 l_chord       : reference length
-l_character   : characteristic length for strouhal number
+l_character   : characteristic length for strouhal number(unsteady)
 scale         : grid scale
 l_domain      : for omega initial value
+==========================================================================================

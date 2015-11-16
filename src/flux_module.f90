@@ -1,7 +1,6 @@
 module flux_module
   use config_module
   use grid_module
-  use variable_module
   use eos_module
   implicit none
   private
@@ -9,7 +8,7 @@ module flux_module
 
   type, abstract :: t_flux
     private
-    integer :: npv,ndv,ntv,ngrd
+    integer :: npv,ndv,ngrd
     real(8) :: omega(3)
     real(8) :: uref,str,pref
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
@@ -17,6 +16,7 @@ module flux_module
     procedure(p_getsndp2), pointer :: getsndp2
     procedure(p_getenthalpy_l), pointer :: getenthalpy_l
     procedure(p_getenthalpy_r), pointer :: getenthalpy_r
+    procedure(p_getenthalpy_c), pointer :: getenthalpy_c
     contains
       procedure :: construct       
       procedure :: destruct
@@ -34,7 +34,7 @@ module flux_module
       import t_eos
       implicit none
       class(t_flux), intent(in) :: flux
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       real(8), intent(out) :: fx(flux%npv)
     end subroutine p_calflux
   end interface
@@ -80,17 +80,25 @@ module flux_module
       class(t_flux), intent(in) :: flux
       real(8) :: p_getenthalpy_r
     end function p_getenthalpy_r
+    function p_getenthalpy_c(flux,h,uvw)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uvw(3)
+      real(8) :: p_getenthalpy_c
+    end function p_getenthalpy_c
   end interface
         
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    subroutine construct(flux,config,grid,variable)
+    subroutine construct(flux,config,grid)
       implicit none
       class(t_flux), intent(out) :: flux
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
-      
+
+      flux%npv = config%getnpv()
+      flux%ndv = config%getndv()
       flux%uref = config%geturef()
       flux%str  = config%getstr()
       flux%pref = config%getpref()
@@ -109,16 +117,15 @@ module flux_module
       case(0)
         flux%getenthalpy_l => enthalpy_l
         flux%getenthalpy_r => enthalpy_r
+        flux%getenthalpy_c => enthalpy_c
       case(-1,1,-2,2,-3,3)
         flux%getenthalpy_l => rothalpy_l
         flux%getenthalpy_r => rothalpy_r
+        flux%getenthalpy_c => rothalpy_c
       case default
       end select
 
       flux%ngrd = grid%getngrd()
-      flux%npv = variable%getnpv()
-      flux%ndv = variable%getndv()
-      flux%ntv = variable%getntv()
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
@@ -190,12 +197,12 @@ module flux_module
     subroutine roe(flux,eos,fx)
       implicit none
       class(t_roe), intent(in) :: flux
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull,uv2
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d,ravg_ht
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
       real(8) :: df(flux%npv)
@@ -215,18 +222,18 @@ module flux_module
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
 
       ! roe average - 1/2 values
-      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=1,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
-      ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
+      call eos%deteos_simple(ravg(1)+flux%pref,ravg(5),ravg(6),ravg(7),rdv)
+
+      ravg_ht = flux%getenthalpy_c(rdv(2),ravg(2:4))
 
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
-      uv2 = 0.5d0*(uurr**2+uull**2)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
@@ -268,7 +275,7 @@ module flux_module
     subroutine roem(flux,eos,fx)
       implicit none
       class(t_roem), intent(in) :: flux
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
@@ -278,7 +285,7 @@ module flux_module
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
       real(8) :: aaa,add,b1,b2,b1b2,rrr,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
-      real(8) :: rdv(flux%ndv),rtv(flux%ntv)
+      real(8) :: rdv(flux%ndv)
       real(8), parameter :: eps=1.d-16
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
@@ -296,19 +303,20 @@ module flux_module
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
     
       ! roe average - 1/2 values
-      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=1,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
-      ravg_ht = (dsqrt(flux%dvl(1))*flux%getenthalpy_l()+dsqrt(flux%dvr(1))*flux%getenthalpy_r())*ravg_d
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
+      call eos%deteos_simple(ravg(1)+flux%pref,ravg(5),ravg(6),ravg(7),rdv)
+
+      ravg_ht = flux%getenthalpy_c(rdv(2),ravg(2:4))
+
 
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
       
 
-      uv2 = 0.5d0*(uurr**2+uull**2)
+      uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       sndp2     = flux%getsndp2(rdv(6),uv2,0)
       sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
       
@@ -412,18 +420,18 @@ module flux_module
     subroutine ausmpwp(flux,eos,fx)
       implicit none
       class(t_ausmpwp), intent(in) :: flux
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: amid,zml,zmr,am2mid,rhom
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
-      real(8), parameter :: beta = 0.125d0
+      real(8), parameter :: beta = 0.125d0,ku=0.25d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -438,24 +446,22 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-    
-      ! roe average - 1/2 values
-      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=1,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
+      call eos%deteos_simple(ravg(1)+flux%pref,ravg(5),ravg(6),ravg(7),rdv)
       
       amid = dsqrt(rdv(6))
       
       zmr = uurr/amid
       zml = uull/amid
 
-      am2mid = 0.5d0*(zml**2+zmr**2)
-      am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      am2mid = ravg(2)**2+ravg(3)**2+ravg(4)**2
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid,0)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid,1)/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
@@ -480,7 +486,7 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr
-      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - (1.d0-fmid1)*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       rhom = dmin1(flux%dvl(1),flux%dvr(1))
       do k=1,18
@@ -525,12 +531,12 @@ module flux_module
     subroutine ausmpup(flux,eos,fx)
       implicit none
       class(t_ausmpup), intent(in) :: flux
-      type(t_eos), intent(in) :: eos
+      class(t_eos), intent(in) :: eos
       real(8), intent(out) :: fx(flux%npv)
       integer :: k
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
-      real(8) :: ravg(flux%npv),rdv(flux%ndv),rtv(flux%ntv),ravg_d
+      real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
@@ -551,24 +557,22 @@ module flux_module
       
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-    
-      ! roe average - 1/2 values
-      ravg(1) = 0.5d0*(flux%pvr(1)+flux%pvl(1))+flux%pref
+
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
-      do k=2,flux%npv
+      do k=1,flux%npv
         ravg(k) = (dsqrt(flux%dvl(1))*flux%pvl(k)+dsqrt(flux%dvr(1))*flux%pvr(k))*ravg_d
       end do
 
-      call eos%deteos(ravg(1),ravg(5),ravg(6),ravg(7),rdv,rtv(1:2))
+      call eos%deteos_simple(ravg(1)+flux%pref,ravg(5),ravg(6),ravg(7),rdv)
       
       amid = dsqrt(rdv(6))
       
       zmr = uurr/amid
       zml = uull/amid
 
-      am2mid = 0.5d0*(zml**2+zmr**2)
-      am2rmid1 = flux%getsndp2(rdv(6),am2mid*rdv(6),0)/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid*rdv(6),1)/rdv(6)
+      am2mid = ravg(2)**2+ravg(3)**2+ravg(4)**2
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid,0)/rdv(6)
+      am2rmid  = flux%getsndp2(rdv(6),am2mid,1)/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
@@ -592,7 +596,7 @@ module flux_module
         ppl = 0.25d0*(zml+1.d0)**2*(2.d0-zml) + alpha*zml*(zml**2-1.d0)**2
       end if
       
-      zmid = zmpl + zmmr - kp*dmax1(1.d0-am2mid,0.d0)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/rdv(6)/fmid
+      zmid = zmpl + zmmr - kp*dmax1(1.d0-am2mid/rdv(6),0.d0)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/rdv(6)/fmid
       pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       if(zmid.gt.0.d0) then
@@ -686,5 +690,34 @@ module flux_module
                                     + flux%omega(2)*flux%omega(3)*flux%grdr(3)*flux%grdr(4) &
                                     + flux%omega(3)*flux%omega(1)*flux%grdr(4)*flux%grdr(2)))
     end function rothalpy_r
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function enthalpy_c(flux,h,uvw)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uvw(3)
+      real(8) :: enthalpy_c
+
+      enthalpy_c = h + 0.5d0*(uvw(1)**2+uvw(2)**2+uvw(3)**2)
+
+    end function enthalpy_c
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function rothalpy_c(flux,h,uvw)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: h,uvw(3)
+      real(8) :: rothalpy_c
+      real(8) :: grdc(3)
+
+      grdc(1) = 0.5d0*(flux%grdr(2)+flux%grdl(2))
+      grdc(2) = 0.5d0*(flux%grdr(3)+flux%grdl(3))
+      grdc(3) = 0.5d0*(flux%grdr(4)+flux%grdl(4))
+      rothalpy_c = h + 0.5d0*(uvw(1)**2+uvw(2)**2+uvw(3)**2)
+      rothalpy_c = rothalpy_c -0.5d0*(flux%omega(1)**2*(grdc(2)**2+grdc(3)**2) &
+                                     +flux%omega(2)**2*(grdc(1)**2+grdc(3)**2) &
+                                     +flux%omega(3)**2*(grdc(1)**2+grdc(2)**2) &
+                               -2.d0*(flux%omega(1)*flux%omega(2)*grdc(1)*grdc(2) &
+                                    + flux%omega(2)*flux%omega(3)*grdc(2)*grdc(3) &
+                                    + flux%omega(3)*flux%omega(1)*grdc(3)*grdc(1)))
+    end function rothalpy_c
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module flux_module
