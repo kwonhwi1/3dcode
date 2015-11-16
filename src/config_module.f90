@@ -194,7 +194,6 @@ module config_module
       else
         config%kref = 0.d0
         config%oref = 0.d0
-        config%tvref(3) =  0.d0
       end if
 
     end subroutine setref

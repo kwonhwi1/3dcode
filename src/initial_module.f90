@@ -75,9 +75,11 @@ module initial_module
       ini%rstnum = config%getrstnum()
       ini%size = config%getsize()
       ini%rank = config%getrank()
-      ini%kref = config%getkref()
-      ini%oref = config%getoref()
-      ini%emutref = config%getemutref()
+      if(config%getiturb().ge.-1) then
+        ini%kref = config%getkref()
+        ini%oref = config%getoref()
+        ini%emutref = config%getemutref()
+      end if
       ini%omega = config%getomega()
       ini%imax = grid%getimax()
       ini%jmax = grid%getjmax()
