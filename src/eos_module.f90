@@ -1574,8 +1574,11 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: pww
+      real(8) :: theta
 
-      pww = 0.03326d0*t**4 + 0.1123d0*t**3 - 680.d0*t**2 + 53550.d0*t - 1215000.d0
+      theta = 1.d0-t/126.192d0
+      pww = dexp( (126.192d0/t) * (-6.12445284d0*theta+1.2632722d0*theta**1.5d0               &
+                   -0.765910082d0*theta**2.5d0-1.77570564d0*theta**5.d0) ) * 3395800.d0
 
     end function n2_pww
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1584,7 +1587,13 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: pww
-      pww = 0.d0
+      real(8) :: theta
+
+      theta = 1.d0-t/154.581d0
+      pww = dexp ( (154.581d0/t) * (-6.043938d0*theta+1.175627d0*theta**1.5d0                 &
+                   -0.994086d0*theta**3.d0-3.456781d0*theta**7.d0+3.361499d0*theta**9.d0) )   &
+            * 5043000.d0
+
     end function o2_pww
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2_pww(eos,t) result(pww)
@@ -1592,7 +1601,12 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: pww
-      pww = 0.d0
+      real(8) :: theta
+
+      theta = 1.d0-t/33.145d0
+      pww = dexp( (33.145d0/t) * (-4.89789d0*theta+0.988558d0*theta**1.5d0                    &
+                   +0.349689d0*theta**2.d0 + 0.499356d0*theta**2.85d0) ) * 1296400.d0
+
     end function h2_pww
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_sigma(eos,t) result(sigma)

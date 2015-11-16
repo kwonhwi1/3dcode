@@ -2813,7 +2813,6 @@ module bc_module
       wa = wa/area
       pa = pa/area
       ta = ta/area
-      mdot = mdot
       uvwa2 = ua**2+va**2+wa**2
 
       ! initial guess
