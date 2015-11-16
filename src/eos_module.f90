@@ -293,8 +293,8 @@ module eos_module
         eos%eos_l_prop  => database_prop
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
-        eos%get_pww => h2o_pww
-        eos%get_sigma => h2o_sigma
+        eos%get_pww => n2_pww
+        eos%get_sigma => n2_sigma
       case(5)! database oxygen
         call eos%set_database(3,1)
         call eos%set_database(3,2)
@@ -302,8 +302,8 @@ module eos_module
         eos%eos_l_prop  => database_prop
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
-        eos%get_pww => h2o_pww
-        eos%get_sigma => h2o_sigma
+        eos%get_pww => o2_pww
+        eos%get_sigma => o2_sigma
       case(6)! database hydrogen
         call eos%set_database(4,1)
         call eos%set_database(4,2)
@@ -311,8 +311,8 @@ module eos_module
         eos%eos_l_prop  => database_prop
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
-        eos%get_pww => h2o_pww
-        eos%get_sigma => h2o_sigma
+        eos%get_pww => h2_pww
+        eos%get_sigma => h2_sigma
       case default
       end select
 
