@@ -633,27 +633,27 @@ module eos_module
           case(1) ! liquid
             select case(fluid)
             case(1) ! water
-              open(unit = 10, file = './../database/database_water_liq.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_water_liq.dat', form = 'binary')
             case(2) ! nitrogen
-              open(unit = 10, file = './../database/database_nitrogen_liq.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_nitrogen_liq.dat', form = 'binary')
             case(3) ! oxygen
-              open(unit = 10, file = './../database/database_oxygen_liq.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_oxygen_liq.dat', form = 'binary')
             case(4) ! hydrogen
-              open(unit = 10, file = './../database/database_hydrogen_liq.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_hydrogen_liq.dat', form = 'binary')
             end select
 
           case(2,3) ! vapor, gas
             select case(fluid)
             case(1) ! water
-              open(unit = 10, file = './../database/database_water_gas.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_water_gas.dat', form = 'binary')
             case(2) ! nitrogen
-              open(unit = 10, file = './../database/database_nitrogen_gas.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_nitrogen_gas.dat', form = 'binary')
             case(3) ! oxygen
-              open(unit = 10, file = './../database/database_oxygen_gas.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_oxygen_gas.dat', form = 'binary')
             case(4) ! hydrogen
-              open(unit = 10, file = './../database/database_hydrogen_gas.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_hydrogen_gas.dat', form = 'binary')
             case(5) ! helium
-              open(unit = 10, file = './../database/database_helium_gas.dat')!, form = 'binary')
+              open(unit = 10, file = './../database/database_helium_gas.dat', form = 'binary')
             end select
           end select
 
