@@ -11,6 +11,7 @@
 *.inp
 *.pw
 *.h
+*.fld
 post
 main
 !input_templet.inp

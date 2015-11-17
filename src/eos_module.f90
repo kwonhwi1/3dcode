@@ -36,7 +36,7 @@ module eos_module
   type, abstract :: t_eos
     private
     logical :: prop
-    integer :: ndv,ntv,rank,size
+    integer :: ndv,ntv!,rank,size
     procedure(p_pww), public, pointer :: get_pww
     procedure(p_sigma), public, pointer :: get_sigma
     procedure(p_eos_l), pointer :: eos_l
@@ -188,8 +188,8 @@ module eos_module
 
       eos%ndv = config%getndv()
       eos%ntv = config%getntv()
-      eos%size  = config%getsize()
-      eos%rank  = config%getrank()
+      !eos%size  = config%getsize()
+      !eos%rank  = config%getrank()
 
       select case(config%getfluid())
       case(1) ! stiffened for water
@@ -259,8 +259,8 @@ module eos_module
 
       eos%ndv = config%getndv()
       eos%ntv = config%getntv()
-      eos%size  = config%getsize()
-      eos%rank  = config%getrank()
+      !eos%size  = config%getsize()
+      !eos%rank  = config%getrank()
 
       select case(config%getfluid())
       case(1) ! stiffened for water
@@ -629,74 +629,176 @@ module eos_module
       implicit none
       class(t_eos), intent(inout) :: eos
       integer, intent(in) :: fluid,phase
-      integer :: n,m,l,k,ierr
+      !integer :: n,l,k
+      integer :: m,io,ier
+      integer :: intsize,realsize
+      integer(kind=mpi_offset_kind) :: disp
+      character(3) :: c_phase,c_fluid
 
-      do k=0,eos%size-1
-        if(k.eq.eos%rank) then
+      select case(fluid)
+      case(1) ! water
+        c_fluid = 'h2o'
+      case(2) ! nitrogen
+        c_fluid = 'n2'
+      case(3) ! oxygen
+        c_fluid = 'o2'
+      case(4) ! hydrogen
+        c_fluid = 'h2'
+      case(5) ! helium
+        c_fluid = 'he'
+      case default
+      end select
 
-          select case(phase)
-          case(1) ! liquid
-            select case(fluid)
-            case(1) ! water
-              open(unit=10, file='./../database/database_h2o_liq.dat', form='binary')
-            case(2) ! nitrogen
-              open(unit=10, file='./../database/database_n2_liq.dat', form='binary')
-            case(3) ! oxygen
-              open(unit=10, file='./../database/database_o2_liq.dat', form='binary')
-            case(4) ! hydrogen
-              open(unit=10, file='./../database/database_h2_liq.dat', form='binary')
-            end select
+      select case(phase)
+      case(1) ! liquid
+        c_phase = 'liq'
+      case(2,3) ! vapor, gas
+        c_phase = 'gas'
+      case default
+      end select
 
-          case(2,3) ! vapor, gas
-            select case(fluid)
-            case(1) ! water
-              open(unit=10, file='./../database/database_h2o_gas.dat', form='binary')
-            case(2) ! nitrogen
-              open(unit=10, file='./../database/database_n2_gas.dat', form='binary')
-            case(3) ! oxygen
-              open(unit=10, file='./../database/database_o2_gas.dat', form='binary')
-            case(4) ! hydrogen
-              open(unit=10, file='./../database/database_h2_gas.dat', form='binary')
-            case(5) ! helium
-              open(unit=10, file='./../database/database_he_gas.dat', form='binary')
-            end select
-          end select
+     ! do k=0,eos%size-1
+     !   if(k.eq.eos%rank) then
+     !     open(unit=10,file='./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',form='binary')
 
-          read(10) eos%db_const(phase)%t_ndata
-          allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
+     !     read(10) eos%db_const(phase)%t_ndata
+     !     allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
 
-          read(10) eos%db_const(phase)%t_nsub
-          allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
-          allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
-          allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
+     !     read(10) eos%db_const(phase)%t_nsub
+     !     allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
+     !     allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
+     !     allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
 
-          do n=1,eos%db_const(phase)%t_nsub+1
-            read(10) eos%db_const(phase)%t_boundary(n)
-            read(10) eos%db_const(phase)%t_iboundary(n)
-          end do
+     !     do n=1,eos%db_const(phase)%t_nsub+1
+     !       read(10) eos%db_const(phase)%t_boundary(n)
+     !       read(10) eos%db_const(phase)%t_iboundary(n)
+     !     end do
 
-          do n=1,eos%db_const(phase)%t_nsub
-            read(10) eos%db_const(phase)%delta_t(n)
-          end do
+     !     do n=1,eos%db_const(phase)%t_nsub
+     !       read(10) eos%db_const(phase)%delta_t(n)
+     !     end do
 
-          read(10) eos%db_const(phase)%delta_p
+     !     read(10) eos%db_const(phase)%delta_p
 
-          do m=1,eos%db_const(phase)%t_ndata
-            read(10) eos%db_const(phase)%db(m)%t
-            read(10) eos%db_const(phase)%db(m)%p_ndata
-            allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
+     !     do m=1,eos%db_const(phase)%t_ndata
+     !       read(10) eos%db_const(phase)%db(m)%t
+     !       read(10) eos%db_const(phase)%db(m)%p_ndata
+     !       allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
 
-            do n=1,eos%db_const(phase)%db(m)%p_ndata
-              do l=1,9
-                read(10) eos%db_const(phase)%db(m)%dbv(n,l)
-              end do
-            end do
-          end do
+     !       do n=1,eos%db_const(phase)%db(m)%p_ndata
+     !         do l=1,9
+     !           read(10) eos%db_const(phase)%db(m)%dbv(n,l)
+     !         end do
+     !       end do
+     !     end do
 
-          close(10)
+     !     close(10)
 
-        end if
+     !   end if
+     ! end do
+
+     ! call mpi_type_size(mpi_integer,intsize,ier)
+     ! call mpi_type_size(mpi_real8,realsize,ier)
+
+     ! call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_m.fld',mpi_mode_wronly+mpi_mode_create,mpi_info_null,io,ier)
+
+     ! disp = 0
+     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%t_ndata,1,mpi_integer,mpi_status_ignore,ier)
+     ! disp = disp + intsize
+
+     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%t_nsub,1,mpi_integer,mpi_status_ignore,ier)
+     ! disp = disp + intsize
+
+     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%t_iboundary,eos%db_const(phase)%t_nsub+1,mpi_integer,mpi_status_ignore,ier)
+     ! disp = disp + intsize*(eos%db_const(phase)%t_nsub+1)
+
+     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%t_boundary,eos%db_const(phase)%t_nsub+1,mpi_real8,mpi_status_ignore,ier)
+     ! disp = disp + realsize*(eos%db_const(phase)%t_nsub+1)
+
+     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%delta_t,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
+     ! disp = disp + realsize*eos%db_const(phase)%t_nsub
+
+     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+     ! call mpi_file_write_all(io,eos%db_const(phase)%delta_p,1,mpi_real8,mpi_status_ignore,ier)
+     ! disp = disp + realsize
+
+     ! do m=1,eos%db_const(phase)%t_ndata
+
+     !   call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%t,1,mpi_real8,mpi_status_ignore,ier)
+     !   disp = disp + realsize
+
+     !   call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_ndata,1,mpi_integer,mpi_status_ignore,ier)
+     !   disp = disp + intsize
+
+     !   call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%dbv,eos%db_const(phase)%db(m)%p_ndata*9,mpi_real8,mpi_status_ignore,ier)
+     !   disp = disp + realsize*eos%db_const(phase)%db(m)%p_ndata*9
+
+     ! end do
+
+     ! call mpi_file_close(io,ier)
+
+      call mpi_type_size(mpi_integer,intsize,ier)
+      call mpi_type_size(mpi_real8,realsize,ier)
+
+      call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_m.fld',mpi_mode_rdonly,mpi_info_null,io,ier)
+
+      disp = 0
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%t_ndata,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + intsize
+      allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%t_nsub,1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + intsize
+      allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
+      allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
+      allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
+
+
+      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%t_iboundary,eos%db_const(phase)%t_nsub+1,mpi_integer,mpi_status_ignore,ier)
+      disp = disp + intsize*(eos%db_const(phase)%t_nsub+1)
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%t_boundary,eos%db_const(phase)%t_nsub+1,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize*(eos%db_const(phase)%t_nsub+1)
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%delta_t,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize*eos%db_const(phase)%t_nsub
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%delta_p,1,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize
+
+      do m=1,eos%db_const(phase)%t_ndata
+
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%t,1,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize
+
+        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_ndata,1,mpi_integer,mpi_status_ignore,ier)
+        disp = disp + intsize
+        
+        allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
+
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%dbv,eos%db_const(phase)%db(m)%p_ndata*9,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*eos%db_const(phase)%db(m)%p_ndata*9
+
       end do
+
+      call mpi_file_close(io,ier)
 
     end subroutine set_database
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

@@ -3244,9 +3244,9 @@ module bc_module
       class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
-      real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
+      real(8) :: pv(bcinfo%npv)
       real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: nx(3),x(3),dl,area,pp,v
+      real(8) :: nx(3),dl,area,pp,v
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
 
