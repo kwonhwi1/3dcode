@@ -26,8 +26,10 @@ module eos_module
   end type t_db_data
 
   type t_db_const
-    integer :: tndata_db
-    real(8) :: delta_t_db,delta_p_db
+    integer :: t_ndata,t_nsub
+    real(8) :: delta_p
+    integer, allocatable :: t_iboundary(:)
+    real(8), allocatable :: t_boundary(:),delta_t(:)
     type(t_db_data), allocatable :: db(:)
   end type t_db_const
 
@@ -349,10 +351,13 @@ module eos_module
       if(associated(eos%eos_g_prop)) nullify(eos%eos_g_prop)
 
       do n=1,3
-        do m=1,eos%db_const(n)%tndata_db
+        do m=1,eos%db_const(n)%t_ndata
           if(allocated(eos%db_const(n)%db(m)%dbv)) deallocate(eos%db_const(n)%db(m)%dbv)
         end do
-        if(allocated(eos%db_const(n)%db)) deallocate(eos%db_const(n)%db)
+        if(allocated(eos%db_const(n)%db))          deallocate(eos%db_const(n)%db)
+        if(allocated(eos%db_const(n)%t_boundary))  deallocate(eos%db_const(n)%t_boundary)
+        if(allocated(eos%db_const(n)%t_iboundary)) deallocate(eos%db_const(n)%t_iboundary)
+        if(allocated(eos%db_const(n)%delta_t))     deallocate(eos%db_const(n)%delta_t)
       end do
 
       if(allocated(eos%iapws_liquid_coeff%i))   deallocate(eos%iapws_liquid_coeff%i)
@@ -633,40 +638,52 @@ module eos_module
           case(1) ! liquid
             select case(fluid)
             case(1) ! water
-              open(unit = 10, file = './../database/database_water_liq.dat', form = 'binary')
+              open(unit=10, file='./../database/database_h2o_liq.dat', form='binary')
             case(2) ! nitrogen
-              open(unit = 10, file = './../database/database_nitrogen_liq.dat', form = 'binary')
+              open(unit=10, file='./../database/database_n2_liq.dat', form='binary')
             case(3) ! oxygen
-              open(unit = 10, file = './../database/database_oxygen_liq.dat', form = 'binary')
+              open(unit=10, file='./../database/database_o2_liq.dat', form='binary')
             case(4) ! hydrogen
-              open(unit = 10, file = './../database/database_hydrogen_liq.dat', form = 'binary')
+              open(unit=10, file='./../database/database_h2_liq.dat', form='binary')
             end select
 
           case(2,3) ! vapor, gas
             select case(fluid)
             case(1) ! water
-              open(unit = 10, file = './../database/database_water_gas.dat', form = 'binary')
+              open(unit=10, file='./../database/database_h2o_gas.dat', form='binary')
             case(2) ! nitrogen
-              open(unit = 10, file = './../database/database_nitrogen_gas.dat', form = 'binary')
+              open(unit=10, file='./../database/database_n2_gas.dat', form='binary')
             case(3) ! oxygen
-              open(unit = 10, file = './../database/database_oxygen_gas.dat', form = 'binary')
+              open(unit=10, file='./../database/database_o2_gas.dat', form='binary')
             case(4) ! hydrogen
-              open(unit = 10, file = './../database/database_hydrogen_gas.dat', form = 'binary')
+              open(unit=10, file='./../database/database_h2_gas.dat', form='binary')
             case(5) ! helium
-              open(unit = 10, file = './../database/database_helium_gas.dat', form = 'binary')
+              open(unit=10, file='./../database/database_he_gas.dat', form='binary')
             end select
           end select
 
-          read(10) eos%db_const(phase)%tndata_db
-          read(10) eos%db_const(phase)%delta_t_db
-          read(10) eos%db_const(phase)%delta_p_db
+          read(10) eos%db_const(phase)%t_ndata
+          allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
 
-          allocate(eos%db_const(phase)%db(eos%db_const(phase)%tndata_db))
+          read(10) eos%db_const(phase)%t_nsub
+          allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
+          allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
+          allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
 
-          do m=1,eos%db_const(phase)%tndata_db
+          do n=1,eos%db_const(phase)%t_nsub+1
+            read(10) eos%db_const(phase)%t_boundary(n)
+            read(10) eos%db_const(phase)%t_iboundary(n)
+          end do
+
+          do n=1,eos%db_const(phase)%t_nsub
+            read(10) eos%db_const(phase)%delta_t(n)
+          end do
+
+          read(10) eos%db_const(phase)%delta_p
+
+          do m=1,eos%db_const(phase)%t_ndata
             read(10) eos%db_const(phase)%db(m)%t
             read(10) eos%db_const(phase)%db(m)%p_ndata
-
             allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
 
             do n=1,eos%db_const(phase)%db(m)%p_ndata
@@ -1262,45 +1279,55 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       integer :: t_index,p_index
-      integer :: n1,n2,m1,m2
-      real(8) :: x(2),y(2)
-      real(8) :: a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,n,subn
+      real(8) :: t1,t2
+      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
 
       ! defining the temperature index
-      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
-      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
-      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
-        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
-        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      do n=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(n)
+        t2 = eos%db_const(phase)%t_boundary(n+1)
+        if ((t-t1)*(t-t2).le.0.d0) then
+          subn = n
+          exit
+        end if
+      end do
+
+      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
+        n1 = 1
+        n2 = 2
+      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+        n1 = eos%db_const(phase)%t_ndata-1
+        n2 = eos%db_const(phase)%t_ndata
       else
-        n1 = max0(t_index-1,1)
-        n2 = max0(t_index,2)
+        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
       end if
       
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
-      
+
+
       ! defining the pressure index
-      
-      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
-      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
-      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
-        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
+        m1 = 1
+        m2 = 2
       else
-        m1 = max0(p_index-1,1)
-        m2 = max0(p_index,2)
+        p_index = int(p/eos%db_const(phase)%delta_p)+1
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
       end if
       
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
       y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
-      
+
+
       a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
       a1 = dabs((x(2)-t)*(y(2)-p))
       a2 = dabs((t-x(1))*(y(2)-p))
       a3 = dabs((x(2)-t)*(p-y(1)))
       a4 = dabs((t-x(1))*(p-y(1)))
-
 
       eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
       eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
@@ -1319,45 +1346,55 @@ module eos_module
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
       integer :: t_index,p_index
-      integer :: n1,n2,m1,m2
-      real(8) :: x(2),y(2)
-      real(8) :: a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,n,subn
+      real(8) :: t1,t2
+      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
 
       ! defining the temperature index
-      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
-      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
-      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
-        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
-        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      do n=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(n)
+        t2 = eos%db_const(phase)%t_boundary(n+1)
+        if ((t-t1)*(t-t2).le.0.d0) then
+          subn = n
+          exit
+        end if
+      end do
+
+      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
+        n1 = 1
+        n2 = 2
+      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+        n1 = eos%db_const(phase)%t_ndata-1
+        n2 = eos%db_const(phase)%t_ndata
       else
-        n1 = max0(t_index-1,1)
-        n2 = max0(t_index,2)
+        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
       end if
       
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
-      
+
+
       ! defining the pressure index
-      
-      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
-      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
-      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
-        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
+        m1 = 1
+        m2 = 2
       else
-        m1 = max0(p_index-1,1)
-        m2 = max0(p_index,2)
+        p_index = int(p/eos%db_const(phase)%delta_p)+1
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
       end if
       
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
       y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
       
+
       a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
       a1 = dabs((x(2)-t)*(y(2)-p))
       a2 = dabs((t-x(1))*(y(2)-p))
       a3 = dabs((x(2)-t)*(p-y(1)))
       a4 = dabs((t-x(1))*(p-y(1)))
-
 
       eos2%rho   = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
       eos2%h     = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
@@ -1457,9 +1494,9 @@ module eos_module
       real(8) :: ddaaddt,ddsaaddt,ddaiddt
       real(8) :: cv,cp,bp,bt,ap,ar
       integer :: t_index,p_index
-      integer :: n1,n2,m1,m2
-      real(8) :: x(2),y(2)
-      real(8) :: a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,n,subn
+      real(8) :: t1,t2
+      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
 
       call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
 
@@ -1516,32 +1553,44 @@ module eos_module
       eos2%dhdt = cp
 
       ! defining the temperature index
-      t_index = min0(max0(int((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db)+1,1),eos%db_const(phase)%tndata_db)
-      !t_index = min0(max0(nint((t-eos%db_const(phase)%db(1)%t)/eos%db_const(phase)%delta_t_db+1),1),eos%db_const(phase)%tndata_db)
-      if(t.ge.eos%db_const(phase)%db(t_index)%t) then
-        n1 = min0(max0(t_index,1),eos%db_const(phase)%tndata_db-1)
-        n2 = min0(max0(t_index+1,2),eos%db_const(phase)%tndata_db)
+      do n=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(n)
+        t2 = eos%db_const(phase)%t_boundary(n+1)
+        if ((t-t1)*(t-t2).le.0.d0) then
+          subn = n
+          exit
+        end if
+      end do
+
+      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
+        n1 = 1
+        n2 = 2
+      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+        n1 = eos%db_const(phase)%t_ndata-1
+        n2 = eos%db_const(phase)%t_ndata
       else
-        n1 = max0(t_index-1,1)
-        n2 = max0(t_index,2)
+        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
       end if
 
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
+
       ! defining the pressure index
-      p_index = min0(max0(int(p/eos%db_const(phase)%delta_p_db)+1,1),eos%db_const(phase)%db(n1)%p_ndata)
-      !p_index = nint(p/eos%db_const(phase)%delta_p_db)
-      if(p.ge.eos%db_const(phase)%db(n1)%dbv(p_index,1)) then
-        m1 = min0(max0(p_index,1),eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(max0(p_index+1,2),eos%db_const(phase)%db(n1)%p_ndata)
+      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
+        m1 = 1
+        m2 = 2
       else
-        m1 = max0(p_index-1,1)
-        m2 = max0(p_index,2)
+        p_index = int(p/eos%db_const(phase)%delta_p)+1
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
       end if
 
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
       y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+
 
       a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
       a1 = dabs((x(2)-t)*(y(2)-p))
