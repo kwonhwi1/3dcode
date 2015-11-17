@@ -748,7 +748,7 @@ module eos_module
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
 
-      call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_m.fld',mpi_mode_rdonly,mpi_info_null,io,ier)
+      call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',mpi_mode_rdonly,mpi_info_null,io,ier)
 
       disp = 0
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
