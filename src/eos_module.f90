@@ -659,7 +659,7 @@ module eos_module
 
      ! do k=0,eos%size-1
      !   if(k.eq.eos%rank) then
-     !     open(unit=10,file='./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',form='binary')
+     !     open(unit=10,file='./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_old.fld',form='binary')
 
      !     read(10) eos%db_const(phase)%t_ndata
      !     allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
@@ -700,7 +700,7 @@ module eos_module
      ! call mpi_type_size(mpi_integer,intsize,ier)
      ! call mpi_type_size(mpi_real8,realsize,ier)
 
-     ! call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_m.fld',mpi_mode_wronly+mpi_mode_create,mpi_info_null,io,ier)
+     ! call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',mpi_mode_wronly+mpi_mode_create,mpi_info_null,io,ier)
 
      ! disp = 0
      ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
