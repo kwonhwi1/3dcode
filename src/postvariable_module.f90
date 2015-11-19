@@ -430,7 +430,7 @@ module postvariable_module
         fz_v = 0.d0
         do l=1,grid%getnzone()
           do m=1,grid%getnbc(l)
-            if(trim(grid%getfamname(l,m)).eq.'ClCd') then
+            if(trim(grid%getfamname(l,m)).eq.'Surface') then
               do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
                 do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
                   do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)
