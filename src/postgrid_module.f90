@@ -8,7 +8,7 @@ module postgrid_module
 
   type t_bcinfo
     integer :: istart(3),iend(3)
-    character(32) :: bcname
+    character(32) :: bcname,famname
   end type t_bcinfo
   
   type t_connectinfo
@@ -48,6 +48,7 @@ module postgrid_module
       procedure :: getngrd
       procedure :: getgrd
       procedure :: getbcname
+      procedure :: getfamname
       procedure :: getbcistart
       procedure :: getbciend
       procedure :: getconnectdonor
@@ -189,6 +190,7 @@ module postgrid_module
               if(trim(grid%zone(n)%bcinfo(i)%bcname).eq.'UserDefined') then
                 grid%zone(n)%bcinfo(i)%bcname = famname(j)
               end if
+              grid%zone(n)%bcinfo(i)%famname = famname(j)
             end if
           end do
         end do
@@ -759,6 +761,15 @@ module postgrid_module
       
       getbcname = grid%zone(n)%bcinfo(i)%bcname
     end function getbcname
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getfamname(grid,n,i)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      integer, intent(in) :: n,i
+      character(32) :: getfamname
+      
+      getfamname = grid%zone(n)%bcinfo(i)%famname
+    end function getfamname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getbcistart(grid,n,i,j)
       implicit none

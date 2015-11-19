@@ -240,7 +240,7 @@ module postvariable_module
         zoneorder = 0
         do l=1,grid%getnzone()
           do m=1,grid%getnbc(l)
-            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
+            if((trim(grid%getfamname(l,m)).eq.'CounterRotating').or.(trim(grid%getfamname(l,m)).eq.'Surface')) then
               if(grid%getbcistart(l,m,1).eq.grid%getbciend(l,m,1)) then ! i-surface
                 write(*,*) 'zone=',l,'bc=',m,'zoneorder=',zoneorder+1,'i-surface'
                 num1 = (grid%getbciend(l,m,2)-grid%getbcistart(l,m,2)+2)
@@ -434,7 +434,7 @@ module postvariable_module
         fz_v = 0.d0
         do l=1,grid%getnzone()
           do m=1,grid%getnbc(l)
-            if(trim(grid%getbcname(l,m)).eq.'BCWall') then
+            if(trim(grid%getfamname(l,m)).eq.'ClCd') then
               do k=grid%getbcistart(l,m,3),grid%getbciend(l,m,3)
                 do j=grid%getbcistart(l,m,2),grid%getbciend(l,m,2)
                   do i=grid%getbcistart(l,m,1),grid%getbciend(l,m,1)

@@ -128,6 +128,7 @@ module bc_module
 
         bc%bcinfo(n)%omega = config%getomega()
         bc%bcinfo(n)%bcname = grid%getbcname(n)
+        bc%bcinfo(n)%famname = grid%getfamname(n)
 
         do m=1,dim
           bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
@@ -197,16 +198,29 @@ module bc_module
         end if
         
         if(trim(bc%bcinfo(n)%bcname).eq.'BCWall') then 
-          select case(config%getiturb())
-          case(-1)
-            bc%bcinfo(n)%bctype => bcwallviscouske
-          case(0)
-            bc%bcinfo(n)%bctype => bcwallviscouskw
-          case(-2)
-            bc%bcinfo(n)%bctype => bcwallviscous
-          case default
-            bc%bcinfo(n)%bctype => bcwallinviscid
-          end select
+          if(trim(bc%bcinfo(n)%famname).eq.'CounterRotating') then
+            select case(config%getiturb())
+            case(0)
+              bc%bcinfo(n)%bctype => bccounterrotatingwallviscouskw
+            case(-1)
+              bc%bcinfo(n)%bctype => bccounterrotatingwallviscouske
+            case(-2)
+              bc%bcinfo(n)%bctype => bccounterrotatingwallviscous
+            case default
+              bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
+            end select
+          else
+            select case(config%getiturb())
+            case(-1)
+              bc%bcinfo(n)%bctype => bcwallviscouske
+            case(0)
+              bc%bcinfo(n)%bctype => bcwallviscouskw
+            case(-2)
+              bc%bcinfo(n)%bctype => bcwallviscous
+            case default
+              bc%bcinfo(n)%bctype => bcwallinviscid
+            end select
+          end if
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflow') then
           bc%bcinfo(n)%bctype => bcinflow
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCInflowSubsonic') then
@@ -249,17 +263,6 @@ module bc_module
           open(newunit=bc%bcinfo(n)%ioin,file='./track_in.plt',status='unknown',action='write')
           write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
           write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
-       else if(trim(bc%bcinfo(n)%bcname).eq.'BCCounterRotatingWall') then
-          select case(config%getiturb())
-          case(0)
-            bc%bcinfo(n)%bctype => bccounterrotatingwallviscouskw
-          case(-1)
-            bc%bcinfo(n)%bctype => bccounterrotatingwallviscouske
-          case(-2)
-            bc%bcinfo(n)%bctype => bccounterrotatingwallviscous
-          case default
-            bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
-          end select
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname

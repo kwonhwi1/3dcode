@@ -9,7 +9,7 @@ module grid_module
 
   type t_bcinfo
     integer :: istart(3),iend(3)
-    character(32) :: bcname
+    character(32) :: bcname,famname
   end type t_bcinfo
   
   type t_connectinfo
@@ -60,6 +60,7 @@ module grid_module
       procedure :: getngrd
       procedure :: getgrd
       procedure :: getbcname
+      procedure :: getfamname
       procedure :: getbcistart
       procedure :: getbciend
       procedure :: getconnectdonor
@@ -211,6 +212,7 @@ module grid_module
                 if(trim(grid%bcinfo(i)%bcname).eq.'UserDefined') then
                   grid%bcinfo(i)%bcname = famname(j)
                 end if
+                grid%bcinfo(i)%famname = famname(j)
               end if
             end do
           end do
@@ -1378,6 +1380,15 @@ module grid_module
       
       getbcname = grid%bcinfo(i)%bcname
     end function getbcname
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function getfamname(grid,i)
+      implicit none
+      class(t_grid), intent(in) :: grid
+      integer, intent(in) :: i
+      character(32) :: getfamname
+      
+      getfamname = grid%bcinfo(i)%famname
+    end function getfamname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getbcistart(grid,i,j)
       implicit none
