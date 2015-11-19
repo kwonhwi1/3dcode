@@ -647,7 +647,7 @@ module flux_module
       integer, intent(in) :: cut
       real(8) :: sndp2  
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2,dble(cut)*flux%str**2*uuu2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2,dble(cut)*flux%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
