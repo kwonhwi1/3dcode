@@ -114,11 +114,7 @@ module initial_module
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
 
-      if(ini%nsteady.eq.1) then
-        write(iter_tag,'(i4.4)') ini%rstnum
-      else
-        write(iter_tag,'(i7.7)') ini%rstnum
-      end if
+      write(iter_tag,'(i8.8)') ini%rstnum
 
       if(ini%rank.eq.0) then
         disp = 0
@@ -217,11 +213,7 @@ module initial_module
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
 
-      if(ini%nsteady.eq.1) then
-        write(iter_tag,'(i4.4)') ini%rstnum
-      else
-        write(iter_tag,'(i7.7)') ini%rstnum
-      end if
+      write(iter_tag,'(i8.8)') ini%rstnum
 
       if(ini%rank.eq.0) then
         disp = 0

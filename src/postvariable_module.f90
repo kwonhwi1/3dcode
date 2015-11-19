@@ -75,11 +75,7 @@ module postvariable_module
       allocate(variable%solution(variable%nsolution))
       
       do l=1,variable%nsolution
-        if(config%getnsteady().eq.1) then
-          write(iter_tag,'(i4.4)') istart+iter*config%getnexport()*(l-1)
-        else
-          write(iter_tag,'(i7.7)') istart+iter*config%getnexport()*(l-1)
-        end if
+        write(iter_tag,'(i8.8)') istart+iter*config%getnexport()*(l-1)
         allocate(variable%solution(l)%zone(grid%getnzone()))
         do m = 1,grid%getnzone()
           allocate(variable%solution(l)%zone(m)%pv(variable%npv,-1:grid%getimax(m)+3,-1:grid%getjmax(m)+3,-1:grid%getkmax(m)+3))

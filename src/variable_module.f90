@@ -91,9 +91,9 @@ module variable_module
       character(7) :: iter_tag
 
       if(variable%nsteady.eq.1) then
-        write(iter_tag,'(i4.4)') nt_phy
+        write(iter_tag,'(i8.8)') nt_phy
       else
-        write(iter_tag,'(i7.7)') nt
+        write(iter_tag,'(i8.8)') nt
       end if
 
       disp = variable%disp
