@@ -121,7 +121,7 @@ module config_module
       config%pi  = datan(1.d0)*4.d0
       config%aoa = config%aoa*config%pi/180.d0
       config%aos = config%aos*config%pi/180.d0
-      config%str = config%l_character/config%pi/config%dt_phy/config%uref
+      config%str = config%l_character/config%pi/config%dt_phy !not strouhal number
       
       select case(config%rotation)
       case(1)
