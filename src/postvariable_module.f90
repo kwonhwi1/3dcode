@@ -45,7 +45,7 @@ module postvariable_module
       type(t_grid), intent(in) :: grid
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: istart,iend,nsolution
-      character(7) :: iter_tag
+      character(8) :: iter_tag
       integer :: i,j,k,m,l,io,iter,num,ier
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
@@ -153,18 +153,18 @@ module postvariable_module
       integer :: n,m
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:), allocatable :: temp
-      character(7), dimension(:), allocatable :: solname
+      character(8), dimension(:), allocatable :: solname
 
       allocate(solname(variable%nsolution),time(variable%nsolution))
 
       if(config%getnsteady().eq.1) then
         do n=1,variable%nsolution
-          write(solname(n),'(i4.4)') variable%solution(n)%nps
+          write(solname(n),'(i8.8)') variable%solution(n)%nps
           time(n) = dble(variable%solution(n)%nps)
         end do
       else
         do n=1,variable%nsolution
-          write(solname(n),'(i7.7)') variable%solution(n)%nts
+          write(solname(n),'(i8.8)') variable%solution(n)%nts
           time(n) = dble(variable%solution(n)%nts)
         end do
       end if
