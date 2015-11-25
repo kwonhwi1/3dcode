@@ -88,7 +88,7 @@ module variable_module
       integer, intent(in) :: nt_phy,nt
       integer :: ier,io,num
       integer(kind=mpi_offset_kind) :: disp
-      character(7) :: iter_tag
+      character(8) :: iter_tag
 
       if(variable%nsteady.eq.1) then
         write(iter_tag,'(i8.8)') nt_phy

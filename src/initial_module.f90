@@ -109,7 +109,7 @@ module initial_module
       integer(kind=mpi_offset_kind) :: disp
       real(8) :: dv(ini%ndv),qq_temp(ini%npv)
       real(8), dimension(:,:,:,:), allocatable :: pv,tv
-      character(7) :: iter_tag
+      character(8) :: iter_tag
 
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
@@ -208,7 +208,7 @@ module initial_module
       real(8) :: dv(ini%ndv),qq_temp(ini%npv)
       real(8), dimension(:,:,:,:), allocatable :: pv,tv
       real(8), dimension(:,:,:,:,:), allocatable :: qq
-      character(7) :: iter_tag
+      character(8) :: iter_tag
 
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
