@@ -14,6 +14,7 @@ module flux_module
     real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
     real(8), pointer :: nx(:),grdl(:),grdr(:)
     procedure(p_getsndp2), pointer :: getsndp2
+    procedure(p_getsndp2_c), pointer :: getsndp2_c
     procedure(p_getenthalpy_l), pointer :: getenthalpy_l
     procedure(p_getenthalpy_r), pointer :: getenthalpy_r
     procedure(p_getenthalpy_c), pointer :: getenthalpy_c
@@ -60,14 +61,20 @@ module flux_module
   end type t_ausmpup
   
   interface
-    function p_getsndp2(flux,snd2,uuu2,cut) result(sndp2)
+    function p_getsndp2(flux,snd2,uuu2) result(sndp2)
       import t_flux
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      integer, intent(in) :: cut
       real(8) :: sndp2
     end function p_getsndp2
+    function p_getsndp2_c(flux,snd2,uuu2) result(sndp2)
+      import t_flux
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2
+    end function p_getsndp2_c
     function p_getenthalpy_l(flux)
       import t_flux
       implicit none
@@ -104,13 +111,27 @@ module flux_module
       flux%pref = config%getpref()
       flux%omega = config%getomega()
             
-      select case(config%getprecd())
+      select case(config%getprec())
       case(0)
-        flux%getsndp2 => no_prec
+        flux%getsndp2_c => no_prec
       case(1)
-        flux%getsndp2 => steady_prec
+        flux%getsndp2_c => steady_prec
       case(2)
-        flux%getsndp2 => unsteady_prec
+        flux%getsndp2_c => unsteady_prec
+      end select
+
+      select case(config%getprecd())
+      case(0) !decouple
+        flux%getsndp2 => nocut
+      case(1) !couple
+        select case(config%getprec())
+        case(0)
+          flux%getsndp2 => no_prec
+        case(1)
+          flux%getsndp2 => steady_prec
+        case(2)
+          flux%getsndp2 => unsteady_prec
+        end select
       end select
 
       select case(config%getrotation())
@@ -142,6 +163,7 @@ module flux_module
       if(associated(flux%dvr))           nullify(flux%dvr)
       if(associated(flux%sdst))          nullify(flux%sdst)
       if(associated(flux%getsndp2))      nullify(flux%getsndp2)
+      if(associated(flux%getsndp2_c)) nullify(flux%getsndp2_c)
       if(associated(flux%getenthalpy_l)) nullify(flux%getenthalpy_l)
       if(associated(flux%getenthalpy_r)) nullify(flux%getenthalpy_r)
     end subroutine destruct
@@ -234,8 +256,8 @@ module flux_module
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      sndp2     = flux%getsndp2(rdv(6),uv2,0)
-      sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
+      sndp2     = flux%getsndp2(rdv(6),uv2)
+      sndp2_cut = flux%getsndp2_c(rdv(6),uv2)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
@@ -321,8 +343,8 @@ module flux_module
       
 
       uv2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      sndp2     = flux%getsndp2(rdv(6),uv2,0)
-      sndp2_cut = flux%getsndp2(rdv(6),uv2,1)
+      sndp2     = flux%getsndp2(rdv(6),uv2)
+      sndp2_cut = flux%getsndp2_c(rdv(6),uv2)
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
@@ -457,8 +479,8 @@ module flux_module
       zml = uull/amid
 
       am2mid = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      am2rmid1 = flux%getsndp2(rdv(6),am2mid,0)/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid,1)/rdv(6)
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid)/rdv(6)
+      am2rmid  = flux%getsndp2_c(rdv(6),am2mid)/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
@@ -568,8 +590,8 @@ module flux_module
       zml = uull/amid
 
       am2mid = ravg(2)**2+ravg(3)**2+ravg(4)**2
-      am2rmid1 = flux%getsndp2(rdv(6),am2mid,0)/rdv(6)
-      am2rmid  = flux%getsndp2(rdv(6),am2mid,1)/rdv(6)
+      am2rmid1 = flux%getsndp2(rdv(6),am2mid)/rdv(6)
+      am2rmid  = flux%getsndp2_c(rdv(6),am2mid)/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
@@ -615,38 +637,45 @@ module flux_module
      
     end subroutine ausmpup
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function no_prec(flux,snd2,uuu2,cut) result(sndp2)
+    function no_prec(flux,snd2,uuu2) result(sndp2)
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      integer, intent(in) :: cut
       real(8) :: sndp2
       
       sndp2 = snd2
       
     end function no_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function steady_prec(flux,snd2,uuu2,cut) result(sndp2)
+    function steady_prec(flux,snd2,uuu2) result(sndp2)
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      integer, intent(in) :: cut
       real(8) :: sndp2  
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function unsteady_prec(flux,snd2,uuu2,cut) result(sndp2)
+    function unsteady_prec(flux,snd2,uuu2) result(sndp2)
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      integer, intent(in) :: cut
       real(8) :: sndp2  
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,dble(cut)*flux%uref**2,dble(cut)*flux%str**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2,flux%str**2))
       
     end function unsteady_prec
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function nocut(flux,snd2,uuu2) result(sndp2)
+      implicit none
+      class(t_flux), intent(in) :: flux
+      real(8), intent(in) :: snd2,uuu2
+      real(8) :: sndp2  
+      
+      sndp2 = dmin1(snd2,uuu2)
+      
+    end function nocut
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function enthalpy_l(flux)
       implicit none
