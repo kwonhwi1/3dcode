@@ -431,7 +431,7 @@ module flux_module
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
-      real(8), parameter :: beta = 0.125d0,ku=0.25d0
+      real(8), parameter :: beta = 0.125d0,ku=0.75d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -541,7 +541,7 @@ module flux_module
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: zmpl1,zmmr1  
-      real(8), parameter :: beta = 0.125d0, kp = 0.25d0, ku = 0.25d0
+      real(8), parameter :: beta = 0.125d0, kp = 0.25d0, ku = 0.75d0
       
 
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
