@@ -204,7 +204,7 @@ module flux_module
       real(8) :: uurr,uull,uv2
       real(8) :: ravg(flux%npv),rdv(flux%ndv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
-      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp
+      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,du,dp,b1,b2,b11,b22
       real(8) :: df(flux%npv)
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
@@ -241,9 +241,14 @@ module flux_module
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
-      c_star_cut = 0.5d0*(dabs(uup+ddd_cut)+dabs(uup-ddd_cut))
-      m_star = 0.5d0*(dabs(uup+ddd_cut)-dabs(uup-ddd_cut))/ddd_cut
+      b1 = dmax1(uup + ddd,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd)
+      b2 = dmin1(uup - ddd,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd)
+      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd_cut)
+      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd_cut)
+
+      c_star = 0.5d0*(dabs(b1)+dabs(b2))
+      c_star_cut = 0.5d0*(dabs(b11)+dabs(b22))
+      m_star = 0.5d0*(dabs(b1)-dabs(b2))/ddd_cut
 
       du = m_star*(uurr-uull)+(c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/sndp2_cut
       dp = m_star*(flux%pvr(1)-flux%pvl(1))+(c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*rdv(1)*(uurr-uull)
@@ -283,10 +288,9 @@ module flux_module
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
       real(8) :: sndp2,sndp2_cut
       real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
-      real(8) :: aaa,add,b1,b2,b1b2,rrr,ff,gg,sdst(18),pp_l,pp_r
+      real(8) :: aaa,add,b1,b2,b11,b22,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
-      real(8), parameter :: eps=1.d-16
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -324,12 +328,14 @@ module flux_module
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      c_star = 0.5d0*(dabs(uup+ddd)+dabs(uup-ddd))
-      c_star_cut = 0.5d0*(dabs(uup+ddd_cut)+dabs(uup-ddd_cut))
-      m_star = 0.5d0*(dabs(uup+ddd_cut)-dabs(uup-ddd_cut))/ddd_cut
+      b1 = dmax1(uup + ddd,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd)
+      b2 = dmin1(uup - ddd,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd)
+      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd_cut)
+      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd_cut)
 
-      b1 = dmax1(0.d0,uup + ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uurr + ddd_cut)
-      b2 = dmin1(0.d0,uup - ddd_cut,0.5d0*(1.d0+sndp2/rdv(6))*uull - ddd_cut)
+      c_star = 0.5d0*(dabs(b1)+dabs(b2))
+      c_star_cut = 0.5d0*(dabs(b11)+dabs(b22))
+      m_star = 0.5d0*(dabs(b1)-dabs(b2))/ddd_cut
       
       do k=1,flux%npv
         dqp(k) = flux%pvr(k)-flux%pvl(k)
@@ -392,13 +398,6 @@ module flux_module
 
       add = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
       aaa = (c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)
-      
-      rrr = m_star*uup-c_star
-      if(dabs(rrr).le.eps) then
-        rrr = -1.d0/dsign(eps,rrr)
-      else
-        rrr = -1.d0/rrr
-      end if
 
       bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
       bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*(dqp(2)-nx*(uurr-uull))
@@ -409,10 +408,8 @@ module flux_module
         bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
       end do
 
-      b1b2 = b1*b2 + ddd_cut**2 - ddd*ddd_cut
-
       do k=1,flux%npv
-        fx(k) = (b1*fl(k)-b2*fr(k)+b1b2*dq(k)-gg*b1b2*rrr*bdq(k))/(b1-b2)*dl
+        fx(k) = 0.5d0*(fl(k)+fr(k)-m_star*(fr(k)-fl(k))+(m_star*uup-c_star)*dq(k)+gg*bdq(k))*dl
       end do
     
     end subroutine roem
