@@ -121,7 +121,7 @@ module muscl_module
       real(8), intent(out) :: xl(muscl%npv),xr(muscl%npv)
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
-      real(8) :: sensor(2),alpha(4)!,denominator
+      real(8) :: sensor(2),alpha(4),denominator
       real(8), parameter :: eps = 1.d-16
 
       alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
@@ -129,27 +129,52 @@ module muscl_module
       alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
       alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
 
-      sensor(1) = (dabs(alpha(1)-2.d0*alpha(2)+alpha(3))+eps)/(alpha(1)+2.d0*alpha(2)+alpha(3)+eps)
-      sensor(2) = (dabs(alpha(2)-2.d0*alpha(3)+alpha(4))+eps)/(alpha(2)+2.d0*alpha(3)+alpha(4)+eps)
+      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
+      if(denominator.le.eps) then
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/eps
+      else
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
+      end if
+
+      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
+      if(denominator.le.eps) then
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/eps
+      else
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
+      end if
       sensor(1) = dmin1(sensor(1),1.d0)
       sensor(2) = dmin1(sensor(2),1.d0)
 
       do k = 1, muscl%npv    
-        dq   = muscl%x(10,k) - muscl%x(9,k) + eps  !i+1/2
-        dqm  = muscl%x(9,k)  - muscl%x(23,k)+ eps !i-1/2
-        dqm1 = muscl%x(23,k) - muscl%x(37,k)+ eps !i-3/2
-        dqp  = muscl%x(32,k) - muscl%x(10,k)+ eps !i+3/2
-        dqp1 = muscl%x(38,k) - muscl%x(32,k)+ eps !i+5/2
+        dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
+        dqm  = muscl%x(9,k)  - muscl%x(23,k) !i-1/2
+        dqm1 = muscl%x(23,k) - muscl%x(37,k) !i-3/2
+        dqp  = muscl%x(32,k) - muscl%x(10,k) !i+3/2
+        dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
-        dqmm = 1.d0/dqm
-        muscl%r(1)  = dq*dqmm
-        muscl%r1(1) = dqm1*dqmm ! inverse
-        muscl%r2(1) = dqp*dqmm
+        if(dabs(dqm).le.eps) then
+          dqmm = 1.d0/dsign(eps,dqm)
+          muscl%r(1)  = dq*dqmm
+          muscl%r1(1) = dqm1*dqmm ! inverse
+          muscl%r2(1) = dqp*dqmm
+        else
+          dqmm = 1.d0/dqm
+          muscl%r(1)  = dq*dqmm
+          muscl%r1(1) = dqm1*dqmm ! inverse
+          muscl%r2(1) = dqp*dqmm
+        end if
 
-        dqpp = 1.d0/dqp
-        muscl%r(2)  = dq*dqpp ! inverse
-        muscl%r1(2) = dqp1*dqpp
-        muscl%r2(2) = dqm*dqpp ! inverse
+        if(dabs(dqp).le.eps) then
+          dqpp = 1.d0/dsign(eps,dqp)
+          muscl%r(2)  = dq*dqpp ! inverse
+          muscl%r1(2) = dqp1*dqpp
+          muscl%r2(2) = dqm*dqpp ! inverse
+        else
+          dqpp = 1.d0/dqp
+          muscl%r(2)  = dq*dqpp ! inverse
+          muscl%r1(2) = dqp1*dqpp
+          muscl%r2(2) = dqm*dqpp ! inverse
+        end if
       
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
@@ -191,8 +216,8 @@ module muscl_module
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
-      real(8) :: sensor(2),alpha(4)!,denominator
-      real(8), parameter :: eps = 1.d-16!, eps2 = 1.d-3
+      real(8) :: sensor(2),alpha(4),denominator
+      real(8), parameter :: eps = 1.d-16, eps2 = 1.d-2
 
 
       alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
@@ -200,92 +225,132 @@ module muscl_module
       alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
       alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
 
-      sensor(1) = (dabs(alpha(1)-2.d0*alpha(2)+alpha(3))+eps)/(alpha(1)+2.d0*alpha(2)+alpha(3)+eps)
-      sensor(2) = (dabs(alpha(2)-2.d0*alpha(3)+alpha(4))+eps)/(alpha(2)+2.d0*alpha(3)+alpha(4)+eps)
+      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
+      if(denominator.le.eps) then
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/eps
+      else
+        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
+      end if
+
+      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
+      if(denominator.le.eps) then
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/eps
+      else
+        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
+      end if
       sensor(1) = dmin1(sensor(1),1.d0)
       sensor(2) = dmin1(sensor(2),1.d0)
 
       do k = 1, muscl%npv    
-        dq   = muscl%x(10,k) - muscl%x(9,k) + eps !i+1/2
-        dqm  = muscl%x(9,k)  - muscl%x(23,k)+ eps !i-1/2
-        dqm1 = muscl%x(23,k) - muscl%x(37,k)+ eps !i-3/2
-        dqp  = muscl%x(32,k) - muscl%x(10,k)+ eps !i+3/2
-        dqp1 = muscl%x(38,k) - muscl%x(32,k)+ eps !i+5/2
+        dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
+        dqm  = muscl%x(9,k)  - muscl%x(23,k) !i-1/2
+        dqm1 = muscl%x(23,k) - muscl%x(37,k) !i-3/2
+        dqp  = muscl%x(32,k) - muscl%x(10,k) !i+3/2
+        dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
-        dqmm = 1.d0/dqm
-        muscl%r(1)  = dq*dqmm
-        muscl%r1(1) = dqm1*dqmm ! inverse
-        muscl%r2(1) = dqp*dqmm
-
-        dqpp = 1.d0/dqp
-        muscl%r(2)  = dq*dqpp ! inverse
-        muscl%r1(2) = dqp1*dqpp
-        muscl%r2(2) = dqm*dqpp ! inverse
-
-        rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k)+eps)/(muscl%x(10,k)-muscl%x(23,k)+eps))
-        rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k)+eps)/(muscl%x(10,k)-muscl%x(23,k)+eps))
-        rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k)+eps)/(muscl%x(32,k)-muscl%x(9,k)+eps))
-        rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k)+eps)/(muscl%x(32,k)-muscl%x(9,k)+eps))
-
-        
-!        if((rxy_l.lt.eps2).and.(rxz_l.lt.eps2)) then
-!          qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
-!                       muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
-!          qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
-!                       muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
-!        else
-!          if((muscl%x(10,k)-muscl%x(23,k)).gt.0.d0) then
-!            qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
-!            qmin = dmin1(muscl%x(1,k),muscl%x(11,k),muscl%x(3,k),muscl%x(13,k),muscl%x(5,k),muscl%x(15,k),muscl%x(7,k),muscl%x(17,k),muscl%x(9,k),      &
-!                         muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
-!          else
-!            qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
-!            qmax = dmax1(muscl%x(1,k),muscl%x(11,k),muscl%x(3,k),muscl%x(13,k),muscl%x(5,k),muscl%x(15,k),muscl%x(7,k),muscl%x(17,k),muscl%x(9,k),      &
-!                         muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
-!          end if
-!        end if
-!        qml = dmin1(dabs(qmax-muscl%x(9,k)),dabs(qmin-muscl%x(9,k)))
-!
-!        if((rxy_r.lt.eps2).and.(rxz_r.lt.eps2)) then
-!          qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
-!                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
-!          qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
-!                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
-!        else
-!          if((muscl%x(32,k)-muscl%x(9,k)).gt.0.d0) then
-!            qmax = dmax1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
-!                         muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
-!            qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
-!          else
-!            qmin = dmin1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
-!                         muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
-!            qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-!                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
-!          end if
-!        end if
-!        qmr = dmin1(dabs(qmax-muscl%x(10,k)),dabs(qmin-muscl%x(10,k)))
-        
-        if(dq.gt.0.d0) then
-          qml = dabs(dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-                      muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k)+eps)
-          qmr = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-                      muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k)+eps)
+        if(dabs(dqm).le.eps) then
+          dqmm = 1.d0/dsign(eps,dqm)
+          muscl%r(1)  = dq*dqmm
+          muscl%r1(1) = dqm1*dqmm ! inverse
+          muscl%r2(1) = dqp*dqmm
         else
-          qml = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-                      muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k)+eps)
-          qmr = dabs(dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-                      muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k)+eps)
+          dqmm = 1.d0/dqm
+          muscl%r(1)  = dq*dqmm
+          muscl%r1(1) = dqm1*dqmm ! inverse
+          muscl%r2(1) = dqp*dqmm
         end if
 
-        muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/dabs(dq)/(1.d0+rxy_l+rxz_l)*qml
-        muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/dabs(dq)/(1.d0+rxy_r+rxz_r)*qmr
+        if(dabs(dqp).le.eps) then
+          dqpp = 1.d0/dsign(eps,dqp)
+          muscl%r(2)  = dq*dqpp ! inverse
+          muscl%r1(2) = dqp1*dqpp
+          muscl%r2(2) = dqm*dqpp ! inverse
+        else
+          dqpp = 1.d0/dqp
+          muscl%r(2)  = dq*dqpp ! inverse
+          muscl%r1(2) = dqp1*dqpp
+          muscl%r2(2) = dqm*dqpp ! inverse
+        end if
+
+        if(dabs(muscl%x(10,k)-muscl%x(23,k)).le.eps) then
+          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/eps)
+          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/eps)
+        else
+          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/(muscl%x(10,k)-muscl%x(23,k)))
+          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/(muscl%x(10,k)-muscl%x(23,k)))
+        end if
+        if(dabs(muscl%x(32,k)-muscl%x(9,k)).le.eps) then
+          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/eps)
+          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/eps)
+        else      
+          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/(muscl%x(32,k)-muscl%x(9,k)))
+          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/(muscl%x(32,k)-muscl%x(9,k)))
+        end if
+        
+        if((rxy_l.lt.eps2).and.(rxz_l.lt.eps2)) then
+          qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
+                       muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
+          qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
+                       muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
+        else
+          if((muscl%x(10,k)-muscl%x(23,k)).gt.0.d0) then
+            qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
+            qmin = dmin1(muscl%x(1,k),muscl%x(11,k),muscl%x(3,k),muscl%x(13,k),muscl%x(5,k),muscl%x(15,k),muscl%x(7,k),muscl%x(17,k),muscl%x(9,k),      &
+                         muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
+          else
+            qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
+            qmax = dmax1(muscl%x(1,k),muscl%x(11,k),muscl%x(3,k),muscl%x(13,k),muscl%x(5,k),muscl%x(15,k),muscl%x(7,k),muscl%x(17,k),muscl%x(9,k),      &
+                         muscl%x(19,k),muscl%x(20,k),muscl%x(21,k),muscl%x(22,k),muscl%x(23,k),muscl%x(24,k),muscl%x(25,k),muscl%x(26,k),muscl%x(27,k) )
+          end if
+        end if
+        qml = dmin1(dabs(qmax-muscl%x(9,k)),dabs(qmin-muscl%x(9,k)))
+        
+        if((rxy_r.lt.eps2).and.(rxz_r.lt.eps2)) then
+          qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
+                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
+          qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                       muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
+                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )  
+        else
+          if((muscl%x(32,k)-muscl%x(9,k)).gt.0.d0) then
+            qmax = dmax1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
+                         muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
+            qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )                
+          else
+            qmin = dmin1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
+                         muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
+            qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
+          end if
+        end if
+        qmr = dmin1(dabs(qmax-muscl%x(10,k)),dabs(qmin-muscl%x(10,k)))
+        
+        !if(dq.gt.0.d0) then
+        !  qml = dabs(dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k))
+        !  qmr = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))        
+        !else
+        !  qml = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k))
+        !  qmr = dabs(dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
+        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))
+        !end if
+
+        if(dabs(dq).le.eps) then
+          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/eps/(1.d0+rxy_l+rxz_l)*qml
+          muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/eps/(1.d0+rxy_r+rxz_r)*qmr
+        else
+          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/dabs(dq)/(1.d0+rxy_l+rxz_l)*qml
+          muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/dabs(dq)/(1.d0+rxy_r+rxz_r)*qmr
+        end if
+
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
       
