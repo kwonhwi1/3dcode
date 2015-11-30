@@ -1961,7 +1961,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: pv_s(bcinfo%npv),nx(3),var,dl,a
+      real(8) :: pv_s(bcinfo%npv),nx(3),var,dl,a,vel
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2016,7 +2016,8 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
+            vel = (pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))*dl
+            a = prec%getsndp2(dv(6),vel**2)
             a = dsqrt(a)
             var = bcinfo%pressure - bcinfo%pv(1)+pv_s(1) - dv(1)*a*(nx(1)*(bcinfo%pv(2)-pv_s(2))  + nx(2)*(bcinfo%pv(3)-pv_s(3)) &
                                         + nx(3)*(bcinfo%pv(4)-pv_s(4)))*dl
@@ -2110,7 +2111,7 @@ module bc_module
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: pv_s(bcinfo%npv),nx(3),dl,a,mdot,area,pa
-      real(8) :: grd(bcinfo%ngrd),gridvel(3)
+      real(8) :: grd(bcinfo%ngrd),gridvel(3),vel
       integer,save :: nt=0
 
       pa = 0.d0
@@ -2230,7 +2231,8 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            a = prec%getsndp2(dv(6),pv_s(2)**2+pv_s(3)**2+pv_s(4)**2)
+            vel = (pv_s(2)*nx(1)+pv_s(3)*nx(2)+pv_s(4)*nx(3))*dl
+            a = prec%getsndp2(dv(6),vel**2)
             a = dsqrt(a)
             pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
             pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/a*dl) - pv(2)
@@ -2354,9 +2356,9 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
-            vel = (pv_b(2)*nx(1)+pv_b(3)*nx(2)+pv_b(4)*nx(3))/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+            vel = (pv_b(2)*nx(1)+pv_b(3)*nx(2)+pv_b(4)*nx(3))*dl
             mach = vel/dsqrt(dv_b(6))
-            a = prec%getsndp2(dv_b(6),pv_b(2)**2+pv_b(3)**2+pv_b(4)**2)
+            a = prec%getsndp2(dv_b(6),vel**2)
             a = dsqrt(a)
             if(mach.ge.0.d0) then !out
               if(mach.ge.1.d0) then !super                
