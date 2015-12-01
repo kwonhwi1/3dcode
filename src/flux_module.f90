@@ -262,10 +262,10 @@ module flux_module
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      b1 = dmax1(uup + ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/rdv(6))*uurr + ddd)
-      b2 = dmin1(uup - ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/rdv(6))*uull - ddd)
-      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/rdv(6))*uurr + ddd_cut)
-      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/rdv(6))*uull - ddd_cut)
+      b1 = dmax1(uup + ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd)
+      b2 = dmin1(uup - ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd)
+      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd_cut)
+      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd_cut)
 
       c_star = 0.5d0*(dabs(b1)+dabs(b2))
       c_star_cut = 0.5d0*(dabs(b11)+dabs(b22))
@@ -347,10 +347,10 @@ module flux_module
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
       ddd_cut = 0.5d0*dsqrt((1.d0-sndp2_cut/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
 
-      b1 = dmax1(uup + ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/rdv(6))*uurr + ddd)
-      b2 = dmin1(uup - ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/rdv(6))*uull - ddd)
-      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/rdv(6))*uurr + ddd_cut)
-      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/rdv(6))*uull - ddd_cut)
+      b1 = dmax1(uup + ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd)
+      b2 = dmin1(uup - ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd)
+      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd_cut)
+      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd_cut)
 
       c_star = 0.5d0*(dabs(b1)+dabs(b2))
       c_star_cut = 0.5d0*(dabs(b11)+dabs(b22))
