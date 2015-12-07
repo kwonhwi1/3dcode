@@ -153,7 +153,7 @@ module muscl_module
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
         if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/dsign(eps,dqm)
+          dqmm = 1.d0/eps
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
@@ -165,7 +165,7 @@ module muscl_module
         end if
 
         if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/dsign(eps,dqp)
+          dqpp = 1.d0/eps
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
@@ -217,7 +217,7 @@ module muscl_module
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
       real(8) :: sensor(2),alpha(4),denominator
-      real(8), parameter :: eps = 1.d-16, eps2 = 1.d-2
+      real(8), parameter :: eps = 1.d-16, eps2 = 1.d-3
 
 
       alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
@@ -249,7 +249,7 @@ module muscl_module
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
         if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/dsign(eps,dqm)
+          dqmm = 1.d0/eps
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
@@ -261,7 +261,7 @@ module muscl_module
         end if
 
         if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/dsign(eps,dqp)
+          dqpp = 1.d0/eps
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
@@ -273,15 +273,15 @@ module muscl_module
         end if
 
         if(dabs(muscl%x(10,k)-muscl%x(23,k)).le.eps) then
-          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/eps)
-          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/eps)
+          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k)))/eps
+          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k)))/eps
         else
           rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/(muscl%x(10,k)-muscl%x(23,k)))
           rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/(muscl%x(10,k)-muscl%x(23,k)))
         end if
         if(dabs(muscl%x(32,k)-muscl%x(9,k)).le.eps) then
-          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/eps)
-          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/eps)
+          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k)))/eps
+          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k)))/eps
         else      
           rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/(muscl%x(32,k)-muscl%x(9,k)))
           rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/(muscl%x(32,k)-muscl%x(9,k)))
