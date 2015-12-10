@@ -157,6 +157,7 @@ module muscl_module
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
+          dqm = 0.d0
         else
           dqmm = 1.d0/dqm
           muscl%r(1)  = dq*dqmm
@@ -169,6 +170,7 @@ module muscl_module
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
+          dqp = 0.d0
         else
           dqpp = 1.d0/dqp
           muscl%r(2)  = dq*dqpp ! inverse
@@ -253,6 +255,7 @@ module muscl_module
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
+          dqm = 0.d0
         else
           dqmm = 1.d0/dqm
           muscl%r(1)  = dq*dqmm
@@ -265,6 +268,7 @@ module muscl_module
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
+          dqp = 0.d0
         else
           dqpp = 1.d0/dqp
           muscl%r(2)  = dq*dqpp ! inverse
