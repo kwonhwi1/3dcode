@@ -132,7 +132,10 @@ module solve_module
           call solve%resi%setqres(variable)
           call solve%update%timeinteg(grid,variable,eos,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
-          if(solve%resi%getconverge()) exit
+          if(solve%resi%getconverge()) then
+            nt = nt + 1
+            exit
+          end if
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
             call variable%export_variable(nt_phy,nt)
           end if
