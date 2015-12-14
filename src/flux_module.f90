@@ -256,7 +256,7 @@ module flux_module
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
       sndp2     = flux%getsndp2(rdv(6),uuu**2)
-      sndp2_cut = flux%getsndp2_c(rdv(6),uuu**2)
+      sndp2_cut = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
@@ -341,7 +341,7 @@ module flux_module
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
       sndp2     = flux%getsndp2(rdv(6),uuu**2)
-      sndp2_cut = flux%getsndp2_c(rdv(6),uuu**2)
+      sndp2_cut = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))
       
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
@@ -477,7 +477,7 @@ module flux_module
 
       am2mid = (nx*ravg(2) + ny*ravg(3) + nz*ravg(4))**2
       am2rmid1 = flux%getsndp2(rdv(6),am2mid)/rdv(6)
-      am2rmid  = flux%getsndp2_c(rdv(6),am2mid)/rdv(6)
+      am2rmid  = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
@@ -588,7 +588,7 @@ module flux_module
 
       am2mid =  (nx*ravg(2) + ny*ravg(3) + nz*ravg(4))**2
       am2rmid1 = flux%getsndp2(rdv(6),am2mid)/rdv(6)
-      am2rmid  = flux%getsndp2_c(rdv(6),am2mid)/rdv(6)
+      am2rmid  = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))/rdv(6)
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
