@@ -133,16 +133,13 @@ module solve_module
           call solve%update%timeinteg(grid,variable,eos,nt_phy,nt)
           call solve%resi%residual(variable,nt_phy,nt)        
           if(solve%resi%getconverge()) then
-            nt = nt + 1
+            if(.not.solve%l_nsteady) call variable%export_variable(nt_phy,nt)
             exit
           end if
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
             call variable%export_variable(nt_phy,nt)
           end if
         end do
-        if(.not.solve%l_nsteady) then
-          call variable%export_variable(nt_phy,nt-1)
-        end if
         if(solve%l_nsteady) then
           call solve%unsteadyupdate(variable)
           if(mod(nt_phy,solve%nexport).eq.0) then
