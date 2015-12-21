@@ -87,8 +87,8 @@ module update_module
       update%ndv = config%getndv()
       update%ntv = config%getntv()
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-16
+      update%oref = 1.d-16
       
       update%l_timestep = .false.
       update%l_lhs = .false.
@@ -171,8 +171,8 @@ module update_module
       update%ndv = config%getndv()
       update%ntv = config%getntv()
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-16
+      update%oref = 1.d-16
       
       update%l_timestep = .false.
       update%l_lhs = .false.
@@ -260,8 +260,8 @@ module update_module
       update%ndv = config%getndv()
       update%ntv = config%getntv()
       update%pref = config%getpref()
-      update%kref = config%getkref()*1.d-12
-      update%oref = config%getoref()*1.d-12
+      update%kref = 1.d-16
+      update%oref = 1.d-16
       
       update%l_timestep = .false.
       update%l_lhs = .false.
