@@ -171,22 +171,16 @@ module timestep_module
             s2 = e1**2+e2**2+e3**2
             s3 = t1**2+t2**2+t3**2
             
-            uv2 = (pv(2)*c1+pv(3)*c2+pv(4)*c3)**2/s1
+            uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             sndp2 = timestep%getsndp2(dv(6),uv2)
             
             up = uc*(1.d0+sndp2/dv(6))
             d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
             eigenx = 0.5d0*(up+d)
 
-            uv2 = (pv(2)*e1+pv(3)*e2+pv(4)*e3)**2/s2
-            sndp2 = timestep%getsndp2(dv(6),uv2)
-
             up = vc*(1.d0+sndp2/dv(6))
             d = dsqrt(vc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s2)
             eigeny = 0.5d0*(up+d)
-
-            uv2 = (pv(2)*t1+pv(3)*t2+pv(4)*t3)**2/s3
-            sndp2 = timestep%getsndp2(dv(6),uv2)
 
             up = wc*(1.d0+sndp2/dv(6))
             d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
@@ -253,22 +247,16 @@ module timestep_module
             s2 = e1**2+e2**2+e3**2
             s3 = t1**2+t2**2+t3**2
             
-            uv2 = (pv(2)*c1+pv(3)*c2+pv(4)*c3)**2/s1
+            uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             sndp2 = timestep%getsndp2(dv(6),uv2)
             
             up = uc*(1.d0+sndp2/dv(6))
             d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
             eigenx = 0.5d0*(up+d)
 
-            uv2 = (pv(2)*e1+pv(3)*e2+pv(4)*e3)**2/s2
-            sndp2 = timestep%getsndp2(dv(6),uv2)
-
             up = vc*(1.d0+sndp2/dv(6))
             d = dsqrt(vc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s2)
             eigeny = 0.5d0*(up+d)
-
-            uv2 = (pv(2)*t1+pv(3)*t2+pv(4)*t3)**2/s3
-            sndp2 = timestep%getsndp2(dv(6),uv2)
 
             up = wc*(1.d0+sndp2/dv(6))
             d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
