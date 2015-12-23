@@ -174,7 +174,7 @@ module residual_module
       end if
 
       if(resi%rank.eq.0) then
-        if(mpi_res_sum(1).lt.resi%bond) resi%l_converge = .true.
+        if((mpi_res_sum(1).lt.resi%bond).or.(mpi_res_sum(2).lt.resi%bond)) resi%l_converge = .true.
       end if
       
       call mpi_bcast(resi%l_converge,1,mpi_logical,0,mpi_comm_world,ierr)
