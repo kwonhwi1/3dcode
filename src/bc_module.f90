@@ -3288,11 +3288,12 @@ module bc_module
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv)
       real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: nx(3),dl,area,pp,v
+      real(8) :: nx(3),dl,mdot,area,pp,v
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
 
       pp = 0.d0
+      mdot = 0.d0
       area = 0.d0
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
@@ -3305,8 +3306,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getcx(ii-1,jj,kk)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(1)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
             case('imax')
@@ -3315,8 +3318,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii,jj,kk)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(1)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
             case('jmin')
@@ -3325,8 +3330,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getex(ii,jj-1,kk)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(j.eq.bcinfo%istart(2)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
             case('jmax')
@@ -3335,8 +3342,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj,kk)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(j.eq.bcinfo%iend(2)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2)
               end if
             case('kmin')
@@ -3345,8 +3354,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = -grid%gettx(ii,jj,kk-1)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(k.eq.bcinfo%istart(3)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
             case('kmax')
@@ -3355,8 +3366,10 @@ module bc_module
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
               pv = variable%getpv(ii,jj,kk)
+              dv = variable%getdv(ii,jj,kk)
               if(k.eq.bcinfo%iend(3)) then
                 pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
                 area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
               end if
             end select
@@ -3369,7 +3382,7 @@ module bc_module
       v = bcinfo%massflowrate/(dv(1)*area)
 
       nt=nt+1
-      write(bcinfo%ioin,*) nt,bcinfo%massflowrate,pp+bcinfo%pv(1)
+      write(bcinfo%ioin,*) nt,-mdot,pp+bcinfo%pv(1)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
