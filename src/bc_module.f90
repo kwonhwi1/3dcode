@@ -2235,9 +2235,9 @@ module bc_module
             a = prec%getsndp2(dv(6),vel**2)
             a = dsqrt(a)
             pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
-            pv(2) = 2.d0*( pv_s(2)+nx(1)*pv_s(1)/dv(1)/a*dl) - pv(2)
-            pv(3) = 2.d0*( pv_s(3)+nx(2)*pv_s(1)/dv(1)/a*dl) - pv(3)
-            pv(4) = 2.d0*( pv_s(4)+nx(3)*pv_s(1)/dv(1)/a*dl) - pv(4)
+            pv(2) = 2.d0*( pv_s(2)+nx(1)*(pv_s(1)+bcinfo%pv(1)-bcinfo%pressure)/dv(1)/a*dl) - pv(2)
+            pv(3) = 2.d0*( pv_s(3)+nx(2)*(pv_s(1)+bcinfo%pv(1)-bcinfo%pressure)/dv(1)/a*dl) - pv(3)
+            pv(4) = 2.d0*( pv_s(4)+nx(3)*(pv_s(1)+bcinfo%pv(1)-bcinfo%pressure)/dv(1)/a*dl) - pv(4)
             do m=1,bcinfo%npv
               call variable%setpv(m,i,j,k,pv(m))
             end do
@@ -2364,9 +2364,9 @@ module bc_module
               if(mach.ge.1.d0) then !super                
               else !sub
                 pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
-                pv(2) = 2.d0*( pv_b(2)+nx(1)*pv_b(1)/dv_b(1)/a*dl) - pv(2)
-                pv(3) = 2.d0*( pv_b(3)+nx(2)*pv_b(1)/dv_b(1)/a*dl) - pv(3)
-                pv(4) = 2.d0*( pv_b(4)+nx(3)*pv_b(1)/dv_b(1)/a*dl) - pv(4)
+                pv(2) = 2.d0*( pv_b(2)+nx(1)*(pv_b(1)+bcinfo%pv(1)-bcinfo%pressure)/dv_b(1)/a*dl) - pv(2)
+                pv(3) = 2.d0*( pv_b(3)+nx(2)*(pv_b(1)+bcinfo%pv(1)-bcinfo%pressure)/dv_b(1)/a*dl) - pv(3)
+                pv(4) = 2.d0*( pv_b(4)+nx(3)*(pv_b(1)+bcinfo%pv(1)-bcinfo%pressure)/dv_b(1)/a*dl) - pv(4)
               end if
             else ! in
               if(mach.le.-1.d0) then !super
@@ -3413,9 +3413,9 @@ module bc_module
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
 
-            pv(2) = -v*nx(1)*dl
-            pv(3) = -v*nx(2)*dl
-            pv(4) = -v*nx(3)*dl
+            pv(2) = 2.d0*(-v*nx(1)*dl) - pv(2)
+            pv(3) = 2.d0*(-v*nx(2)*dl) - pv(3)
+            pv(4) = 2.d0*(-v*nx(3)*dl) - pv(4)
             pv(5:bcinfo%npv) = 2.d0*bcinfo%pv(5:bcinfo%npv) - pv(5:bcinfo%npv)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
