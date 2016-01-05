@@ -12,9 +12,10 @@ module bc_module
     integer :: origin(3),dir(3),ioin,ioout
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
-    integer :: npv,ntv,ndv,ngrd
+    integer :: npv,ntv,ndv,ngrd,ndata
     character(4) :: face
     real(8) :: massflowrate,pressure,omega(3)
+    real(8), dimension(:), allocatable :: heatflux,tdata
     real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
   end type t_bcinfo2
@@ -69,10 +70,11 @@ module bc_module
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       class(t_eos), intent(in) :: eos
-      integer :: l,n,m
+      integer :: l,n,m,io
       integer, parameter :: dim = 3
       logical :: isurf_edge(12),jsurf_edge(12),ksurf_edge(12)
       logical :: isurf_corner(8),jsurf_corner(8),ksurf_corner(8)
+      character(8) :: famname8
 
       bc%rank = config%getrank() 
       bc%size = config%getsize()
@@ -196,7 +198,9 @@ module bc_module
             bc%bcinfo(n)%dir(3) = -1         
           end if 
         end if
-        
+
+        write(famname8,'(a8)') trim(bc%bcinfo(n)%famname)
+
         if(trim(bc%bcinfo(n)%bcname).eq.'BCWall') then 
           if(trim(bc%bcinfo(n)%famname).eq.'CounterRotating') then
             select case(config%getiturb())
@@ -209,6 +213,24 @@ module bc_module
             case default
               bc%bcinfo(n)%bctype => bccounterrotatingwallinviscid
             end select
+          else if(famname8.eq.'HeatFlux') then
+            select case(bc%iturb)
+            case(0)
+              bc%bcinfo(n)%bctype => bcheatfluxwallviscouskw
+            case(-1)
+              bc%bcinfo(n)%bctype => bcheatfluxwallviscouske
+            case(-2)
+              bc%bcinfo(n)%bctype => bcheatfluxwallviscous
+            case default
+            end select
+            open(newunit=io,file=trim(bc%bcinfo(n)%famname)//'.dat')
+              read(io,*) bc%bcinfo(n)%ndata
+              allocate (bc%bcinfo(n)%heatflux(bc%bcinfo(n)%ndata), &
+                        bc%bcinfo(n)%tdata(bc%bcinfo(n)%ndata))
+              do m=1,bc%bcinfo(n)%ndata
+                read(io,*) bc%bcinfo(n)%tdata(m),bc%bcinfo(n)%heatflux(m)
+              end do
+            close(io)
           else
             select case(config%getiturb())
             case(-1)
@@ -1108,6 +1130,8 @@ module bc_module
       do n=1,12
         if(associated(bc%edge(n)%bctype)) nullify(bc%edge(n)%bctype)
         deallocate(bc%edge(n)%pv,bc%edge(n)%dv,bc%edge(n)%tv)
+        if(allocated(bc%bcinfo(n)%heatflux)) deallocate(bc%bcinfo(n)%heatflux)
+        if(allocated(bc%bcinfo(n)%tdata)) deallocate(bc%bcinfo(n)%tdata)
       end do
       
       do n=1,8
@@ -3449,7 +3473,268 @@ module bc_module
 
     end subroutine bcmassflowratein
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-   function no_prec(prec,snd2,uuu2) result(sndp2)
+    subroutine bcheatfluxwallviscous(bcinfo,grid,variable,eos,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,ii,jj,kk,m
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_b(bcinfo%npv),tv_b(bcinfo%ntv),grd_b(bcinfo%ngrd)
+      real(8) :: var,heatflux
+
+      do i=1,bcinfo%ndata-1
+        if((bcinfo%time.ge.bcinfo%tdata(i)).and.(bcinfo%time.lt.bcinfo%tdata(i+1))) then
+          heatflux = bcinfo%heatflux(i)+(bcinfo%heatflux(i+1)-bcinfo%heatflux(i))* &
+                    (bcinfo%time-bcinfo%tdata(i))/(bcinfo%tdata(i+1)-bcinfo%tdata(i))
+        exit
+        end if
+      end do
+      if(bcinfo%time.ge.bcinfo%tdata(bcinfo%ndata)) heatflux=bcinfo%heatflux(bcinfo%ndata)
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+            end select
+            pv_b = variable%getpv(ii,jj,kk)
+            tv_b = variable%gettv(ii,jj,kk)
+            grd_b = grid%getgrd(ii,jj,kk)
+            do m=1,bcinfo%npv
+              select case(m)
+              case(2,3,4)
+                call variable%setpv(m,i,j,-pv(m))
+              case(5)
+                var = 2.d0*( heatflux*grd_b(5)/tv_b(2)+pv_b(5) )-pv(m)
+                call variable%setpv(m,i,j,var)
+              case default
+                call variable%setpv(m,i,j,pv(m))
+              end select
+            end do
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
+              call variable%setdv(m,i,j,dv(m))
+            end do
+            do m=1,bcinfo%ntv
+              call variable%settv(m,i,j,tv(m))
+            end do
+          end do
+        end do
+
+    end subroutine bcheatfluxwallviscous
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcheatfluxwallviscouske(bcinfo,grid,variable,eos,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,ii,jj,kk,m
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_b(bcinfo%npv),tv_b(bcinfo%ntv),grd_b(bcinfo%ngrd)
+      real(8) :: var,heatflux
+
+      do i=1,bcinfo%ndata-1
+        if((bcinfo%time.ge.bcinfo%tdata(i)).and.(bcinfo%time.lt.bcinfo%tdata(i+1))) then
+          heatflux = bcinfo%heatflux(i)+(bcinfo%heatflux(i+1)-bcinfo%heatflux(i))* &
+                    (bcinfo%time-bcinfo%tdata(i))/(bcinfo%tdata(i+1)-bcinfo%tdata(i))
+        exit
+        end if
+      end do
+      if(bcinfo%time.ge.bcinfo%tdata(bcinfo%ndata)) heatflux=bcinfo%heatflux(bcinfo%ndata)
+ 
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+            end select
+            pv_b = variable%getpv(ii,jj,kk)
+            tv_b = variable%gettv(ii,jj,kk)
+            grd_b = grid%getgrd(ii,jj,kk)
+            do m=1,bcinfo%npv
+              select case(m)
+              case(2,3,4,8,9)
+                call variable%setpv(m,i,j,k,-pv(m))
+              case(5)
+                var = 2.d0*( (heatflux*grd_b(5) + 0.5d0*tv_b(1)*(pv_b(1)**2+pv_b(2)**2+pv_b(3)**2))/tv_b(2) + pv_b(5) )-pv(m)
+                call variable%setpv(m,i,j,k,var)
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,bcinfo%ntv
+              select case(m)
+              case(3)
+                call variable%settv(m,i,j,k,-tv(m))
+              case default
+                call variable%settv(m,i,j,k,tv(m))
+              end select
+            end do
+          end do
+        end do
+      end do
+
+    end subroutine bcheatfluxwallviscouske
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bcheatfluxwallviscouskw(bcinfo,grid,variable,eos,prec)
+      implicit none
+      class(t_bcinfo2), intent(in) :: bcinfo
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      type(t_prec), intent(in) :: prec
+      integer :: i,j,k,ii,jj,kk,m
+      real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
+      real(8) :: pv_b(bcinfo%npv),dv_b(bcinfo%ndv),tv_b(bcinfo%ntv),grd_b(bcinfo%ngrd)
+      real(8) :: var,heatflux
+
+      do i=1,bcinfo%ndata-1
+        if((bcinfo%time.ge.bcinfo%tdata(i)).and.(bcinfo%time.lt.bcinfo%tdata(i+1))) then
+          heatflux = bcinfo%heatflux(i)+(bcinfo%heatflux(i+1)-bcinfo%heatflux(i))* &
+                    (bcinfo%time-bcinfo%tdata(i))/(bcinfo%tdata(i+1)-bcinfo%tdata(i))
+        exit
+        end if
+      end do
+      if(bcinfo%time.ge.bcinfo%tdata(bcinfo%ndata)) heatflux=bcinfo%heatflux(bcinfo%ndata)
+
+      do k=bcinfo%istart(3),bcinfo%iend(3)
+        do j=bcinfo%istart(2),bcinfo%iend(2)
+          do i=bcinfo%istart(1),bcinfo%iend(1)
+            ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+            jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+            kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            pv = variable%getpv(ii,jj,kk)
+            dv = variable%getdv(ii,jj,kk)
+            tv = variable%gettv(ii,jj,kk)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+            end select
+            pv_b = variable%getpv(ii,jj,kk)
+            dv_b = variable%getdv(ii,jj,kk)
+            tv_b = variable%gettv(ii,jj,kk)
+            grd_b = grid%getgrd(ii,jj,kk)
+            do m=1,bcinfo%npv
+              select case(m)
+              case(2,3,4,8)
+                call variable%setpv(m,i,j,k,-pv(m))
+              case(5)
+                var = 2.d0*( (heatflux*grd_b(5) + 0.5d0*tv_b(1)*(pv_b(2)**2+pv_b(3)**2+pv_b(4)**2))/tv_b(2) + pv_b(5) )-pv(m)
+                call variable%setpv(m,i,j,k,var)
+              case(9)
+                var = 1600.d0*tv_b(1)/dv_b(1)/grd(5)**2-pv(m)
+                call variable%setpv(m,i,j,k,var)
+              case default
+                call variable%setpv(m,i,j,k,pv(m))
+              end select
+            end do
+            call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
+            do m=1,bcinfo%ndv
+              call variable%setdv(m,i,j,k,dv(m))
+            end do
+            do m=1,bcinfo%ntv
+              select case(m)
+              case(3)
+                call variable%settv(m,i,j,k,-tv(m))
+              case default
+                call variable%settv(m,i,j,k,tv(m))
+              end select
+            end do
+          end do
+        end do
+      end do     
+    end subroutine bcheatfluxwallviscouskw   
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_prec(prec,snd2,uuu2) result(sndp2)
       implicit none
       class(t_prec), intent(in) :: prec
       real(8), intent(in) :: snd2,uuu2
