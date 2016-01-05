@@ -19,9 +19,9 @@ module update_module
   
   type, abstract :: t_update
     private
-    integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
+    integer :: npv,ndv,ntv,ngrd,nsteady,imax,jmax,kmax
     logical :: l_timestep,l_lhs,l_eddy,l_jac,l_tv,l_turb,l_cav
-    real(8) :: pref,kref,oref
+    real(8) :: pref,kref,oref,dt_phy
     class(t_lhs), allocatable :: lhs
     class(t_timestep), allocatable :: timestep
     class(t_eddy), allocatable :: eddy
@@ -35,7 +35,7 @@ module update_module
   end type t_update
   
   abstract interface
-    subroutine p_timeinteg(update,grid,variable,eos,nt_phy,nt)
+    subroutine p_timeinteg(update,grid,variable,eos,nt_phy,nt,timeprev,time)
       import t_update
       import t_grid
       import t_variable
@@ -46,6 +46,8 @@ module update_module
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
+      real(8), intent(inout) :: time
     end subroutine p_timeinteg
   end interface
   
@@ -86,10 +88,12 @@ module update_module
       update%npv = config%getnpv()
       update%ndv = config%getndv()
       update%ntv = config%getntv()
+      update%nsteady = config%getnsteady()
       update%pref = config%getpref()
       update%kref = 1.d-16
       update%oref = 1.d-16
-      
+      update%dt_phy = config%getdt_phy()
+       
       update%l_timestep = .false.
       update%l_lhs = .false.
       update%l_eddy = .false.
@@ -170,10 +174,12 @@ module update_module
       update%npv = config%getnpv()
       update%ndv = config%getndv()
       update%ntv = config%getntv()
+      update%nsteady = config%getnsteady()
       update%pref = config%getpref()
       update%kref = 1.d-16
       update%oref = 1.d-16
-      
+      update%dt_phy = config%getdt_phy()
+     
       update%l_timestep = .false.
       update%l_lhs = .false.
       update%l_eddy = .false.
@@ -259,9 +265,11 @@ module update_module
       update%npv = config%getnpv()
       update%ndv = config%getndv()
       update%ntv = config%getntv()
+      update%nsteady = config%getnsteady()
       update%pref = config%getpref()
       update%kref = 1.d-16
       update%oref = 1.d-16
+      update%dt_phy = config%getdt_phy()
       
       update%l_timestep = .false.
       update%l_lhs = .false.
@@ -434,13 +442,15 @@ module update_module
       
     end subroutine destruct_lusgs
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine eulerex(update,grid,variable,eos,nt_phy,nt)
+    subroutine eulerex(update,grid,variable,eos,nt_phy,nt,timeprev,time)
       implicit none
       class(t_eulerex), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
+      real(8), intent(inout) :: time
       integer :: i,j,k,n,l
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
@@ -449,8 +459,13 @@ module update_module
       real(8) :: res(update%npv)
 
       
-      call update%bc%setbc(grid,variable,eos)
-      call update%timestep%caltimestep(grid,variable,nt_phy,nt)
+      call update%timestep%caltimestep(grid,variable,nt_phy,nt,timeprev)
+      if (update%nsteady.eq.0) then
+        time = update%timestep%gettime()
+      else if (update%nsteady.eq.1) then
+        time = update%dt_phy*dble(nt_phy)+timeprev
+      end if
+      call update%bc%setbc(grid,variable,eos,time)
       call update%rhs%calrhs(grid,variable,eos)
       
       do k=2,update%kmax
@@ -539,25 +554,31 @@ module update_module
       end if
     end subroutine eulerex
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine rk3rd(update,grid,variable,eos,nt_phy,nt)
+    subroutine rk3rd(update,grid,variable,eos,nt_phy,nt,timeprev,time)
       implicit none
       class(t_rk3rd), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
+      real(8), intent(inout) :: time
       integer :: i,j,k,n,l,m
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
       real(8) :: grd(update%ngrd),dt
       real(8) :: x(7,update%npv)
       real(8) :: res(update%npv)
-
       
       
       do m=1,3
-        call update%bc%setbc(grid,variable,eos)
-        if(m.eq.1) call update%timestep%caltimestep(grid,variable,nt_phy,nt)
+        if(m.eq.1) call update%timestep%caltimestep(grid,variable,nt_phy,nt,timeprev)
+        if(update%nsteady.eq.0) then
+          time = update%timestep%gettime()
+        else if(update%nsteady.eq.1) then
+          time = update%dt_phy*dble(nt_phy)+timeprev
+        end if
+        call update%bc%setbc(grid,variable,eos,time)
         call update%rhs%calrhs(grid,variable,eos)
         do k=2,update%kmax
           do j=2,update%jmax
@@ -648,21 +669,28 @@ module update_module
       
     end subroutine rk3rd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine lusgs(update,grid,variable,eos,nt_phy,nt)
+    subroutine lusgs(update,grid,variable,eos,nt_phy,nt,timeprev,time)
       implicit none
       class(t_lusgs), intent(inout) :: update
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
+      real(8), intent(inout) :: time
       integer :: i,j,k,n,l
       real(8) :: nx1(3),nx2(3),nx3(3),nx4(3),nx5(3),nx6(3)
       real(8) :: pv(update%npv),dv(update%ndv),tv(update%ntv)
       real(8) :: grd(update%ngrd),dt,c(4),t(4)
       real(8) :: x(7,update%npv)
             
-      call update%bc%setbc(grid,variable,eos)
-      call update%timestep%caltimestep(grid,variable,nt_phy,nt)
+      call update%timestep%caltimestep(grid,variable,nt_phy,nt,timeprev)
+      if(update%nsteady.eq.0) then
+        time = update%timestep%gettime()
+      else if(update%nsteady.eq.1) then
+        time = update%dt_phy*dble(nt_phy)+timeprev
+      end if
+      call update%bc%setbc(grid,variable,eos,time)
       call update%rhs%calrhs(grid,variable,eos)
       
       update%dcv = 0.d0

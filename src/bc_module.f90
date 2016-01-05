@@ -14,7 +14,7 @@ module bc_module
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     integer :: npv,ntv,ndv,ngrd,ndata
     character(4) :: face
-    real(8) :: massflowrate,pressure,omega(3)
+    real(8) :: massflowrate,pressure,omega(3),time
     real(8), dimension(:), allocatable :: heatflux,tdata
     real(8), dimension(:), allocatable :: pv,tv,dv
     procedure(p_bctype), pointer :: bctype
@@ -1157,12 +1157,13 @@ module bc_module
       deallocate(bc%mpitemp)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine setbc(bc,grid,variable,eos)
+    subroutine setbc(bc,grid,variable,eos,time)
       implicit none
       class(t_bc), intent(inout) :: bc
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: time
       integer :: i,j,k,n,m,l
       integer :: ii,jj,kk
       integer :: ier
@@ -1171,6 +1172,7 @@ module bc_module
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
       
       do n=1,bc%nbc
+        bc%bcinfo(n)%time = time
         call bc%bcinfo(n)%bctype(grid,variable,eos,bc%prec)
       end do
  
@@ -3535,24 +3537,24 @@ module bc_module
             do m=1,bcinfo%npv
               select case(m)
               case(2,3,4)
-                call variable%setpv(m,i,j,-pv(m))
+                call variable%setpv(m,i,j,k,-pv(m))
               case(5)
                 var = 2.d0*( heatflux*grd_b(5)/tv_b(2)+pv_b(5) )-pv(m)
-                call variable%setpv(m,i,j,var)
+                call variable%setpv(m,i,j,k,var)
               case default
-                call variable%setpv(m,i,j,pv(m))
+                call variable%setpv(m,i,j,k,pv(m))
               end select
             end do
             call eos%deteos(pv(1)+bcinfo%pv(1),pv(5),pv(6),pv(7),dv,tv)
             do m=1,bcinfo%ndv
-              call variable%setdv(m,i,j,dv(m))
+              call variable%setdv(m,i,j,k,dv(m))
             end do
             do m=1,bcinfo%ntv
-              call variable%settv(m,i,j,tv(m))
+              call variable%settv(m,i,j,k,tv(m))
             end do
           end do
         end do
-
+      end do
     end subroutine bcheatfluxwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcheatfluxwallviscouske(bcinfo,grid,variable,eos,prec)
@@ -3711,7 +3713,7 @@ module bc_module
                 var = 2.d0*( (heatflux*grd_b(5) + 0.5d0*tv_b(1)*(pv_b(2)**2+pv_b(3)**2+pv_b(4)**2))/tv_b(2) + pv_b(5) )-pv(m)
                 call variable%setpv(m,i,j,k,var)
               case(9)
-                var = 1600.d0*tv_b(1)/dv_b(1)/grd(5)**2-pv(m)
+                var = 1600.d0*tv_b(1)/dv_b(1)/grd_b(5)**2-pv(m)
                 call variable%setpv(m,i,j,k,var)
               case default
                 call variable%setpv(m,i,j,k,pv(m))

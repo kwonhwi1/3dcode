@@ -8,6 +8,8 @@ mode(1:post, 2:surface pressure, 3:clcd)
 0
 planform area
 0.d0
+nsolname(1:nps/nts, 2:physical time)
+1
 ! name, nsteady, nexport, iturb, fluid, ngas      check in input.inp for postprocessing
 ! planform area, uref, rhoref, l_chord, aoa, aos  for surface pressure & clcd calculation
 ! famname='Surface'                               in *.cgns for surface pressure & clcd calculation

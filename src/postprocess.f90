@@ -11,7 +11,7 @@ program postprocess
   type(t_variable) :: variable
   real(8), dimension(:), allocatable :: dv,tv
   
-  integer :: io,istart,iend,nsolution,mode
+  integer :: io,istart,iend,nsolution,mode,nsolname
   real(8) :: area
 
   open(newunit=io,file='./input_post.inp',status='old',action='read')
@@ -20,6 +20,7 @@ program postprocess
   read(io,*); read(io,*) nsolution
   read(io,*); read(io,*) mode
   read(io,*); read(io,*) area
+  read(io,*); read(io,*) nsolname
   close(io)
       
   call config%construct()
@@ -43,7 +44,7 @@ program postprocess
   
   select case(mode)
   case(1)
-    call variable%cgnswriting(config,grid)
+    call variable%cgnswriting(config,grid,nsolname)
   case(2)
     call variable%surface_writing(config,grid)
   case(3)

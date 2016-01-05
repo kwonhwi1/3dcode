@@ -11,7 +11,7 @@ module timestep_module
     private
     integer :: rank,nprint
     integer :: npv,ndv,ntv,ngrd,imax,jmax,kmax
-    real(8) :: cfl,uref,str
+    real(8) :: cfl,uref,str,time
     real(8), dimension(:,:,:), allocatable :: dt
     procedure(p_getsndp2), pointer :: getsndp2
     procedure(p_geteigenvis), pointer :: geteigenvis
@@ -19,11 +19,12 @@ module timestep_module
       procedure :: construct
       procedure :: destruct
       procedure :: getdt
+      procedure :: gettime
       procedure(p_caltimestep), deferred :: caltimestep
   end type t_timestep
 
   abstract interface
-    subroutine p_caltimestep(timestep,grid,variable,nt_phy,nt)
+    subroutine p_caltimestep(timestep,grid,variable,nt_phy,nt,timeprev)
       import t_timestep
       import t_grid
       import t_variable
@@ -32,7 +33,7 @@ module timestep_module
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
-      
+      real(8), intent(in) :: timeprev
     end subroutine p_caltimestep
   end interface
   
@@ -123,12 +124,13 @@ module timestep_module
 
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine localtime(timestep,grid,variable,nt_phy,nt)
+    subroutine localtime(timestep,grid,variable,nt_phy,nt,timeprev)
       implicit none
       class(t_localtime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
       integer :: i,j,k    
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)
@@ -138,6 +140,11 @@ module timestep_module
       real(8) :: c1,c2,c3,e1,e2,e3,t1,t2,t3,s1,s2,s3
       real(8) :: uc,vc,wc,uv2,sndp2
       real(8) :: up,d,eigenx,eigeny,eigenz,eigenvis
+      real(8) :: dtmin,mpi_dtmin
+      real(8),save :: time = 0.d0
+      integer :: ierr
+
+      dtmin = 1.d10
       
       do k = 2,timestep%kmax
         do j = 2,timestep%jmax 
@@ -189,17 +196,28 @@ module timestep_module
             eigenvis = timestep%geteigenvis(dv,tv)*(s1+s2+s3)/grd(1)
             
             timestep%dt(i,j,k) = timestep%cfl*grd(1)/(eigenx + eigeny + eigenz + 4.d0*eigenvis)
-           end do
+            
+            if(dtmin.ge.timestep%dt(i,j,k)) then
+              dtmin = timestep%dt(i,j,k)
+            end if
+          end do
         end do
       end do
-    end subroutine localtime
+      
+      call mpi_reduce(dtmin,mpi_dtmin,1,mpi_real8,mpi_min,0,mpi_comm_world,ierr)
+      call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
+      time = time + mpi_dtmin
+      timestep%time = time + timeprev
+      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',timestep%time, mpi_dtmin
+   end subroutine localtime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine mintime(timestep,grid,variable,nt_phy,nt)
+    subroutine mintime(timestep,grid,variable,nt_phy,nt,timeprev)
       implicit none
       class(t_mintime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
       integer :: i,j,k    
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)
@@ -277,17 +295,23 @@ module timestep_module
       call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
       timestep%dt = mpi_dtmin
       time = time + mpi_dtmin
-      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',time, mpi_dtmin
+      timestep%time = time + timeprev
+      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',timestep%time, mpi_dtmin
     end subroutine mintime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine fixedtime(timestep,grid,variable,nt_phy,nt)
+    subroutine fixedtime(timestep,grid,variable,nt_phy,nt,timeprev)
       implicit none
       class(t_fixedtime), intent(inout) :: timestep
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: timeprev
+      real(8), save :: time = 0.d0
 
       timestep%dt = timestep%cfl
+      time = time + timestep%cfl
+      timestep%time = time + timeprev
+      if((timestep%rank.eq.0).and.(mod(nt,timestep%nprint).eq.0)) write(*,*) 'Solution time=',timestep%time, timestep%cfl
 
     end subroutine fixedtime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -361,5 +385,14 @@ module timestep_module
       getdt = timestep%dt(i,j,k)
       
     end function getdt
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function gettime(timestep)
+      implicit none
+      class(t_timestep), intent(in) :: timestep
+      real(8) :: gettime
+
+      gettime = timestep%time
+
+    end function gettime
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module timestep_module
