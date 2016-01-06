@@ -307,8 +307,8 @@ module flux_module
       real(8) :: nx,ny,nz,dl
       real(8) :: uurr,uull
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
-      real(8) :: sndp2,sndp2_cut
-      real(8) :: uuu,uup,ddd,ddd_cut,c_star,c_star_cut,m_star,rhom
+      real(8) :: am2rmid1,am2rmid,fmid,fmid1,amid
+      real(8) :: uuu,c_star,c_star_cut,m_star
       real(8) :: aaa,add,b1,b2,b11,b22,ff,gg,sdst(18),pp_l,pp_r
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
@@ -341,21 +341,22 @@ module flux_module
 
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
-      sndp2     = flux%getsndp2(rdv(6),uuu**2)
-      sndp2_cut = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))
-      
-      uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
-      ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
-      ddd_cut = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2_cut)
+      am2rmid1 = flux%getsndp2(rdv(6),uuu**2)/rdv(6)
+      am2rmid  = flux%getsndp2_c(rdv(6),(ravg(2)**2+ravg(3)**2+ravg(4)**2))/rdv(6)
 
-      b1 = dmax1(uup + ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd)
-      b2 = dmin1(uup - ddd,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd)
-      b11 = dmax1(uup + ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvr(6),uurr**2)/flux%dvr(6))*uurr + ddd_cut)
-      b22 = dmin1(uup - ddd_cut,0.5d0*(1.d0+flux%getsndp2(flux%dvl(6),uull**2)/flux%dvl(6))*uull - ddd_cut)
+      fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
+      fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
+
+      amid = dsqrt(rdv(6))
+
+      b1 = dmax1(uuu+fmid1*amid,uurr+fmid1*amid)
+      b2 = dmin1(uuu-fmid1*amid,uull-fmid1*amid)
+      b11 = dmax1(uuu+fmid*amid,uurr+fmid*amid)
+      b22 = dmin1(uuu-fmid*amid,uull-fmid*amid)
 
       c_star = 0.5d0*(dabs(b1)+dabs(b2))
       c_star_cut = 0.5d0*(dabs(b11)+dabs(b22))
-      m_star = 0.5d0*(dabs(b1)-dabs(b2))/ddd_cut
+      m_star = 0.5d0*(dabs(b1)-dabs(b2))/amid/fmid
       
       do k=1,flux%npv
         dqp(k) = flux%pvr(k)-flux%pvl(k)
@@ -401,7 +402,7 @@ module flux_module
                        ,sdst(4)/sdst(10),sdst(10)/sdst(4),sdst(10)/sdst(16),sdst(16)/sdst(10) )
       
       if(uuu .ne. 0.d0) then
-        ff = (dabs(uup)/ddd_cut)**ff
+        ff = (dabs(uuu)/amid)**ff
       else
         ff = 1.d0
       end if
@@ -411,15 +412,15 @@ module flux_module
       gg = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)
       
       if(uuu .ne. 0.d0) then
-        gg = (dabs(uup)/ddd_cut)**gg
+        gg = (dabs(uuu)/amid)**gg
       else
         gg = 1.d0
       end if
 
-      add = c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star
-      aaa = (c_star_cut-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)
+      add = c_star-dabs(uuu)
+      aaa = c_star_cut-dabs(uuu)
 
-      bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/sndp2_cut) 
+      bdq(1) = (add*dq(1)-ff*aaa*dqp(1)/rdv(6)/fmid**2)
       bdq(2) = bdq(1)*ravg(2)  + rdv(1)*add*(dqp(2)-nx*(uurr-uull))
       bdq(3) = bdq(1)*ravg(3)  + rdv(1)*add*(dqp(3)-ny*(uurr-uull))
       bdq(4) = bdq(1)*ravg(4)  + rdv(1)*add*(dqp(4)-nz*(uurr-uull))
@@ -429,7 +430,7 @@ module flux_module
       end do
 
       do k=1,flux%npv
-        fx(k) = 0.5d0*(fl(k)+fr(k)-m_star*(fr(k)-fl(k))+(m_star*uup-c_star)*dq(k)+gg*bdq(k))*dl
+        fx(k) = 0.5d0*(fl(k)+fr(k)-m_star*(fr(k)-fl(k))+(m_star*uuu-c_star)*dq(k)+gg*bdq(k))*dl
       end do
     
     end subroutine roem
