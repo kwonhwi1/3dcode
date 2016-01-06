@@ -15,6 +15,7 @@ module postvariable_module
   
   type t_solution
     integer :: size,nps,nts
+    real(8) ::time
     type(t_zone), dimension(:), allocatable :: zone
   end type t_solution
   
@@ -94,6 +95,10 @@ module postvariable_module
         call mpi_file_read_all(io,variable%solution(l)%nts,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
 
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,variable%solution(l)%time,1,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize
+
         do m=1,grid%getnzone()
           call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
           num = variable%npv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
@@ -105,7 +110,7 @@ module postvariable_module
           call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
           disp = disp + realsize*num
           num = variable%nqq*variable%npv*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
-          disp = disp + realsize*num + 2*intsize
+          disp = disp + realsize*num + 2*intsize + realsize
         end do
 
         call mpi_file_close(io,ier)
@@ -144,31 +149,38 @@ module postvariable_module
       deallocate(variable%solution)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cgnswriting(variable,config,grid)
+    subroutine cgnswriting(variable,config,grid,nsolname)
       implicit none
       class(t_variable), intent(in) :: variable
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
+      integer, intent(in) :: nsolname
       integer :: ifile,ier,index_flow,index_field
       integer :: n,m
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:), allocatable :: temp
-      character(8), dimension(:), allocatable :: solname
+      character(12), dimension(:), allocatable :: solname
 
       allocate(solname(variable%nsolution),time(variable%nsolution))
 
-      if(config%getnsteady().eq.1) then
+      if(nsolname.eq.1) then
+        if(config%getnsteady().eq.1) then
+          do n=1,variable%nsolution
+            write(solname(n),'(i12.12)') variable%solution(n)%nps
+            time(n) = dble(variable%solution(n)%nps)
+          end do
+        else if(config%getnsteady().eq.0) then
+          do n=1,variable%nsolution
+            write(solname(n),'(i12.12)') variable%solution(n)%nts
+            time(n) = dble(variable%solution(n)%nts)
+          end do
+        end if
+      else if(nsolname.eq.2) then
         do n=1,variable%nsolution
-          write(solname(n),'(i8.8)') variable%solution(n)%nps
-          time(n) = dble(variable%solution(n)%nps)
-        end do
-      else
-        do n=1,variable%nsolution
-          write(solname(n),'(i8.8)') variable%solution(n)%nts
-          time(n) = dble(variable%solution(n)%nts)
+          write(solname(n),'(i12.6)') variable%solution(n)%time
+          time(n) = variable%solution(n)%time
         end do
       end if
-
 
       call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
       if(ier.ne.cg_ok) call cg_error_exit_f

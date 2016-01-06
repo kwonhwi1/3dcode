@@ -63,7 +63,7 @@ module variable_module
       else
         variable%disp = 0
         do i=0,variable%rank-1
-          variable%disp = variable%disp + variable%intsize*2 &
+          variable%disp = variable%disp + variable%intsize*2 + variable%realsize &
                         + variable%realsize*variable%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                         + variable%realsize*variable%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                         + variable%realsize*variable%nqq*variable%npv*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
@@ -82,10 +82,11 @@ module variable_module
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine export_variable(variable,nt_phy,nt)
+    subroutine export_variable(variable,nt_phy,nt,time)
       implicit none
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
+      real(8), intent(in) :: time
       integer :: ier,io,num
       integer(kind=mpi_offset_kind) :: disp
       character(8) :: iter_tag
@@ -106,6 +107,10 @@ module variable_module
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
       call mpi_file_write_all(io,nt,1,mpi_integer,mpi_status_ignore,ier)
       disp = disp + variable%intsize
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_write_all(io,time,1,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + variable%realsize
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%npv*(variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)

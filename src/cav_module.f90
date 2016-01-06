@@ -12,8 +12,8 @@ module cav_module
   
   type, abstract :: t_cav
     private
-    integer :: stencil,npv,ndv,ngrd
-    real(8) :: pref
+    integer :: stencil,npv,ndv,ngrd,fluid
+    real(8) :: pref,t_crit
     real(8) :: uref,c_c,c_v,dp_ref,t_ref
     real(8), pointer :: pv(:,:),dv(:),grd(:)
     contains
@@ -67,10 +67,23 @@ module cav_module
       cav%uref         = config%geturef()
       cav%c_c          = config%getc_c()
       cav%c_v          = config%getc_v()
+      cav%fluid        = config%getfluid()
       cav%dp_ref = 2.d0/(config%getrhoref()*cav%uref**2)
       cav%t_ref = cav%uref/config%getl_chord()
       
       cav%ngrd = grid%getngrd()
+
+      select case(cav%fluid)
+      case(1,2,3) ! h2o
+        cav%t_crit = 647.096d0
+      case(4) ! n2
+        cav%t_crit = 126.192d0
+      case(5) ! o2
+        cav%t_crit = 154.581d0
+      case(6) ! h2
+        cav%t_crit = 33.145d0
+      end select
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(cav)
@@ -119,6 +132,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
       
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      if(cav%pv(2,4).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
       
@@ -152,6 +166,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
 
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      if(cav%pv(2,4).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
       
@@ -188,6 +203,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
       
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      if(cav%pv(2,4).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       sigma = eos%get_sigma(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(3)

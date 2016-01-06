@@ -37,7 +37,7 @@ module initial_module
   end type t_ini_restart
   
   abstract interface
-    subroutine p_initialize(ini,grid,variable,eos,nps,nts)
+    subroutine p_initialize(ini,grid,variable,eos,nps,nts,timeprev)
       import t_ini
       import t_grid
       import t_variable
@@ -48,6 +48,7 @@ module initial_module
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
     end subroutine p_initialize
   end interface
   
@@ -97,13 +98,14 @@ module initial_module
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef steadyini
-    subroutine restart(ini,grid,variable,eos,nps,nts)
+    subroutine restart(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
@@ -121,7 +123,7 @@ module initial_module
       else
         disp = 0
         do i=0,ini%rank-1
-          disp = disp + intsize*2 &
+          disp = disp + intsize*2 + realsize &
                + realsize*ini%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                + realsize*ini%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
         end do
@@ -136,6 +138,10 @@ module initial_module
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
       call mpi_file_read_all(io,nts,1,mpi_integer,mpi_status_ignore,ier)
       disp = disp + intsize
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,timeprev,1,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize
 
       allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(tv(ini%ntv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
@@ -190,18 +196,19 @@ module initial_module
 
       nts = 1
       nps = 1
-
+      timeprev = 0.d0
 
     end subroutine restart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #else
-    subroutine restart(ini,grid,variable,eos,nps,nts)
+    subroutine restart(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
@@ -220,7 +227,7 @@ module initial_module
       else
         disp = 0
         do i=0,ini%rank-1
-          disp = disp + intsize*2 &
+          disp = disp + intsize*2 + realsize &
                + realsize*ini%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                + realsize*ini%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                + realsize*ini%nqq*ini%npv*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
@@ -236,6 +243,10 @@ module initial_module
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
       call mpi_file_read_all(io,nts,1,mpi_integer,mpi_status_ignore,ier)
       disp = disp + intsize
+
+      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+      call mpi_file_read_all(io,timeprev,1,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize
 
       allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
       allocate(tv(ini%ntv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
@@ -298,13 +309,14 @@ module initial_module
     end subroutine restart
 #endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine initial_rot(ini,grid,variable,eos,nps,nts)
+    subroutine initial_rot(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_initial_rot), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
@@ -363,18 +375,20 @@ module initial_module
       end do
       nps = 1
       nts = 1
+      timeprev = 0.d0
     end subroutine initial_rot
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 #ifdef test
 
 #elif lax3d
-     subroutine initial(ini,grid,variable,eos,nps,nts)
+     subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
@@ -438,16 +452,18 @@ module initial_module
       end do
       nps = 1
       nts = 1
+      timeprev = 0.d0
     end subroutine initial
 
 #elif shocktube
-    subroutine initial(ini,grid,variable,eos,nps,nts)
+    subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
@@ -510,15 +526,17 @@ module initial_module
       end do
       nps = 1
       nts = 1
+      timeprev = 0.d0
     end subroutine initial
 #else
-    subroutine initial(ini,grid,variable,eos,nps,nts)
+    subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
       integer :: i,j,k,n
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
@@ -570,6 +588,7 @@ module initial_module
       end do
       nps = 1
       nts = 1
+      timeprev = 0.d0
     end subroutine initial
 #endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

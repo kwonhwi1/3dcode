@@ -123,27 +123,28 @@ module solve_module
       type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       integer :: nt_phy,nt,nps,nts
+      real(8) :: timeprev, time
       
-      call solve%ini%initialize(grid,variable,eos,nps,nts)
+      call solve%ini%initialize(grid,variable,eos,nps,nts,timeprev)
 
       do nt_phy=nps,solve%npmax
         call solve%resi%setl_converge(.false.)
         do nt=nts,solve%ntmax
           call solve%resi%setqres(variable)
-          call solve%update%timeinteg(grid,variable,eos,nt_phy,nt)
+          call solve%update%timeinteg(grid,variable,eos,nt_phy,nt,timeprev,time)
           call solve%resi%residual(variable,nt_phy,nt)        
           if(solve%resi%getconverge()) then
-            if(.not.solve%l_nsteady) call variable%export_variable(nt_phy,nt)
+            if(.not.solve%l_nsteady) call variable%export_variable(nt_phy,nt,time)
             exit
           end if
           if((mod(nt,solve%nexport).eq.0).and.(.not.solve%l_nsteady)) then
-            call variable%export_variable(nt_phy,nt)
+            call variable%export_variable(nt_phy,nt,time)
           end if
         end do
         if(solve%l_nsteady) then
           call solve%unsteadyupdate(variable)
           if(mod(nt_phy,solve%nexport).eq.0) then
-            call variable%export_variable(nt_phy,nt-1)
+            call variable%export_variable(nt_phy,nt-1,time)
           end if
         end if
       end do
