@@ -14,7 +14,7 @@ module config_module
     real(8) :: dt_phy
     integer :: nexport,nprint
     integer :: iturb,tcomp
-    integer :: nscheme,precd,nmuscl,nlim
+    integer :: nscheme,nmuscl,nlim
     integer :: timemethod,local,prec
     real(8) :: cfl
     integer :: fluid,ngas
@@ -49,7 +49,6 @@ module config_module
       procedure :: getrstnum
       procedure :: getiturb
       procedure :: getnscheme
-      procedure :: getprecd
       procedure :: getnmuscl
       procedure :: getnlim
       procedure :: gettimemethod
@@ -105,7 +104,7 @@ module config_module
           read(io,*); read(io,*) config%nsteady,config%npmax,config%ntmax,config%bond,config%dt_phy
           read(io,*); read(io,*) config%nexport,config%nprint
           read(io,*); read(io,*) config%iturb,config%tcomp
-          read(io,*); read(io,*) config%nscheme,config%precd,config%nmuscl,config%nlim
+          read(io,*); read(io,*) config%nscheme,config%nmuscl,config%nlim
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
           read(io,*); read(io,*) config%fluid,config%ngas
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
@@ -368,16 +367,7 @@ module config_module
       getnscheme = config%nscheme
       
     end function getnscheme
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
-    pure function getprecd(config)
-      implicit none
-      class(t_config), intent(in) :: config
-      integer :: getprecd
-      
-      getprecd = config%precd
-      
-    end function getprecd
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getnmuscl(config)
       implicit none
       class(t_config), intent(in) :: config

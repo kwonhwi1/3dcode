@@ -8,8 +8,8 @@ nexport       nprt
 0             0
 iturb         tcomp
 0             0
-nscheme       precd          nmuscl         nlim
-0             0              0              0
+nscheme       nmuscl         nlim
+0             0              0
 timemethod    local          prec           cfl
 0             0              0              0.d0
 fluid         ngas
@@ -38,8 +38,7 @@ npost         : iteration/post
 nprt          : iteration/print
 iturb         : -3 = euler, -2 = rans, -1 = low reynolds k-e model, 0 = k-w sst
 tcomp         : turbulent compressibility effect, 0 = off, 1 = on
-nscheme       : 1 = roe, 2 = roem, 3 = ausmpw+, 4 = ausm+up
-precd         : couple with delp preconditioning 0 = decouple, 1 = couple
+nscheme       : 1 = roe/p-roe, 2 = n_roem, 3 = n_ausmpw+, 4 = ausm+up
 nmuscl        : 0 = 1st order, 1 = tvd, 2 = mlp
 nlim          : 0 = no_limiter, 1 = minmod, 2 = superbee, 3 = v.l., 4 = m.c., 5 = v.a., 6 = beta, 7 = 3rd_order, 8 = 5th_order
 timemethod    : 1 = euler_explicit, 2 = 3rd-rk, 3 = lu-sgs
