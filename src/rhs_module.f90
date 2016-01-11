@@ -575,6 +575,7 @@ module rhs_module
             end if
 
             if(rhs%l_gravity) then
+              call rhs%gravity%setpv(x)
               call rhs%gravity%setdv(dvl)
               call rhs%gravity%setgrd(grdl)
               rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + rhs%gravity%getgravitysource()
