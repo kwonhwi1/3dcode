@@ -104,6 +104,10 @@ module rhs_module
         allocate(t_kunz::rhs%cav)
       case(3)
         allocate(t_singhal::rhs%cav)
+      case(4)
+        allocate(t_schnerr_sauer::rhs%cav)
+      case(5)
+        allocate(t_lee::rhs%cav)
       end select
 
       select case(config%getnsteady())

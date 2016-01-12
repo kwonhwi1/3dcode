@@ -4,7 +4,7 @@ module cav_module
   use eos_module
   implicit none
   private
-  public :: t_cav,t_merkle,t_kunz,t_singhal,t_cav_result
+  public :: t_cav,t_merkle,t_kunz,t_singhal,t_schnerr_sauer,t_lee,t_cav_result
   
   type t_cav_result
     real(8) :: cavsource,icav(4)
@@ -39,7 +39,17 @@ module cav_module
     contains
       procedure :: cavsource => singhal
   end type t_singhal
-  
+
+  type, extends(t_cav) :: t_schnerr_sauer
+    contains
+      procedure :: cavsource => schnerr_sauer
+  end type t_schnerr_sauer
+
+  type, extends(t_cav) :: t_lee
+    contains
+      procedure :: cavsource => lee
+  end type t_lee
+ 
   abstract interface
     function p_cavsource(cav,eos) result(cav_result)
       import t_cav_result
@@ -240,4 +250,96 @@ module cav_module
       cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
     end function singhal
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function schnerr_sauer(cav,eos) result(cav_result)
+      implicit none
+      class(t_schnerr_sauer), intent(in) :: cav
+      class(t_eos), intent(in) :: eos
+      type(t_cav_result) :: cav_result
+      real(8) :: r_c,r_v,pww,lam,rho1,rho3,rho4,y3!,irb
+      real(8), parameter :: phi=1.d0,pi = 4.d0*datan(1.d0)
+      real(8), parameter :: eta=1.d13 ! bubble number density, 1.d5~1.d9 for cryogens
+
+      ! NON-CONDENSABLE GAS NEEDED: 1.5D-5 RECOMMENDED
+      y3 = 1.5d-5
+
+      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      if(cav%pv(2,4).ge.cav%t_crit) return
+      pww = eos%get_pww(cav%pv(2,5))
+      rho1 = 1.d0/cav%dv(1)
+      rho3 = 1.d0/cav%dv(3)
+      rho4 = 1.d0/cav%dv(4)
+
+      !irb = (4.d0*pi*eta*cav%dv(4)*(1.d0-cav%pv(2,6)-cav%pv(2,7))/(3.d0*cav%dv(3)*cav%pv(2,6)))**(1.d0/3.d0)
+      !r_c = cav%c_c*cav%dv(1)*cav%pv(2,6)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*3.d0*irb &
+      !      *dsqrt(2.d0/3.d0*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*rho3)
+      !r_v = cav%c_v*cav%dv(1)*cav%pv(2,6)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*3.d0*irb &
+      !      *dsqrt(2.d0/3.d0*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*rho3)
+
+      r_c = cav%c_c*3.d0*(4.d0*pi*eta/3.d0)**(1.d0/3.d0)*dsqrt(2.d0/3.d0)           &
+            *cav%dv(1)*cav%dv(4)**(1.d0/3.d0)*cav%dv(3)**(-5.d0/6.d0)               &
+            *cav%pv(2,6)**(2.d0/3.d0)*(1.d0-cav%pv(2,6)-cav%pv(2,7))**(4.d0/3.d0)   &
+            *dsqrt(dmax1(cav%pv(2,1)+cav%pref-pww,0.d0))
+
+      r_v = cav%c_v*3.d0*(4.d0*pi*eta/3.d0)**(1.d0/3.d0)*dsqrt(2.d0/3.d0)           &
+            *cav%dv(1)*cav%dv(4)**(1.d0/3.d0)*cav%dv(3)**(-5.d0/6.d0)               &
+            *(cav%pv(2,6)+y3)**(2.d0/3.d0)*(1.d0-cav%pv(2,6)-cav%pv(2,7))**(4.d0/3.d0)   &
+            *dsqrt(dmax1(pww-cav%pv(2,1)-cav%pref,0.d0))
+      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+      if(cav%axi) cav_result%cavsource = cav_result%cavsource*cav%grd(3)
+
+      if(r_c.ne.0.d0) then
+        cav_result%icav(1) = - r_c*(cav%dv(7)*rho1 + cav%dv(15)*rho4/3.d0 - 5.d0*cav%dv(17)*rho3/6.d0 + 0.5d0/(cav%pv(2,1)+cav%pref-pww))
+        cav_result%icav(2) = - r_c*(cav%dv(8)*rho1 + cav%dv(16)*rho4/3.d0 - 5.d0*cav%dv(18)*rho3/6.d0)
+        cav_result%icav(3) = - r_c*(cav%dv(9)*rho1 + 2.d0/(3.d0*cav%pv(2,6)) - 4.d0/(3.d0*(1.d0-cav%pv(2,6)-cav%pv(2,7))))
+        cav_result%icav(4) = - r_c*(cav%dv(10)*rho1 - 4.d0/(3.d0*(1.d0-cav%pv(2,6)-cav%pv(2,7))))
+      end if
+
+      if(r_v.ne.0.d0) then
+        cav_result%icav(1) = r_v*(cav%dv(7)*rho1 + cav%dv(15)*rho4/3.d0 - 5.d0*cav%dv(17)*rho3/6.d0 - 0.5d0/(pww-cav%pv(2,1)-cav%pref))
+        cav_result%icav(2) = r_v*(cav%dv(8)*rho1 + cav%dv(16)*rho4/3.d0 - 5.d0*cav%dv(18)*rho3/6.d0)
+        cav_result%icav(3) = r_v*(cav%dv(9)*rho1 + 2.d0/(3.d0*(cav%pv(2,6)+y3)) - 4.d0/(3.d0*(1.d0-cav%pv(2,6)-cav%pv(2,7))))
+        cav_result%icav(4) = r_v*(cav%dv(10)*rho1 - 4.d0/(3.d0*(1.d0-cav%pv(2,6)-cav%pv(2,7))))
+      end if
+      lam = dsign(1.d0,cav_result%icav(3))
+      cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
+    end function schnerr_sauer
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function lee(cav,eos) result(cav_result)
+      implicit none
+      class(t_lee), intent(in) :: cav
+      class(t_eos), intent(in) :: eos
+      type(t_cav_result) :: cav_result
+      real(8) :: r_c,r_v,tww,lam,rho1
+      real(8), parameter :: phi = 1.d0
+
+      ! ANSYS-FLUENT
+      ! Cc,Cv: 1.D-1~1.D3, DEFAULT 1.D-1
+
+      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      if(cav%pv(2,5).ge.cav%t_crit) return
+      tww = eos%get_tww(cav%pv(2,1)+cav%pref)
+      rho1 = 1.d0/cav%dv(1)
+
+      r_c = cav%c_c*cav%dv(1)*cav%pv(2,6)*dmax1(tww-cav%pv(2,5),0.d0)/tww
+      r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(cav%pv(2,5)-tww,0.d0)/tww
+
+      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+
+      if(r_c.ne.0.d0) then
+        cav_result%icav(1) = - r_c*cav%dv(7)*rho1
+        cav_result%icav(2) = - r_c*cav%dv(8)*rho1 + cav%c_c*cav%dv(1)*cav%pv(2,6)/tww
+        cav_result%icav(3) = - r_c*cav%dv(9)*rho1 - cav%c_c*cav%dv(1)*dmax1(tww-cav%pv(2,5),0.d0)/tww
+        cav_result%icav(4) = - r_c*cav%dv(10)*rho1
+      end if
+
+      if(r_v.ne.0.d0) then
+        cav_result%icav(1) = r_v*cav%dv(7)*rho1
+        cav_result%icav(2) = r_v*cav%dv(8)*rho1 + cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))/tww
+        cav_result%icav(3) = r_v*cav%dv(9)*rho1 - cav%c_v*cav%dv(1)*dmax1(cav%pv(2,5)-tww,0.d0)/tww
+        cav_result%icav(4) = r_v*cav%dv(10)*rho1 - cav%c_v*cav%dv(1)*dmax1(cav%pv(2,5)-tww,0.d0)/tww
+      end if
+      lam = dsign(1.d0,cav_result%icav(3))
+      cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
+    end function lee
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module cav_module 

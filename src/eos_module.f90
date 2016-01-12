@@ -38,6 +38,7 @@ module eos_module
     logical :: prop
     integer :: ndv,ntv!,rank,size
     procedure(p_pww), public, pointer :: get_pww
+    procedure(p_tww), public, pointer :: get_tww
     procedure(p_sigma), public, pointer :: get_sigma
     procedure(p_eos_l), pointer :: eos_l
     procedure(p_eos_v), pointer :: eos_v
@@ -104,6 +105,14 @@ module eos_module
       real(8) :: pww
     end function p_pww
     
+    function p_tww(eos,p) result(tww)
+      import t_eos
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+    end function p_tww
+  
     function p_sigma(eos,t) result(sigma)
       import t_eos
       implicit none
@@ -196,12 +205,14 @@ module eos_module
         eos%eos_l  => stiffened
         eos%eos_v  => ideal
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
         eos%eos_l  => iapws97_l
         eos%eos_v  => iapws97_v
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(3)! database water
         call eos%set_database(1,1)
@@ -209,6 +220,7 @@ module eos_module
         eos%eos_l  => database
         eos%eos_v  => database
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(4)! database nitrogen
         call eos%set_database(2,1)
@@ -216,6 +228,7 @@ module eos_module
         eos%eos_l  => database
         eos%eos_v  => database
         eos%get_pww => n2_pww
+        eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
       case(5)! database oxygen
         call eos%set_database(3,1)
@@ -223,6 +236,7 @@ module eos_module
         eos%eos_l  => database
         eos%eos_v  => database
         eos%get_pww => o2_pww
+        eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
       case(6)! database hydrogen
         call eos%set_database(4,1)
@@ -230,6 +244,7 @@ module eos_module
         eos%eos_l  => database
         eos%eos_v  => database
         eos%get_pww => h2_pww
+        eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
       case default
       end select
@@ -269,6 +284,7 @@ module eos_module
         eos%eos_l_prop  => stiffened_prop
         eos%eos_v_prop  => ideal_prop
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
@@ -278,6 +294,7 @@ module eos_module
         eos%eos_l_prop  => iapws97_l_prop
         eos%eos_v_prop  => iapws97_v_prop
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(3)! database water
         call eos%set_database(1,1)
@@ -287,6 +304,7 @@ module eos_module
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
         eos%get_pww => h2o_pww
+        eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
       case(4)! database nitrogen
         call eos%set_database(2,1)
@@ -296,6 +314,7 @@ module eos_module
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
         eos%get_pww => n2_pww
+        eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
       case(5)! database oxygen
         call eos%set_database(3,1)
@@ -305,6 +324,7 @@ module eos_module
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
         eos%get_pww => o2_pww
+        eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
       case(6)! database hydrogen
         call eos%set_database(4,1)
@@ -314,6 +334,7 @@ module eos_module
         eos%eos_v  => database
         eos%eos_v_prop  => database_prop
         eos%get_pww => h2_pww
+        eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
       case default
       end select
@@ -342,6 +363,7 @@ module eos_module
       integer :: m,n
 
       if(associated(eos%get_pww))    nullify(eos%get_pww)
+      if(associated(eos%get_tww))    nullify(eos%get_tww)
       if(associated(eos%get_sigma))  nullify(eos%get_sigma)
       if(associated(eos%eos_l))      nullify(eos%eos_l)
       if(associated(eos%eos_v))      nullify(eos%eos_v)
@@ -1759,6 +1781,59 @@ module eos_module
                    +0.349689d0*theta**2.d0 + 0.499356d0*theta**2.85d0) ) * 1296400.d0
 
     end function h2_pww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function h2o_tww(eos,p) result(tww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+      real(8) :: beta,e,f,g,d
+
+      beta = (p/1.d6)**0.25d0
+      e = beta**2 - 0.17073846940092d2*beta + 0.14915108613530d2
+      f = 0.11670521452767d4*beta**2 + 0.12020824702470d5*beta - 0.48232657361591d4
+      g = - 0.72421316703206d6*beta**2 - 0.32325550322333d7*beta + 0.40511340542057d6
+      d = 2.d0*g/(-f-dsqrt(f**2-4.d0*e*g))
+      tww = 0.5d0*(0.65017534844798d3 + d - dsqrt((0.65017534844798d3 + d)**2                 &
+                   - 4.d0*(-0.23855557567849d0+0.65017534844798d3*d)))
+    end function h2o_tww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function n2_tww(eos,p) result(tww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+
+      tww = 0.d0
+
+    end function n2_tww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function o2_tww(eos,p) result(tww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+
+      if(p.lt.1.d4) then
+        tww = 9.153d0*p**0.1546d0 + 34.65d0
+      else if((p.ge.1.d4).and.(p.lt.1.d5)) then
+        tww = 4.41d0*p**0.2042d0 + 43.79d0
+      else if((p.ge.1.d5).and.(p.lt.1.d6)) then
+        tww = 1.899d0*p**0.2569d0 + 53.53d0
+      else
+        tww = 1.51d0*p**0.2709d0 + 55.87d0
+      end if
+    end function o2_tww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function h2_tww(eos,p) result(tww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+
+      tww = 0.d0
+
+    end function h2_tww   
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_sigma(eos,t) result(sigma)
       implicit none
