@@ -285,7 +285,6 @@ module cav_module
             *(cav%pv(2,6)+y3)**(2.d0/3.d0)*(1.d0-cav%pv(2,6)-cav%pv(2,7))**(4.d0/3.d0)   &
             *dsqrt(dmax1(pww-cav%pv(2,1)-cav%pref,0.d0))
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
-      if(cav%axi) cav_result%cavsource = cav_result%cavsource*cav%grd(3)
 
       if(r_c.ne.0.d0) then
         cav_result%icav(1) = - r_c*(cav%dv(7)*rho1 + cav%dv(15)*rho4/3.d0 - 5.d0*cav%dv(17)*rho3/6.d0 + 0.5d0/(cav%pv(2,1)+cav%pref-pww))
