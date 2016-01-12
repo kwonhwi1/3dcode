@@ -37,6 +37,7 @@ module eos_module
     private
     logical :: prop
     integer :: ndv,ntv!,rank,size
+    real(8) :: gamma_f,gamma_g
     procedure(p_pww), public, pointer :: get_pww
     procedure(p_tww), public, pointer :: get_tww
     procedure(p_sigma), public, pointer :: get_sigma
@@ -54,6 +55,8 @@ module eos_module
       procedure :: construct
       procedure :: destruct
       procedure :: deteos_simple
+      procedure :: getgamma_f
+      procedure :: getgamma_g
       procedure, private :: set_iapws97_eos
       procedure, private :: set_iapws97_prop
       procedure, private :: set_srk_property
@@ -207,6 +210,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
         eos%eos_l  => iapws97_l
@@ -214,6 +218,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(3)! database water
         call eos%set_database(1,1)
         call eos%set_database(1,2)
@@ -222,6 +227,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(4)! database nitrogen
         call eos%set_database(2,1)
         call eos%set_database(2,2)
@@ -230,6 +236,7 @@ module eos_module
         eos%get_pww => n2_pww
         eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
+        eos%gamma_f = 1.4d0
       case(5)! database oxygen
         call eos%set_database(3,1)
         call eos%set_database(3,2)
@@ -238,6 +245,7 @@ module eos_module
         eos%get_pww => o2_pww
         eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
+        eos%gamma_f = 1.4d0
       case(6)! database hydrogen
         call eos%set_database(4,1)
         call eos%set_database(4,2)
@@ -246,18 +254,30 @@ module eos_module
         eos%get_pww => h2_pww
         eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
+        eos%gamma_f = 1.4d0
       case default
       end select
 
       select case(config%getngas())
       case(1) ! ideal gas
         eos%eos_g  => ideal
-      case(2,3,4,5) ! nitrogen,oxygen,hydrogen,helium
+        eos%gamma_g = 1.4d0
+      case(2,3,4) ! nitrogen,oxygen,hydrogen
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
-      case(6,7,8,9) ! nitrogen,oxygen,hydrogen,helium
+        eos%gamma_g = 1.4d0
+      case(5) ! helium
+        call eos%set_database(config%getngas(),3)
+        eos%eos_g  => database
+        eos%gamma_g = 1.66d0
+      case(6,7,8) ! nitrogen,oxygen,hydrogen
         call eos%set_srk_property(config%getngas()-4)
         eos%eos_g  => srk_g
+        eos%gamma_g = 1.4d0
+      case(9) ! helium
+        call eos%set_srk_property(config%getngas()-4)
+        eos%eos_g  => srk_g
+        eos%gamma_g = 1.66d0
       case default
       end select
 
@@ -286,6 +306,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
         call eos%set_iapws97_prop()
@@ -296,6 +317,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(3)! database water
         call eos%set_database(1,1)
         call eos%set_database(1,2)
@@ -306,6 +328,7 @@ module eos_module
         eos%get_pww => h2o_pww
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
+        eos%gamma_f = 1.33d0
       case(4)! database nitrogen
         call eos%set_database(2,1)
         call eos%set_database(2,2)
@@ -316,6 +339,7 @@ module eos_module
         eos%get_pww => n2_pww
         eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
+        eos%gamma_f = 1.4d0
       case(5)! database oxygen
         call eos%set_database(3,1)
         call eos%set_database(3,2)
@@ -326,6 +350,7 @@ module eos_module
         eos%get_pww => o2_pww
         eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
+        eos%gamma_f = 1.4d0
       case(6)! database hydrogen
         call eos%set_database(4,1)
         call eos%set_database(4,2)
@@ -336,6 +361,7 @@ module eos_module
         eos%get_pww => h2_pww
         eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
+        eos%gamma_f = 1.4d0
       case default
       end select
 
@@ -343,15 +369,29 @@ module eos_module
       case(1) ! ideal gas
         eos%eos_g  => ideal
         eos%eos_g_prop  => ideal_prop
-      case(2,3,4,5) ! nitrogen,oxygen,hydrogen,helium
+        eos%gamma_g = 1.4d0
+      case(2,3,4) ! nitrogen,oxygen,hydrogen
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
         eos%eos_g_prop  => database_prop
-      case(6,7,8,9) ! nitrogen,oxygen,hydrogen,helium
+        eos%gamma_g = 1.4d0
+      case(5) ! helium
+        call eos%set_database(config%getngas(),3)
+        eos%eos_g  => database
+        eos%eos_g_prop  => database_prop
+        eos%gamma_g = 1.66d0
+      case(6,7,8) ! nitrogen,oxygen,hydrogen
         call eos%set_srk_property(config%getngas()-4)
         call eos%set_database(config%getngas()-4,3)
         eos%eos_g  => srk_g
         eos%eos_g_prop  => srk_g_prop
+        eos%gamma_g = 1.4d0
+      case(9) ! helium
+        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_database(config%getngas()-4,3)
+        eos%eos_g  => srk_g
+        eos%eos_g_prop  => srk_g_prop
+        eos%gamma_g = 1.66d0
       case default
       end select
     
@@ -1953,4 +1993,22 @@ module eos_module
       
     end function computepv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getgamma_f(eos)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8) :: getgamma_f
+
+      getgamma_f = eos%gamma_f
+
+    end function getgamma_f
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getgamma_g(eos)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8) :: getgamma_g
+
+      getgamma_g = eos%gamma_g
+
+    end function getgamma_g
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module eos_module

@@ -2888,7 +2888,7 @@ module bc_module
       x(1) = pa+bcinfo%pv(1)
       x(2) = ta
 
-      call newt(eos,bcinfo%ndv,2,bcinfo%pressure,bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
+      call newt(eos,bcinfo%ndv,2,bcinfo%pressure,bcinfo%pv(5),bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -3766,11 +3766,11 @@ module bc_module
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine newt(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,check)
+    subroutine newt(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,check)
       implicit none
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: ndv,n
-      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
+      real(8), intent(in) :: p_total,t_total,h_total,y1,y2,uvwa2
       logical, intent(out) :: check
       real(8), intent(inout) :: x(n)
       integer, parameter :: maxits=200
@@ -3780,7 +3780,7 @@ module bc_module
       real(8) :: d,den,f,fold,stpmax,sum,temp,test
       real(8) :: fjac(n,n),g(n),p(n),xold(n)
 
-      f=fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      f=fmin(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec)
       test=0.d0
 
       do i=1,n
@@ -3797,7 +3797,7 @@ module bc_module
       end do
       stpmax=stpmx*dmax1(dsqrt(sum),dble(n))
       do its=1,maxits
-        call fdjac(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec,fjac)
+        call fdjac(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec,fjac)
         do i=1,n
           sum=0.d0
           do j=1,n
@@ -3815,7 +3815,7 @@ module bc_module
 
         call ludcmp(fjac,n,indx,d)
         call lubksb(fjac,n,indx,p)
-        call lnsrch(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+        call lnsrch(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
         test=0.d0
         do i=1,n
           if(dabs(fvec(i)).gt.test) test=dabs(fvec(i))
@@ -3850,16 +3850,16 @@ module bc_module
 
     end subroutine newt
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+    function fmin(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec)
       implicit none
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: ndv,n
-      real(8), intent(in) :: h_total,p_total,y1,y2,uvwa2,x(n)
+      real(8), intent(in) :: h_total,t_total,p_total,y1,y2,uvwa2,x(n)
       real(8), intent(out) :: fvec(n)
       integer :: i
       real(8) :: fmin,sum
 
-      call funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      call funcv(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec)
 
       sum=0.d0
       do i=1,n
@@ -3869,25 +3869,27 @@ module bc_module
       return
     end function fmin
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+    subroutine funcv(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec)
       implicit none
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: ndv,n
-      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n)
+      real(8), intent(in) :: p_total,t_total,h_total,y1,y2,uvwa2,x(n)
       real(8), intent(out) :: fvec(n)
-      real(8) :: dv(ndv)
+      real(8) :: dv(ndv),gamma
+
+      gamma = (1.d0-y2)*eos%getgamma_f() + y2*eos%getgamma_g()
 
       call eos%deteos_simple(x(1),x(2),y1,y2,dv)
 
-      fvec(1) = p_total - (x(1)+0.5d0*dv(1)*uvwa2)
+      fvec(1) = p_total - x(1)*(t_total/x(2))**(gamma/(gamma-1.d0))
       fvec(2) = h_total - (dv(2)+0.5d0*uvwa2)
     end subroutine funcv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine fdjac(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec,df)
+    subroutine fdjac(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec,df)
       implicit none
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: ndv,n
-      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2,x(n),fvec(n)
+      real(8), intent(in) :: p_total,t_total,h_total,y1,y2,uvwa2,x(n),fvec(n)
       real(8), intent(out) :: df(n,n)
       real(8),parameter :: eps=1.0d-4
       integer :: i,j
@@ -3899,7 +3901,7 @@ module bc_module
         if(h.eq.0.0d0) h=eps
         temp(j)=temp(j)+h
         h=temp(j)-x(j)
-        call funcv(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,temp,f)
+        call funcv(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,temp,f)
         do i=1,n
           df(i,j)=(f(i)-fvec(i))/h
         enddo
@@ -3908,11 +3910,11 @@ module bc_module
       return
     end subroutine fdjac
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine lnsrch(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
+    subroutine lnsrch(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,xold,fold,g,p,x,f,stpmax,check)
       implicit none
       class(t_eos), intent(in) :: eos
       integer, intent(in) :: ndv,n
-      real(8), intent(in) :: p_total,h_total,y1,y2,uvwa2
+      real(8), intent(in) :: p_total,t_total,h_total,y1,y2,uvwa2
       logical :: check
       real(8) :: f,fold,stpmax,g(n),p(n),x(n),xold(n),fvec(n)
       real(8), parameter :: alf=1.d-4,tolx=1.d-7
@@ -3947,7 +3949,7 @@ module bc_module
       do i=1,n
         x(i)=xold(i)+alam*p(i)
       enddo
-      f=fmin(eos,ndv,n,p_total,h_total,y1,y2,uvwa2,x,fvec)
+      f=fmin(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,fvec)
       if(alam.lt.alamin) then
         do i=1,n
           x(i)=xold(i)
