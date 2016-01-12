@@ -105,7 +105,8 @@ module flux_module
             
       select case(config%getprec())
       case(0)
-        flux%getsndp2 => no_prec
+        !flux%getsndp2 => no_prec
+        flux%getsndp2 => steady_prec
       case(1)
         flux%getsndp2 => steady_prec
       case(2)
@@ -622,7 +623,7 @@ module flux_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,0.25d0*flux%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -632,7 +633,7 @@ module flux_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2,flux%str**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,0.25d0*flux%uref**2,flux%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
