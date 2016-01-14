@@ -1465,8 +1465,8 @@ module eos_module
         n2 = eos%db_const(phase)%t_ndata
       else
         t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
       end if
       
       x(1) = eos%db_const(phase)%db(n1)%t
@@ -1532,8 +1532,8 @@ module eos_module
         n2 = eos%db_const(phase)%t_ndata
       else
         t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
       end if
       
       x(1) = eos%db_const(phase)%db(n1)%t
@@ -1734,8 +1734,8 @@ module eos_module
         n2 = eos%db_const(phase)%t_ndata
       else
         t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_ndata-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_ndata)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
       end if
 
       x(1) = eos%db_const(phase)%db(n1)%t
