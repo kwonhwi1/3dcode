@@ -105,8 +105,7 @@ module flux_module
             
       select case(config%getprec())
       case(0)
-        !flux%getsndp2 => no_prec
-        flux%getsndp2 => steady_prec
+        flux%getsndp2 => no_prec
       case(1)
         flux%getsndp2 => steady_prec
       case(2)
