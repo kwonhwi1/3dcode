@@ -157,7 +157,7 @@ module muscl_module
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
         if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/dsign(eps,dqm)
+          dqmm = 1.d0/eps
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
@@ -169,7 +169,7 @@ module muscl_module
         end if
 
         if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/dsign(eps,dqp)
+          dqpp = 1.d0/eps
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
@@ -253,7 +253,7 @@ module muscl_module
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
         if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/dsign(eps,dqm)
+          dqmm = 1.d0/eps
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
@@ -265,7 +265,7 @@ module muscl_module
         end if
 
         if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/dsign(eps,dqp)
+          dqpp = 1.d0/eps
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
