@@ -544,7 +544,7 @@ module lhs_module
       real(8), intent(in) :: uuu2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,lhs%uref**2))
+      sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,0.09d0*lhs%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -554,7 +554,7 @@ module lhs_module
       real(8), intent(in) :: uuu2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,lhs%uref**2,lhs%str**2))
+      sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,0.09d0*lhs%uref**2,lhs%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

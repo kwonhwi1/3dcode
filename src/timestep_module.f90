@@ -331,7 +331,7 @@ module timestep_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,0.09d0*timestep%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -341,7 +341,7 @@ module timestep_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2,timestep%str**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,0.09d0*timestep%uref**2,timestep%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

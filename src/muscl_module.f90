@@ -73,6 +73,10 @@ module muscl_module
         muscl%limiter => i_3rd
       case(8)
         muscl%limiter => i_5th
+      case(9)
+        muscl%limiter => i_3rd_no
+      case(10)
+        muscl%limiter => i_5th_no
       end select
       
       muscl%stencil = config%getstencil()
@@ -157,7 +161,6 @@ module muscl_module
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
-          dqm = 0.d0
         else
           dqmm = 1.d0/dqm
           muscl%r(1)  = dq*dqmm
@@ -170,7 +173,6 @@ module muscl_module
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
-          dqp = 0.d0
         else
           dqpp = 1.d0/dqp
           muscl%r(2)  = dq*dqpp ! inverse
@@ -181,8 +183,8 @@ module muscl_module
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm!*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp!*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
@@ -255,7 +257,6 @@ module muscl_module
           muscl%r(1)  = dq*dqmm
           muscl%r1(1) = dqm1*dqmm ! inverse
           muscl%r2(1) = dqp*dqmm
-          dqm = 0.d0
         else
           dqmm = 1.d0/dqm
           muscl%r(1)  = dq*dqmm
@@ -268,7 +269,6 @@ module muscl_module
           muscl%r(2)  = dq*dqpp ! inverse
           muscl%r1(2) = dqp1*dqpp
           muscl%r2(2) = dqm*dqpp ! inverse
-          dqp = 0.d0
         else
           dqpp = 1.d0/dqp
           muscl%r(2)  = dq*dqpp ! inverse
@@ -358,8 +358,8 @@ module muscl_module
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm!*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp!*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
@@ -488,6 +488,27 @@ module muscl_module
       c = (-2.d0*muscl%r1(n)+11.d0+24.d0*muscl%r(n)-3.d0*muscl%r2(n))/30.d0
       phi = dmax1(0.d0,dmin1(muscl%alp(n),muscl%alp(n)*muscl%r(n),c))
         
+    end function
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function i_3rd_no(muscl,n) result(phi)
+      implicit none
+      class(t_muscl), intent(in) :: muscl
+      integer, intent(in) :: n
+      real(8)  :: phi
+
+      phi = (1.d0+2.d0*muscl%r(n))/3.d0
+
+
+    end function
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function i_5th_no(muscl,n) result(phi)
+      implicit none
+      class(t_muscl), intent(in) :: muscl
+      integer, intent(in) :: n
+      real(8)  :: phi
+      
+      phi = (-2.d0*muscl%r1(n)+11.d0+24.d0*muscl%r(n)-3.d0*muscl%r2(n))/30.d0
+
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module muscl_module
