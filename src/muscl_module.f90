@@ -183,8 +183,8 @@ module muscl_module
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm!*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp!*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
@@ -358,8 +358,8 @@ module muscl_module
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm!*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp!*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
