@@ -1,11 +1,12 @@
 module postvariable_module
   use mpi
+  use cgns
   use config_module
   use postgrid_module
   use eos_module
   implicit none
-#include <cgnslib_f.h>
-#include <cgnstypes_f.h>
+!#include <cgnslib_f.h>
+!#include <cgnstypes_f.h>
   private
   public :: t_variable
   
@@ -157,6 +158,7 @@ module postvariable_module
       integer, intent(in) :: nsolname
       integer :: ifile,ier,index_flow,index_field
       integer :: n,m
+      integer(cgsize_t) :: dimensionvector
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:), allocatable :: temp
       character(12), dimension(:), allocatable :: solname
@@ -227,7 +229,8 @@ module postvariable_module
 
       call cg_biter_write_f(ifile,1,'TimeIterValues',variable%nsolution,ier)
       call cg_goto_f(ifile,1,ier,'BaseIterativeData_t',1,'end')
-      call cg_array_write_f('TimeValues',realdouble,1,variable%nsolution,time,ier)
+      dimensionvector = variable%nsolution
+      call cg_array_write_f('TimeValues',realdouble,1,dimensionvector,time,ier)
       call cg_close_f(ifile,ier)
       deallocate(solname,time)
     end subroutine cgnswriting

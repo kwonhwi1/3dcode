@@ -20,16 +20,17 @@ module eos_module
   end type t_srk_property
   
   type t_db_data
-    integer :: p_ndata
     real(8) :: t
+    integer :: p_nstart,p_nend,p_nsub
+    integer, allocatable :: p_iboundary(:)
+    real(8), allocatable :: p_boundary(:),p_delta(:)
     real(8), allocatable :: dbv(:,:) !p,rho,h,drdp,drdt,dhdp,dhdt,vis,cond
   end type t_db_data
 
   type t_db_const
     integer :: t_ndata,t_nsub
-    real(8) :: delta_p
     integer, allocatable :: t_iboundary(:)
-    real(8), allocatable :: t_boundary(:),delta_t(:)
+    real(8), allocatable :: t_boundary(:),t_delta(:)
     type(t_db_data), allocatable :: db(:)
   end type t_db_const
 
@@ -89,6 +90,7 @@ module eos_module
 
   type t_eos2
     real(8) :: rho,h,drdp,drdt,dhdp,dhdt
+    logical :: flag
   end type t_eos2
 
   type t_prop2
@@ -115,8 +117,8 @@ module eos_module
       real(8), intent(in) :: p
       real(8) :: tww
     end function p_tww
-  
-    function p_sigma(eos,t) result(sigma)
+
+   function p_sigma(eos,t) result(sigma)
       import t_eos
       implicit none
       class(t_eos), intent(in) :: eos
@@ -414,12 +416,15 @@ module eos_module
 
       do n=1,3
         do m=1,eos%db_const(n)%t_ndata
-          if(allocated(eos%db_const(n)%db(m)%dbv)) deallocate(eos%db_const(n)%db(m)%dbv)
+          if(allocated(eos%db_const(n)%db(m)%p_boundary))  deallocate(eos%db_const(n)%db(m)%p_boundary)
+          if(allocated(eos%db_const(n)%db(m)%p_iboundary)) deallocate(eos%db_const(n)%db(m)%p_iboundary)
+          if(allocated(eos%db_const(n)%db(m)%p_delta))     deallocate(eos%db_const(n)%db(m)%p_delta)
+          if(allocated(eos%db_const(n)%db(m)%dbv))         deallocate(eos%db_const(n)%db(m)%dbv)
         end do
         if(allocated(eos%db_const(n)%db))          deallocate(eos%db_const(n)%db)
         if(allocated(eos%db_const(n)%t_boundary))  deallocate(eos%db_const(n)%t_boundary)
         if(allocated(eos%db_const(n)%t_iboundary)) deallocate(eos%db_const(n)%t_iboundary)
-        if(allocated(eos%db_const(n)%delta_t))     deallocate(eos%db_const(n)%delta_t)
+        if(allocated(eos%db_const(n)%t_delta))     deallocate(eos%db_const(n)%t_delta)
       end do
 
       if(allocated(eos%iapws_liquid_coeff%i))   deallocate(eos%iapws_liquid_coeff%i)
@@ -693,6 +698,7 @@ module eos_module
       integer, intent(in) :: fluid,phase
       !integer :: n,l,k
       integer :: m,io,ier
+      !integer :: nstart,nend
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
       character(3) :: c_phase,c_fluid
@@ -719,93 +725,121 @@ module eos_module
       case default
       end select
 
-     ! do k=0,eos%size-1
-     !   if(k.eq.eos%rank) then
-     !     open(unit=10,file='./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_old.fld',form='binary')
-
-     !     read(10) eos%db_const(phase)%t_ndata
-     !     allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
-
-     !     read(10) eos%db_const(phase)%t_nsub
-     !     allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
-     !     allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
-     !     allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
-
-     !     do n=1,eos%db_const(phase)%t_nsub+1
-     !       read(10) eos%db_const(phase)%t_boundary(n)
-     !       read(10) eos%db_const(phase)%t_iboundary(n)
-     !     end do
-
-     !     do n=1,eos%db_const(phase)%t_nsub
-     !       read(10) eos%db_const(phase)%delta_t(n)
-     !     end do
-
-     !     read(10) eos%db_const(phase)%delta_p
-
-     !     do m=1,eos%db_const(phase)%t_ndata
-     !       read(10) eos%db_const(phase)%db(m)%t
-     !       read(10) eos%db_const(phase)%db(m)%p_ndata
-     !       allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
-
-     !       do n=1,eos%db_const(phase)%db(m)%p_ndata
-     !         do l=1,9
-     !           read(10) eos%db_const(phase)%db(m)%dbv(n,l)
-     !         end do
-     !       end do
-     !     end do
-
-     !     close(10)
-
-     !   end if
-     ! end do
-
-     ! call mpi_type_size(mpi_integer,intsize,ier)
-     ! call mpi_type_size(mpi_real8,realsize,ier)
-
-     ! call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',mpi_mode_wronly+mpi_mode_create,mpi_info_null,io,ier)
-
-     ! disp = 0
-     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%t_ndata,1,mpi_integer,mpi_status_ignore,ier)
-     ! disp = disp + intsize
-
-     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%t_nsub,1,mpi_integer,mpi_status_ignore,ier)
-     ! disp = disp + intsize
-
-     ! call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%t_iboundary,eos%db_const(phase)%t_nsub+1,mpi_integer,mpi_status_ignore,ier)
-     ! disp = disp + intsize*(eos%db_const(phase)%t_nsub+1)
-
-     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%t_boundary,eos%db_const(phase)%t_nsub+1,mpi_real8,mpi_status_ignore,ier)
-     ! disp = disp + realsize*(eos%db_const(phase)%t_nsub+1)
-
-     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%delta_t,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
-     ! disp = disp + realsize*eos%db_const(phase)%t_nsub
-
-     ! call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-     ! call mpi_file_write_all(io,eos%db_const(phase)%delta_p,1,mpi_real8,mpi_status_ignore,ier)
-     ! disp = disp + realsize
-
-     ! do m=1,eos%db_const(phase)%t_ndata
-
-     !   call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%t,1,mpi_real8,mpi_status_ignore,ier)
-     !   disp = disp + realsize
-
-     !   call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_ndata,1,mpi_integer,mpi_status_ignore,ier)
-     !   disp = disp + intsize
-
-     !   call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-     !   call mpi_file_write_all(io,eos%db_const(phase)%db(m)%dbv,eos%db_const(phase)%db(m)%p_ndata*9,mpi_real8,mpi_status_ignore,ier)
-     !   disp = disp + realsize*eos%db_const(phase)%db(m)%p_ndata*9
-
-     ! end do
-
-     ! call mpi_file_close(io,ier)
+!      do k=0,eos%size-1
+!        if(k.eq.eos%rank) then
+!          open(unit=10,file='./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'_old.fld',form='binary')
+!
+!          read(10) eos%db_const(phase)%t_ndata
+!          allocate(eos%db_const(phase)%db(eos%db_const(phase)%t_ndata))
+!
+!          read(10) eos%db_const(phase)%t_nsub
+!          allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
+!          allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
+!          allocate(eos%db_const(phase)%t_delta(eos%db_const(phase)%t_nsub))
+!
+!          do n=1,eos%db_const(phase)%t_nsub+1
+!            read(10) eos%db_const(phase)%t_boundary(n)
+!            read(10) eos%db_const(phase)%t_iboundary(n)
+!          end do
+!
+!          do n=1,eos%db_const(phase)%t_nsub
+!            read(10) eos%db_const(phase)%t_delta(n)
+!          end do
+!
+!          do m=1,eos%db_const(phase)%t_ndata
+!            read(10) eos%db_const(phase)%db(m)%t
+!            read(10) eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend
+!            allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend,9))
+! 
+!            read(10) eos%db_const(phase)%db(m)%p_nsub
+!            allocate(eos%db_const(phase)%db(m)%p_boundary(eos%db_const(phase)%db(m)%p_nsub+1))
+!            allocate(eos%db_const(phase)%db(m)%p_iboundary(eos%db_const(phase)%db(m)%p_nsub+1))
+!            allocate(eos%db_const(phase)%db(m)%p_delta(eos%db_const(phase)%db(m)%p_nsub))
+!
+!            do n=1,eos%db_const(phase)%db(m)%p_nsub+1
+!              read(10) eos%db_const(phase)%db(m)%p_boundary(n)
+!              read(10) eos%db_const(phase)%db(m)%p_iboundary(n)
+!            end do
+!  
+!            do n=1,eos%db_const(phase)%db(m)%p_nsub
+!              read(10) eos%db_const(phase)%db(m)%p_delta(n)
+!            end do
+!
+!            do n=eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend 
+!              do l=1,9
+!                read(10) eos%db_const(phase)%db(m)%dbv(n,l)
+!              end do
+!            end do
+!          end do
+!
+!          close(10)
+!
+!        end if
+!      end do
+!
+!      call mpi_type_size(mpi_integer,intsize,ier)
+!      call mpi_type_size(mpi_real8,realsize,ier)
+!
+!      call mpi_file_open(mpi_comm_world,'./../fld/'//trim(c_fluid)//'_'//trim(c_phase)//'.fld',mpi_mode_wronly+mpi_mode_create,mpi_info_null,io,ier)
+!
+!      disp = 0
+!      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!      call mpi_file_write_all(io,eos%db_const(phase)%t_ndata,1,mpi_integer,mpi_status_ignore,ier)
+!      disp = disp + intsize
+!
+!      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!      call mpi_file_write_all(io,eos%db_const(phase)%t_nsub,1,mpi_integer,mpi_status_ignore,ier)
+!      disp = disp + intsize
+!
+!      call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!      call mpi_file_write_all(io,eos%db_const(phase)%t_iboundary,eos%db_const(phase)%t_nsub+1,mpi_integer,mpi_status_ignore,ier)
+!      disp = disp + intsize*(eos%db_const(phase)%t_nsub+1)
+!
+!      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!      call mpi_file_write_all(io,eos%db_const(phase)%t_boundary,eos%db_const(phase)%t_nsub+1,mpi_real8,mpi_status_ignore,ier)
+!      disp = disp + realsize*(eos%db_const(phase)%t_nsub+1)
+!
+!      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!      call mpi_file_write_all(io,eos%db_const(phase)%t_delta,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
+!      disp = disp + realsize*eos%db_const(phase)%t_nsub
+!
+!      do m=1,eos%db_const(phase)%t_ndata
+!
+!        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%t,1,mpi_real8,mpi_status_ignore,ier)
+!        disp = disp + realsize
+!
+!        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_nstart,1,mpi_integer,mpi_status_ignore,ier)
+!        disp = disp + intsize
+!
+!        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_nend,1,mpi_integer,mpi_status_ignore,ier)
+!        disp = disp + intsize
+!
+!        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_nsub,1,mpi_integer,mpi_status_ignore,ier)
+!        disp = disp + intsize
+!
+!        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_iboundary,eos%db_const(phase)%db(m)%p_nsub+1,mpi_integer,mpi_status_ignore,ier)
+!        disp = disp + intsize*(eos%db_const(phase)%db(m)%p_nsub+1)
+!
+!        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_boundary,eos%db_const(phase)%db(m)%p_nsub+1,mpi_real8,mpi_status_ignore,ier)
+!        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nsub+1)
+!
+!        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_delta,eos%db_const(phase)%db(m)%p_nsub,mpi_real8,mpi_status_ignore,ier)
+!        disp = disp + realsize*eos%db_const(phase)%db(m)%p_nsub
+! 
+!        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%dbv,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9,mpi_real8,mpi_status_ignore,ier)
+!        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9
+!
+!      end do
+!
+!      call mpi_file_close(io,ier)
 
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
@@ -823,8 +857,7 @@ module eos_module
       disp = disp + intsize
       allocate(eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1))
       allocate(eos%db_const(phase)%t_iboundary(eos%db_const(phase)%t_nsub+1))
-      allocate(eos%db_const(phase)%delta_t(eos%db_const(phase)%t_nsub))
-
+      allocate(eos%db_const(phase)%t_delta(eos%db_const(phase)%t_nsub))
 
       call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
       call mpi_file_read_all(io,eos%db_const(phase)%t_iboundary,eos%db_const(phase)%t_nsub+1,mpi_integer,mpi_status_ignore,ier)
@@ -835,12 +868,8 @@ module eos_module
       disp = disp + realsize*(eos%db_const(phase)%t_nsub+1)
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      call mpi_file_read_all(io,eos%db_const(phase)%delta_t,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
+      call mpi_file_read_all(io,eos%db_const(phase)%t_delta,eos%db_const(phase)%t_nsub,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize*eos%db_const(phase)%t_nsub
-
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      call mpi_file_read_all(io,eos%db_const(phase)%delta_p,1,mpi_real8,mpi_status_ignore,ier)
-      disp = disp + realsize
 
       do m=1,eos%db_const(phase)%t_ndata
 
@@ -849,14 +878,36 @@ module eos_module
         disp = disp + realsize
 
         call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
-        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_ndata,1,mpi_integer,mpi_status_ignore,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nstart,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
         
-        allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_ndata,9))
+        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nend,1,mpi_integer,mpi_status_ignore,ier)
+        disp = disp + intsize
+        allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend,9))
+      
+        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nsub,1,mpi_integer,mpi_status_ignore,ier)
+        disp = disp + intsize
+        allocate(eos%db_const(phase)%db(m)%p_boundary(eos%db_const(phase)%db(m)%p_nsub+1))
+        allocate(eos%db_const(phase)%db(m)%p_iboundary(eos%db_const(phase)%db(m)%p_nsub+1))
+        allocate(eos%db_const(phase)%db(m)%p_delta(eos%db_const(phase)%db(m)%p_nsub))
+
+        call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_iboundary,eos%db_const(phase)%db(m)%p_nsub+1,mpi_integer,mpi_status_ignore,ier)
+        disp = disp + intsize*(eos%db_const(phase)%db(m)%p_nsub+1)
 
         call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%dbv,eos%db_const(phase)%db(m)%p_ndata*9,mpi_real8,mpi_status_ignore,ier)
-        disp = disp + realsize*eos%db_const(phase)%db(m)%p_ndata*9
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_boundary,eos%db_const(phase)%db(m)%p_nsub+1,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nsub+1)
+
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_delta,eos%db_const(phase)%db(m)%p_nsub,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*eos%db_const(phase)%db(m)%p_nsub
+  
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%dbv,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9
 
       end do
 
@@ -872,10 +923,19 @@ module eos_module
       type(t_eos2)  :: l_eos,v_eos,g_eos
       real(8) :: irhol,irhov,irhog,irho,yl
 
+      l_eos%flag = .true.
+      v_eos%flag = .true.
+      g_eos%flag = .true.
+
       call eos%eos_l(p,t,1,l_eos)
       call eos%eos_v(p,t,2,v_eos)
       call eos%eos_g(p,t,3,g_eos)
       
+      if(.not.l_eos%flag) l_eos = v_eos
+      if(.not.v_eos%flag) v_eos = l_eos
+      if(.not.g_eos%flag) g_eos = l_eos
+      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in simple',p,t,y1,y2
+
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
       dv(5)  = g_eos%rho
@@ -920,9 +980,18 @@ module eos_module
       type(t_eos2)  :: l_eos,v_eos,g_eos
       real(8) :: irhol,irhov,irhog,irho,yl
 
+      l_eos%flag = .true.
+      v_eos%flag = .true.
+      g_eos%flag = .true.
+
       call eos%eos_l(p,t,1,l_eos)
       call eos%eos_v(p,t,2,v_eos)
       call eos%eos_g(p,t,3,g_eos)
+      
+      if(.not.l_eos%flag) l_eos = v_eos
+      if(.not.v_eos%flag) v_eos = l_eos
+      if(.not.g_eos%flag) g_eos = l_eos
+      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in only',p,t,y1,y2
       
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
@@ -969,10 +1038,19 @@ module eos_module
       type(t_prop2) :: l_prop,v_prop,g_prop
       real(8) :: irhol,irhov,irhog,irho,yl
 
+      l_eos%flag = .true.
+      v_eos%flag = .true.
+      g_eos%flag = .true.
+
       call eos%eos_l_prop(p,t,1,l_eos,l_prop)
       call eos%eos_v_prop(p,t,2,v_eos,v_prop)
       call eos%eos_g_prop(p,t,3,g_eos,g_prop)
       
+      if(.not.l_eos%flag) l_eos = v_eos
+      if(.not.v_eos%flag) v_eos = l_eos
+      if(.not.g_eos%flag) g_eos = l_eos
+      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in prop',p,t,y1,y2
+
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
       dv(5)  = g_eos%rho
@@ -1442,63 +1520,124 @@ module eos_module
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      integer :: t_index,p_index
-      integer :: n1,n2,m1,m2,n,subn
-      real(8) :: t1,t2
-      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
+      integer :: t_index,p_index,l
+      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2,snd2
+      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+
+      t_subn = 0
+      p_subn1 = 0
+      p_subn2 = 0
+
 
       ! defining the temperature index
-      do n=1,eos%db_const(phase)%t_nsub
-        t1 = eos%db_const(phase)%t_boundary(n)
-        t2 = eos%db_const(phase)%t_boundary(n+1)
+      do l=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(l)
+        t2 = eos%db_const(phase)%t_boundary(l+1)
         if ((t-t1)*(t-t2).le.0.d0) then
-          subn = n
+          t_subn = l
           exit
         end if
       end do
 
-      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
-        n1 = 1
-        n2 = 2
-      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
-        n1 = eos%db_const(phase)%t_ndata-1
-        n2 = eos%db_const(phase)%t_ndata
-      else
-        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
+      if(t_subn.eq.0) then
+        eos2%flag = .false.
+        return
       end if
+
+      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
+      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
       
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
 
-      ! defining the pressure index
-      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
-        m1 = 1
-        m2 = 2
-      else
-        p_index = int(p/eos%db_const(phase)%delta_p)+1
-        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
+      ! defining the pressure index 1
+      do l=1,eos%db_const(phase)%db(n1)%p_nsub
+        p1 = eos%db_const(phase)%db(n1)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n1)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn1 = l
+          exit
+        end if
+      end do
+
+      if(p_subn1.eq.0) then
+        eos2%flag = .false.
+        return
       end if
+
+      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
       
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
 
 
-      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-      a1 = dabs((x(2)-t)*(y(2)-p))
-      a2 = dabs((t-x(1))*(y(2)-p))
-      a3 = dabs((x(2)-t)*(p-y(1)))
-      a4 = dabs((t-x(1))*(p-y(1)))
+      ! defining the pressure index 2
+      do l=1,eos%db_const(phase)%db(n2)%p_nsub
+        p1 = eos%db_const(phase)%db(n2)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n2)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn2 = l
+          exit
+        end if
+      end do
 
-      eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
-      eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
-      eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,4)*a4 )*a0
-      eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,5)*a4 )*a0
-      eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,6)*a4 )*a0
-      eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,7)*a4 )*a0
+      if(p_subn2.eq.0) then
+        eos2%flag = .false.
+        return
+      end if
+
+      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
+
+      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
+      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
+
+
+      ! interpolation
+      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
+        ! barycentric interpolation in triangle
+        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
+          n = n1
+          m = m2
+        else
+          n = n2
+          m = m4
+        end if
+        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
+        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
+        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
+        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
+
+        eos2%rho  = (eos%db_const(phase)%db(n)%dbv(m,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3)*a0
+        eos2%h    = (eos%db_const(phase)%db(n)%dbv(m,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3)*a0
+        eos2%drdp = (eos%db_const(phase)%db(n)%dbv(m,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3)*a0
+        eos2%drdt = (eos%db_const(phase)%db(n)%dbv(m,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3)*a0
+        eos2%dhdp = (eos%db_const(phase)%db(n)%dbv(m,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3)*a0
+        eos2%dhdt = (eos%db_const(phase)%db(n)%dbv(m,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3)*a0
+      else
+        ! bilinear interpolation
+        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+        a1 = dabs((x(2)-t)*(y(2)-p))
+        a2 = dabs((x(2)-t)*(p-y(1)))
+        a3 = dabs((t-x(1))*(p-y(1)))
+        a4 = dabs((t-x(1))*(y(2)-p))
+     
+        eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,2)*a4 )*a0
+        eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,3)*a4 )*a0
+        eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,4)*a4 )*a0
+        eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,5)*a4 )*a0
+        eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,6)*a4 )*a0
+        eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,7)*a4 )*a0
+      end if
+
+      snd2 = eos2%rho*eos2%dhdt/(eos2%rho*eos2%dhdt*eos2%drdp + eos2%drdt*(1.d0-eos2%rho*eos2%dhdp))
+      if(snd2.lt.0.d0) eos2%flag = .false.
 
     end subroutine database
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1509,65 +1648,128 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
-      integer :: t_index,p_index
-      integer :: n1,n2,m1,m2,n,subn
-      real(8) :: t1,t2
-      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
+      integer :: t_index,p_index,l
+      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2,snd2
+      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+
+      t_subn = 0
+      p_subn1 = 0
+      p_subn2 = 0
+
 
       ! defining the temperature index
-      do n=1,eos%db_const(phase)%t_nsub
-        t1 = eos%db_const(phase)%t_boundary(n)
-        t2 = eos%db_const(phase)%t_boundary(n+1)
+      do l=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(l)
+        t2 = eos%db_const(phase)%t_boundary(l+1)
         if ((t-t1)*(t-t2).le.0.d0) then
-          subn = n
+          t_subn = l
           exit
         end if
       end do
 
-      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
-        n1 = 1
-        n2 = 2
-      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
-        n1 = eos%db_const(phase)%t_ndata-1
-        n2 = eos%db_const(phase)%t_ndata
-      else
-        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
+      if(t_subn.eq.0) then
+        eos2%flag = .false.
+        return
       end if
+
+      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
+      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
       
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
 
-      ! defining the pressure index
-      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
-        m1 = 1
-        m2 = 2
-      else
-        p_index = int(p/eos%db_const(phase)%delta_p)+1
-        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
+      ! defining the pressure index 1
+      do l=1,eos%db_const(phase)%db(n1)%p_nsub
+        p1 = eos%db_const(phase)%db(n1)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n1)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn1 = l
+          exit
+        end if
+      end do
+
+      if(p_subn1.eq.0) then
+        eos2%flag = .false.
+        return
       end if
+
+      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
       
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
-      
+      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
 
-      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-      a1 = dabs((x(2)-t)*(y(2)-p))
-      a2 = dabs((t-x(1))*(y(2)-p))
-      a3 = dabs((x(2)-t)*(p-y(1)))
-      a4 = dabs((t-x(1))*(p-y(1)))
 
-      eos2%rho   = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,2)*a4 )*a0
-      eos2%h     = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,3)*a4 )*a0
-      eos2%drdp  = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,4)*a4 )*a0
-      eos2%drdt  = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,5)*a4 )*a0
-      eos2%dhdp  = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,6)*a4 )*a0
-      eos2%dhdt  = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,7)*a4 )*a0
-      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
-      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
+      ! defining the pressure index 2
+      do l=1,eos%db_const(phase)%db(n2)%p_nsub
+        p1 = eos%db_const(phase)%db(n2)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n2)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn2 = l
+          exit
+        end if
+      end do
+
+      if(p_subn2.eq.0) then
+        eos2%flag = .false.
+        return
+      end if
+
+      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
+
+      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
+      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
+
+
+      ! interpolation
+      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
+        ! barycentric interpolation in triangle
+        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
+          n = n1
+          m = m2
+        else
+          n = n2
+          m = m4
+        end if
+        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
+        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
+        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
+        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
+
+        eos2%rho  = (eos%db_const(phase)%db(n)%dbv(m,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3)*a0
+        eos2%h    = (eos%db_const(phase)%db(n)%dbv(m,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3)*a0
+        eos2%drdp = (eos%db_const(phase)%db(n)%dbv(m,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3)*a0
+        eos2%drdt = (eos%db_const(phase)%db(n)%dbv(m,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3)*a0
+        eos2%dhdp = (eos%db_const(phase)%db(n)%dbv(m,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3)*a0
+        eos2%dhdt = (eos%db_const(phase)%db(n)%dbv(m,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3)*a0
+        prop2%vis = (eos%db_const(phase)%db(n)%dbv(m,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3)*a0
+        prop2%cond = (eos%db_const(phase)%db(n)%dbv(m,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3)*a0
+     else
+        ! bilinear interpolation
+        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+        a1 = dabs((x(2)-t)*(y(2)-p))
+        a2 = dabs((x(2)-t)*(p-y(1)))
+        a3 = dabs((t-x(1))*(p-y(1)))
+        a4 = dabs((t-x(1))*(y(2)-p))
+     
+        eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,2)*a4 )*a0
+        eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,3)*a4 )*a0
+        eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,4)*a4 )*a0
+        eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,5)*a4 )*a0
+        eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,6)*a4 )*a0
+        eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,7)*a4 )*a0
+        prop2%vis = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,8)*a4 )*a0
+        prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,9)*a4 )*a0
+      end if
+
+      snd2 = eos2%rho*eos2%dhdt/(eos2%rho*eos2%dhdt*eos2%drdp + eos2%drdt*(1.d0-eos2%rho*eos2%dhdp))
+      if(snd2.lt.0.d0) eos2%flag = .false.
 
     end subroutine database_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1657,10 +1859,12 @@ module eos_module
       real(8) :: daadt,dsaadt,daidt
       real(8) :: ddaaddt,ddsaaddt,ddaiddt
       real(8) :: cv,cp,bp,bt,ap,ar
-      integer :: t_index,p_index
-      integer :: n1,n2,m1,m2,n,subn
-      real(8) :: t1,t2
-      real(8) :: x(2),y(2),a0,a1,a2,a3,a4
+      integer :: t_index,p_index,l
+      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2,snd2
+      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+
+      ! srk for eos2
 
       call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
 
@@ -1716,54 +1920,111 @@ module eos_module
       eos2%dhdp = bp
       eos2%dhdt = cp
 
+
+      ! database for prop2
+
+      t_subn = 0
+      p_subn1 = 0
+      p_subn2 = 0
+
+
       ! defining the temperature index
-      do n=1,eos%db_const(phase)%t_nsub
-        t1 = eos%db_const(phase)%t_boundary(n)
-        t2 = eos%db_const(phase)%t_boundary(n+1)
+      do l=1,eos%db_const(phase)%t_nsub
+        t1 = eos%db_const(phase)%t_boundary(l)
+        t2 = eos%db_const(phase)%t_boundary(l+1)
         if ((t-t1)*(t-t2).le.0.d0) then
-          subn = n
+          t_subn = l
           exit
         end if
       end do
 
-      if (t.lt.eos%db_const(phase)%t_boundary(1)) then
-        n1 = 1
-        n2 = 2
-      else if (t.gt.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
-        n1 = eos%db_const(phase)%t_ndata-1
-        n2 = eos%db_const(phase)%t_ndata
-      else
-        t_index = int((t-eos%db_const(phase)%t_boundary(subn))/eos%db_const(phase)%delta_t(subn)) + eos%db_const(phase)%t_iboundary(subn)
-        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(subn+1)-1)
-        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(subn+1))
+      if(t_subn.eq.0) then
+        eos2%flag = .false.
+        return
       end if
 
+      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
+      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
+      
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
 
-      ! defining the pressure index
-      if (p.lt.eos%db_const(phase)%db(n1)%dbv(1,1)) then
-        m1 = 1
-        m2 = 2
-      else
-        p_index = int(p/eos%db_const(phase)%delta_p)+1
-        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_ndata-1)
-        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_ndata)
+      ! defining the pressure index 1
+      do l=1,eos%db_const(phase)%db(n1)%p_nsub
+        p1 = eos%db_const(phase)%db(n1)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n1)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn1 = l
+          exit
+        end if
+      end do
+
+      if(p_subn1.eq.0) then
+        eos2%flag = .false.
+        return
       end if
 
+      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
+      
       y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n2)%dbv(m2,1)
+      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
 
 
-      a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-      a1 = dabs((x(2)-t)*(y(2)-p))
-      a2 = dabs((t-x(1))*(y(2)-p))
-      a3 = dabs((x(2)-t)*(p-y(1)))
-      a4 = dabs((t-x(1))*(p-y(1)))
+      ! defining the pressure index 2
+      do l=1,eos%db_const(phase)%db(n2)%p_nsub
+        p1 = eos%db_const(phase)%db(n2)%p_boundary(l)
+        p2 = eos%db_const(phase)%db(n2)%p_boundary(l+1)
+        if ((p-p1)*(p-p2).le.0.d0) then
+          p_subn2 = l
+          exit
+        end if
+      end do
 
-      prop2%vis  = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,8)*a4 )*a0
-      prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n2)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m2,9)*a4 )*a0
+      if(p_subn2.eq.0) then
+        eos2%flag = .false.
+        return
+      end if
+
+      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
+
+      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
+      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
+
+
+      ! interpolation
+      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
+        ! barycentric interpolation in triangle
+        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
+          n = n1
+          m = m2
+        else
+          n = n2
+          m = m4
+        end if
+        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
+        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
+        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
+        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
+
+        prop2%vis = (eos%db_const(phase)%db(n)%dbv(m,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3)*a0
+        prop2%cond = (eos%db_const(phase)%db(n)%dbv(m,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3)*a0
+     else
+        ! bilinear interpolation
+        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
+        a1 = dabs((x(2)-t)*(y(2)-p))
+        a2 = dabs((x(2)-t)*(p-y(1)))
+        a3 = dabs((t-x(1))*(p-y(1)))
+        a4 = dabs((t-x(1))*(y(2)-p))
+     
+        prop2%vis = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,8)*a4 )*a0
+        prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,9)*a4 )*a0
+      end if
 
     end subroutine srk_g_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1844,8 +2105,15 @@ module eos_module
       real(8), intent(in) :: p
       real(8) :: tww
 
-      tww = 0.d0
-
+      if(p.le.100000.d0) then
+        tww = 3.186d0*p**0.217d0 + 38.5d0
+      else if((p.gt.100000.d0).and.(p.le.300000.d0)) then
+        tww = 1.899d0*p**0.2499d0 + 43.51d0
+      else if((p.gt.300000.d0).and.(p.le.1000000.d0)) then
+        tww = 1.245d0*p**0.2302d0 + 47.67d0
+      else 
+        tww = 1.591*p**0.2622d0 + 44.17d0
+      end if
     end function n2_tww
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function o2_tww(eos,p) result(tww)
@@ -1871,10 +2139,19 @@ module eos_module
       real(8), intent(in) :: p
       real(8) :: tww
 
-      tww = 0.d0
-
-    end function h2_tww   
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      if(p.le.1.d5) then
+        tww = 0.682d0*p**0.2562d0 + 7.289d0
+      else if((p.gt.1.d5).and.(p.le.3.d5)) then
+        tww = 0.4102d0*p**0.2903d0 + 8.724d0
+      else if((p.gt.3.d5).and.(p.le.7.d5)) then
+        tww = 0.366d0*p**0.2975d0 + 9.091d0
+      else if((p.gt.7.d5).and.(p.le.1.d6)) then
+        tww = 0.5396d0*p**0.2746d0 + 7.4216d0
+      else
+        tww = 3.377d0*p**0.1748d0 - 6.394d0
+      end if
+    end function h2_tww
+   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_sigma(eos,t) result(sigma)
       implicit none
       class(t_eos), intent(in) :: eos
@@ -1993,6 +2270,15 @@ module eos_module
       
     end function computepv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function trianglearea(a,b,c,d,e,f)
+      implicit none
+      real(8), intent(in) :: a,b,c,d,e,f
+      real(8) :: trianglearea
+
+      trianglearea = 0.5d0*dabs(a*d+c*f+e*b-a*f-e*d-c*b)
+
+    end function trianglearea
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getgamma_f(eos)
       implicit none
       class(t_eos), intent(in) :: eos
@@ -2010,5 +2296,5 @@ module eos_module
       getgamma_g = eos%gamma_g
 
     end function getgamma_g
-   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module eos_module
