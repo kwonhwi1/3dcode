@@ -1,9 +1,10 @@
 module grid_module
   use mpi
+  use cgns
   use config_module
   implicit none
-#include <cgnslib_f.h>
-#include <cgnstypes_f.h>
+!#include <cgnslib_f.h>
+!#include <cgnstypes_f.h>
   private
   public :: t_grid,t_bcinfo,t_connectinfo,t_mpitemp
 
@@ -82,8 +83,8 @@ module grid_module
       integer :: i,j,n,m
       integer :: ifile,ier
       integer :: nzone,nfam
-      cgsize_t :: nmax(3),nstart(3)
-      cgsize_t :: isize(9),ipnts(6),ipntsdonor(6)
+      integer(cgsize_t) :: nmax(3),nstart(3)
+      integer(cgsize_t) :: isize(9),ipnts(6),ipntsdonor(6)
       integer :: transvec(3) 
       integer :: nfambc,ngeo,ibctype
       integer :: normallist
@@ -105,14 +106,14 @@ module grid_module
 
           do j= 0,nzone-1
             call cg_zone_read_f(ifile,1,j+1,zonename(j+1),isize,ier)
-            grid%zoneinfo(j)%imax = isize(1)
-            grid%zoneinfo(j)%jmax = isize(2)
-            grid%zoneinfo(j)%kmax = isize(3)
+            grid%zoneinfo(j)%imax = int(isize(1),4)
+            grid%zoneinfo(j)%jmax = int(isize(2),4)
+            grid%zoneinfo(j)%kmax = int(isize(3),4)
             if(j.eq.n) then
               grid%zonename = zonename(j+1)
-              grid%imax = isize(1)
-              grid%jmax = isize(2)
-              grid%kmax = isize(3)
+              grid%imax = int(isize(1),4)
+              grid%jmax = int(isize(2),4)
+              grid%kmax = int(isize(3),4)
             end if
           end do
           
@@ -157,50 +158,50 @@ module grid_module
                 if(ipnts(j).eq.1) then
                   select case(j)
                   case(1)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)
-                    grid%bcinfo(i)%istart(2) = ipnts(2)+1
-                    grid%bcinfo(i)%istart(3) = ipnts(3)+1
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
                   case(2)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)+1
-                    grid%bcinfo(i)%istart(2) = ipnts(2)
-                    grid%bcinfo(i)%istart(3) = ipnts(3)+1
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
                   case(3)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)+1
-                    grid%bcinfo(i)%istart(2) = ipnts(2)+1
-                    grid%bcinfo(i)%istart(3) = ipnts(3)
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
                   end select
                 else
                   select case(j)
                   case(1)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)+1
-                    grid%bcinfo(i)%istart(2) = ipnts(2)+1
-                    grid%bcinfo(i)%istart(3) = ipnts(3)+1
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)+1
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)+1
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
                   case(2)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)+1
-                    grid%bcinfo(i)%istart(2) = ipnts(2)+1
-                    grid%bcinfo(i)%istart(3) = ipnts(3)+1
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)+1
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)+1
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
                   case(3)
-                    grid%bcinfo(i)%istart(1) = ipnts(1)+1
-                    grid%bcinfo(i)%istart(2) = ipnts(2)+1
-                    grid%bcinfo(i)%istart(3) = ipnts(3)+1
-                    grid%bcinfo(i)%iend(1)   = ipnts(4)
-                    grid%bcinfo(i)%iend(2)   = ipnts(5)
-                    grid%bcinfo(i)%iend(3)   = ipnts(6)+1
+                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)+1
                   end select
                 end if
               end if
@@ -233,68 +234,68 @@ module grid_module
                 if(ipnts(m).eq.1) then
                   select case(m)
                   case(1)
-                    grid%connectinfo(j)%istart(1) = ipnts(1)+1
-                    grid%connectinfo(j)%istart(2) = ipnts(2)
-                    grid%connectinfo(j)%istart(3) = ipnts(3)
-                    grid%connectinfo(j)%iend(1)   = ipnts(4)+1
-                    grid%connectinfo(j)%iend(2)   = ipnts(5)
-                    grid%connectinfo(j)%iend(3)   = ipnts(6)
+                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)+1
+                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)+1
+                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
                   case(2)
-                    grid%connectinfo(j)%istart(1) = ipnts(1)
-                    grid%connectinfo(j)%istart(2) = ipnts(2)+1
-                    grid%connectinfo(j)%istart(3) = ipnts(3)
-                    grid%connectinfo(j)%iend(1)   = ipnts(4)
-                    grid%connectinfo(j)%iend(2)   = ipnts(5)+1
-                    grid%connectinfo(j)%iend(3)   = ipnts(6)
+                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)+1
+                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)+1
+                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
                   case(3)
-                    grid%connectinfo(j)%istart(1) = ipnts(1)
-                    grid%connectinfo(j)%istart(2) = ipnts(2)
-                    grid%connectinfo(j)%istart(3) = ipnts(3)+1
-                    grid%connectinfo(j)%iend(1)   = ipnts(4)
-                    grid%connectinfo(j)%iend(2)   = ipnts(5)
-                    grid%connectinfo(j)%iend(3)   = ipnts(6)+1
+                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)+1
+                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)+1
                   end select
                 else
-                  grid%connectinfo(j)%istart(1) = ipnts(1)
-                  grid%connectinfo(j)%istart(2) = ipnts(2)
-                  grid%connectinfo(j)%istart(3) = ipnts(3)
-                  grid%connectinfo(j)%iend(1)   = ipnts(4)
-                  grid%connectinfo(j)%iend(2)   = ipnts(5)
-                  grid%connectinfo(j)%iend(3)   = ipnts(6)
+                  grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+                  grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+                  grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+                  grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+                  grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+                  grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
                 end if
               end if
               
               if(ipntsdonor(m).eq.ipntsdonor(dim+m)) then
                 if(ipntsdonor(m).eq.1) then
-                  grid%connectinfo(j)%istart_donor(1) = ipntsdonor(1)
-                  grid%connectinfo(j)%istart_donor(2) = ipntsdonor(2)
-                  grid%connectinfo(j)%istart_donor(3) = ipntsdonor(3)
-                  grid%connectinfo(j)%iend_donor(1)   = ipntsdonor(4)
-                  grid%connectinfo(j)%iend_donor(2)   = ipntsdonor(5)
-                  grid%connectinfo(j)%iend_donor(3)   = ipntsdonor(6)
+                  grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+                  grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+                  grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+                  grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+                  grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+                  grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
                 else
                   select case(m)
                   case(1)
-                    grid%connectinfo(j)%istart_donor(1) = ipntsdonor(1)+1
-                    grid%connectinfo(j)%istart_donor(2) = ipntsdonor(2)
-                    grid%connectinfo(j)%istart_donor(3) = ipntsdonor(3)
-                    grid%connectinfo(j)%iend_donor(1)   = ipntsdonor(4)+1
-                    grid%connectinfo(j)%iend_donor(2)   = ipntsdonor(5)
-                    grid%connectinfo(j)%iend_donor(3)   = ipntsdonor(6)
+                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)+1
+                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)+1
+                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
                   case(2)
-                    grid%connectinfo(j)%istart_donor(1) = ipntsdonor(1)
-                    grid%connectinfo(j)%istart_donor(2) = ipntsdonor(2)+1
-                    grid%connectinfo(j)%istart_donor(3) = ipntsdonor(3)
-                    grid%connectinfo(j)%iend_donor(1)   = ipntsdonor(4)
-                    grid%connectinfo(j)%iend_donor(2)   = ipntsdonor(5)+1
-                    grid%connectinfo(j)%iend_donor(3)   = ipntsdonor(6)
+                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)+1
+                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)+1
+                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
                   case(3)
-                    grid%connectinfo(j)%istart_donor(1) = ipntsdonor(1)
-                    grid%connectinfo(j)%istart_donor(2) = ipntsdonor(2)
-                    grid%connectinfo(j)%istart_donor(3) = ipntsdonor(3)+1
-                    grid%connectinfo(j)%iend_donor(1)   = ipntsdonor(4)
-                    grid%connectinfo(j)%iend_donor(2)   = ipntsdonor(5)
-                    grid%connectinfo(j)%iend_donor(3)   = ipntsdonor(6)+1
+                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)+1
+                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)+1
                   end select
                 end if
               end if
