@@ -3,8 +3,6 @@ module grid_module
   use cgns
   use config_module
   implicit none
-!#include <cgnslib_f.h>
-!#include <cgnstypes_f.h>
   private
   public :: t_grid,t_bcinfo,t_connectinfo,t_mpitemp
 

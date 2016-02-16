@@ -5,8 +5,6 @@ module postvariable_module
   use postgrid_module
   use eos_module
   implicit none
-!#include <cgnslib_f.h>
-!#include <cgnstypes_f.h>
   private
   public :: t_variable
   

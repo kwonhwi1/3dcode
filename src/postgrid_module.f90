@@ -2,8 +2,6 @@ module postgrid_module
   use cgns
   use config_module
   implicit none
-!#include <cgnslib_f.h>
-!#include <cgnstypes_f.h>
   private
   public :: t_grid
 
