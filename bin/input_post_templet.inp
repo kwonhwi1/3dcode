@@ -13,4 +13,5 @@ nsolname(1:nps/nts, 2:physical time)
 ! name, nsteady, nexport, iturb, fluid, ngas      check in input.inp for postprocessing
 ! planform area, uref, rhoref, l_chord, aoa, aos  for surface pressure & clcd calculation
 ! famname='Surface'                               in *.cgns for surface pressure & clcd calculation
+! famname='Heatflux*'                             in *.cgns for heatflux wall
 ! bcname='Wall' for correct wall boundary calculation with above famname
