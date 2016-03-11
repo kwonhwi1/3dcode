@@ -3752,7 +3752,7 @@ module bc_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
       
-      sndp2 = dmin1(snd2,dmax1(uuu2,0.09d0*prec%uref**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -3762,7 +3762,7 @@ module bc_module
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
 
-      sndp2 = dmin1(snd2,dmax1(uuu2,0.09d0*prec%uref**2,prec%str**2))
+      sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2,prec%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

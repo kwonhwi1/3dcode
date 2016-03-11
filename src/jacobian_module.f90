@@ -450,7 +450,7 @@ module jacobian_module
       real(8), intent(in) :: u2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(jac%dv(6),dmax1(u2,0.09d0*jac%uref**2))
+      sndp2 = dmin1(jac%dv(6),dmax1(u2,jac%uref**2))
       
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -460,7 +460,7 @@ module jacobian_module
       real(8), intent(in) :: u2
       real(8) :: sndp2  
       
-      sndp2 = dmin1(jac%dv(6),dmax1(u2,0.09d0*jac%uref**2,jac%str**2))
+      sndp2 = dmin1(jac%dv(6),dmax1(u2,jac%uref**2,jac%str**2))
       
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
