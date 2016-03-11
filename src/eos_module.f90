@@ -648,7 +648,7 @@ module eos_module
         srk_property%w   = 0.0372d0
         srk_property%cv0 = 742.2d0
         
-      case(3) ! oxyten
+      case(3) ! oxygen
         srk_property%tc  = 154.58d0
         srk_property%pc  = 5.043d6
         srk_property%tb  = 90.188d0
