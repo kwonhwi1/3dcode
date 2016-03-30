@@ -431,7 +431,7 @@ module flux_module
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
-      real(8), parameter :: beta = 0.125d0,ku=1.d0
+      real(8), parameter :: beta = 0.125d0,ku=0.5d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -493,7 +493,7 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr
-      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       rhom = dmin1(flux%dvl(1),flux%dvr(1))
       do k=1,18
@@ -517,9 +517,13 @@ module flux_module
       end if
       
       if( zmid .ge. 0.d0) then
+        pwl = pwl*rhom/flux%dvl(1)
+        pwr = pwr*rhom/flux%dvl(1)
         zmpl1 = zmpl + zmmr*((1.d0-ww)*(1.d0+pwr)-pwl)
         zmmr1 = zmmr*ww*(1.d0+pwr)
       else
+        pwl = pwl*rhom/flux%dvr(1)
+        pwr = pwr*rhom/flux%dvr(1)
         zmpl1 = zmpl*ww*(1.d0+pwl)
         zmmr1 = zmmr + zmpl*((1.d0-ww)*(1.d0+pwl)-pwr)
       end if
