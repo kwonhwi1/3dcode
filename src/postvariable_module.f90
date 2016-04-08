@@ -455,7 +455,7 @@ module postvariable_module
                         pv = variable%solution(n)%zone(l)%pv(:,i+1,j,k)
                         tv = variable%solution(n)%zone(l)%tv(:,i+1,j,k)
                       else ! imax
-                        cx   = grid%getcx(l,i-1,j,k)
+                        cx   = -grid%getcx(l,i-1,j,k)
                         x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i,j+1,k+1))
                         grd = grid%getgrd(l,i-1,j,k)
                         pv = variable%solution(n)%zone(l)%pv(:,i-1,j,k)
@@ -469,7 +469,7 @@ module postvariable_module
                         pv = variable%solution(n)%zone(l)%pv(:,i,j+1,k)
                         tv = variable%solution(n)%zone(l)%tv(:,i,j+1,k)
                       else ! jmax
-                        cx   = grid%getex(l,i,j-1,k)
+                        cx   = -grid%getex(l,i,j-1,k)
                         x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j,k+1)+grid%getx(l,i+1,j,k+1))
                         grd = grid%getgrd(l,i,j-1,k)
                         pv = variable%solution(n)%zone(l)%pv(:,i,j-1,k)
@@ -483,7 +483,7 @@ module postvariable_module
                         pv = variable%solution(n)%zone(l)%pv(:,i,j,k+1)
                         tv = variable%solution(n)%zone(l)%tv(:,i,j,k+1)
                       else ! kmax
-                        cx   = grid%gettx(l,i,j,k-1)
+                        cx   = -grid%gettx(l,i,j,k-1)
                         x    = 0.25d0*(grid%getx(l,i,j,k)+grid%getx(l,i+1,j,k)+grid%getx(l,i,j+1,k)+grid%getx(l,i+1,j+1,k))
                         grd = grid%getgrd(l,i,j,k-1)
                         pv = variable%solution(n)%zone(l)%pv(:,i,j,k-1)
