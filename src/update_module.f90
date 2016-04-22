@@ -132,7 +132,7 @@ module update_module
       select case(config%getncav())
       case(0)
         update%l_cav = .false.
-      case(1,2,3)
+      case(1,2,3,4,5)
         update%l_cav = .true.
       end select
       
@@ -218,7 +218,7 @@ module update_module
       select case(config%getncav())
       case(0)
         update%l_cav = .false.
-      case(1,2,3)
+      case(1,2,3,4,5)
         update%l_cav = .true.
       end select
       
@@ -313,7 +313,7 @@ module update_module
       select case(config%getncav())
       case(0)
         update%l_cav = .false.
-      case(1,2,3)
+      case(1,2,3,4,5)
         update%l_cav = .true.
       end select
       
