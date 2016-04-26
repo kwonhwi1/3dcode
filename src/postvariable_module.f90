@@ -177,7 +177,7 @@ module postvariable_module
         end if
       else if(nsolname.eq.2) then
         do n=1,variable%nsolution
-          write(solname(n),'(i12.6)') variable%solution(n)%time
+          write(solname(n),'(e12.6)') variable%solution(n)%time
           time(n) = variable%solution(n)%time
         end do
       end if
