@@ -1125,13 +1125,13 @@ module bc_module
       do n=1,bc%nbc
         if(associated(bc%bcinfo(n)%bctype)) nullify(bc%bcinfo(n)%bctype)
         deallocate(bc%bcinfo(n)%pv,bc%bcinfo(n)%dv,bc%bcinfo(n)%tv)
+        if(allocated(bc%bcinfo(n)%heatflux)) deallocate(bc%bcinfo(n)%heatflux)
+        if(allocated(bc%bcinfo(n)%tdata)) deallocate(bc%bcinfo(n)%tdata)
       end do
       
       do n=1,12
         if(associated(bc%edge(n)%bctype)) nullify(bc%edge(n)%bctype)
         deallocate(bc%edge(n)%pv,bc%edge(n)%dv,bc%edge(n)%tv)
-        if(allocated(bc%bcinfo(n)%heatflux)) deallocate(bc%bcinfo(n)%heatflux)
-        if(allocated(bc%bcinfo(n)%tdata)) deallocate(bc%bcinfo(n)%tdata)
       end do
       
       do n=1,8
