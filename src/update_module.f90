@@ -463,7 +463,7 @@ module update_module
       if (update%nsteady.eq.0) then
         time = update%timestep%gettime()
       else if (update%nsteady.eq.1) then
-        time = update%dt_phy*dble(nt_phy)+timeprev
+        time = update%dt_phy*dble(nt_phy)
       end if
       call update%bc%setbc(grid,variable,eos,time)
       call update%rhs%calrhs(grid,variable,eos)
@@ -576,7 +576,7 @@ module update_module
         if(update%nsteady.eq.0) then
           time = update%timestep%gettime()
         else if(update%nsteady.eq.1) then
-          time = update%dt_phy*dble(nt_phy)+timeprev
+          time = update%dt_phy*dble(nt_phy)
         end if
         call update%bc%setbc(grid,variable,eos,time)
         call update%rhs%calrhs(grid,variable,eos)
@@ -688,7 +688,7 @@ module update_module
       if(update%nsteady.eq.0) then
         time = update%timestep%gettime()
       else if(update%nsteady.eq.1) then
-        time = update%dt_phy*dble(nt_phy)+timeprev
+        time = update%dt_phy*dble(nt_phy)
       end if
       call update%bc%setbc(grid,variable,eos,time)
       call update%rhs%calrhs(grid,variable,eos)
