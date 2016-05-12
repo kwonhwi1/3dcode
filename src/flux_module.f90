@@ -374,7 +374,7 @@ module flux_module
       rhom = dmin1(flux%dvl(1),flux%dvr(1))
 
       do k=1,18
-        sdst(k) = flux%sdst(k)+0.5d0*flux%pref+rhom*rdv(6)
+        sdst(k) = flux%sdst(k)+flux%pref+rhom*rdv(6)
       end do
       
       ff = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9) &
