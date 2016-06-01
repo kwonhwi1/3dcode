@@ -2215,12 +2215,16 @@ module eos_module
       d = a**3/27.d0 + b**2/4.d0
       
       if (d.gt.0.d0) then      
-        m = (-0.5d0*b+dsqrt(d))**(1.d0/3.d0)
-        n = (-0.5d0*b-dsqrt(d))**(1.d0/3.d0)
+        m = (-0.5d0*b+dsqrt(d))
+        n = (-0.5d0*b-dsqrt(d))
+        m = dsign(1.d0,m)*dabs(m)**(1.d0/3.d0)
+        n = dsign(1.d0,n)*dabs(n)**(1.d0/3.d0)
         cubicsolver = m+n-p/3.d0  
       else if(d.eq.0.d0) then
-        m = (-0.5d0*b+dsqrt(d))**(1.d0/3.d0)
-        n = (-0.5d0*b-dsqrt(d))**(1.d0/3.d0)
+        m = (-0.5d0*b+dsqrt(d))
+        n = (-0.5d0*b-dsqrt(d))
+        m = dsign(1.d0,m)*dabs(m)**(1.d0/3.d0)
+        n = dsign(1.d0,n)*dabs(n)**(1.d0/3.d0)
         if((m+n - p/3.d0).ge.0.d0) then
           cubicsolver = m+n - p/3.d0
         else
