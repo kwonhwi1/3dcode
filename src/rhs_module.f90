@@ -253,7 +253,7 @@ module rhs_module
       real(8) :: ex1(3),ex2(3),ex3(3),ex4(3)
       real(8) :: tx1(3),tx2(3),tx3(3),tx4(3)
       real(8) :: grdl(rhs%ngrd),grdr(rhs%ngrd)
-      real(8) :: x(rhs%stencil,rhs%npv)
+      real(8) :: x(rhs%stencil,rhs%npv),dv(18,rhs%ndv)
       real(8) :: pvl(rhs%npv),pvr(rhs%npv)
       real(8) :: dvl(rhs%ndv),dvr(rhs%ndv),dvl1(rhs%ndv),dvr1(rhs%ndv)
       real(8) :: tvl(rhs%ntv),tvr(rhs%ntv)
@@ -272,6 +272,7 @@ module rhs_module
                 do ii = 0,1
                   ll = ll+1
                   x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                  dv(ll,:) = variable%getdv(i+ii,j+jj,k+kk)
                 end do
               end do
             end do
@@ -317,7 +318,7 @@ module rhs_module
             call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
-            call rhs%flux%setsdst(x(1:18,1))
+            call rhs%flux%setsdst(x(1:18,1),dv)
             call rhs%flux%calflux(eos,rhs%ea(:,i))
             
             if(rhs%l_vsflux) then
@@ -361,6 +362,7 @@ module rhs_module
                 do jj = 0,1
                   ll = ll+1
                   x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                  dv(ll,:) = variable%getdv(i+ii,j+jj,k+kk)
                 end do
               end do
             end do
@@ -406,7 +408,7 @@ module rhs_module
             call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
-            call rhs%flux%setsdst(x(1:18,1))
+            call rhs%flux%setsdst(x(1:18,1),dv)
             call rhs%flux%calflux(eos,rhs%fa(:,j))
             
             if(rhs%l_vsflux) then
@@ -450,6 +452,7 @@ module rhs_module
                 do kk = 0,1
                   ll = ll+1
                   x(ll,:) = variable%getpv(i+ii,j+jj,k+kk)
+                  dv(ll,:) = variable%getdv(i+ii,j+jj,k+kk)
                 end do
               end do
             end do
@@ -495,7 +498,7 @@ module rhs_module
             call rhs%flux%setgrd(grdl,grdr)
             call rhs%flux%setpv(pvl,pvr)
             call rhs%flux%setdv(dvl,dvr)
-            call rhs%flux%setsdst(x(1:18,1))
+            call rhs%flux%setsdst(x(1:18,1),dv)
             call rhs%flux%calflux(eos,rhs%ga(:,k))
             
             if(rhs%l_vsflux) then
