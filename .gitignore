@@ -14,5 +14,6 @@
 *.fld
 post
 main
+.DS_store
 !input_templet.inp
 !input_post_templet.inp
