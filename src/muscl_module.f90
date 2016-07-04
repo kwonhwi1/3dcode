@@ -6,15 +6,14 @@ module muscl_module
 
   type, abstract :: t_muscl
     private
-    integer :: stencil,npv,ndv
-    real(8), pointer :: x(:,:),dvl1(:),dvl(:),dvr(:),dvr1(:)
+    integer :: stencil,npv
+    real(8), pointer :: x(:,:)
     real(8) :: r(2),r1(2),r2(2),alp(2),pref
     procedure(p_limiter), pointer :: limiter
     contains
       procedure :: construct                                !(iturb,lim)
       procedure :: destruct
       procedure :: setpv
-      procedure :: setdv
       procedure(p_interpolation), deferred :: interpolation !(xl(npv),xr(npv))
   end type t_muscl
 
@@ -81,7 +80,6 @@ module muscl_module
       
       muscl%stencil = config%getstencil()
       muscl%npv  = config%getnpv()
-      muscl%ndv  = config%getndv()
       muscl%pref = config%getpref()
 
     end subroutine construct
@@ -91,10 +89,6 @@ module muscl_module
       class(t_muscl), intent(inout) :: muscl
       
       if(associated(muscl%x))       nullify(muscl%x)
-      if(associated(muscl%dvl1))    nullify(muscl%dvl1)
-      if(associated(muscl%dvl))     nullify(muscl%dvl)
-      if(associated(muscl%dvr))     nullify(muscl%dvr)
-      if(associated(muscl%dvr1))    nullify(muscl%dvr1)
       if(associated(muscl%limiter)) nullify(muscl%limiter)
 
     end subroutine destruct
@@ -107,47 +101,13 @@ module muscl_module
       muscl%x => x
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine setdv(muscl,dvl1,dvl,dvr,dvr1)
-      implicit none
-      class(t_muscl), intent(inout) :: muscl
-      real(8), intent(in), target :: dvl1(muscl%ndv),dvl(muscl%ndv),dvr(muscl%ndv),dvr1(muscl%ndv)
-
-      muscl%dvl1 => dvl1
-      muscl%dvl  => dvl
-      muscl%dvr  => dvr
-      muscl%dvr1 => dvr1
-
-    end subroutine setdv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine tvd(muscl,xl,xr)
       implicit none
       class(t_tvd), intent(inout) :: muscl
       real(8), intent(out) :: xl(muscl%npv),xr(muscl%npv)
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
-      real(8) :: sensor(2),alpha(4),denominator
-      real(8), parameter :: eps = 1.d-16
-
-      alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
-      alpha(2) = muscl%dvl(1)*(1.d0-muscl%x(9,6)-muscl%x(9,7))/muscl%dvl(3)
-      alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
-      alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
-
-      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
-      if(denominator.le.eps) then
-        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/eps
-      else
-        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
-      end if
-
-      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
-      if(denominator.le.eps) then
-        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/eps
-      else
-        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
-      end if
-      sensor(1) = dmin1(sensor(1),1.d0)
-      sensor(2) = dmin1(sensor(2),1.d0)
+      real(8), parameter :: eps = 1.d-30
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
@@ -156,35 +116,21 @@ module muscl_module
         dqp  = muscl%x(32,k) - muscl%x(10,k) !i+3/2
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
-        if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/eps
-          muscl%r(1)  = dq*dqmm
-          muscl%r1(1) = dqm1*dqmm ! inverse
-          muscl%r2(1) = dqp*dqmm
-        else
-          dqmm = 1.d0/dqm
-          muscl%r(1)  = dq*dqmm
-          muscl%r1(1) = dqm1*dqmm ! inverse
-          muscl%r2(1) = dqp*dqmm
-        end if
-
-        if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/eps
-          muscl%r(2)  = dq*dqpp ! inverse
-          muscl%r1(2) = dqp1*dqpp
-          muscl%r2(2) = dqm*dqpp ! inverse
-        else
-          dqpp = 1.d0/dqp
-          muscl%r(2)  = dq*dqpp ! inverse
-          muscl%r1(2) = dqp1*dqpp
-          muscl%r2(2) = dqm*dqpp ! inverse
-        end if
-      
+        dqmm = 1.d0/(dqm+eps)
+        muscl%r(1) = dq*dqmm
+        muscl%r1(1) = dqm1*dqmm
+        muscl%r2(1) = dqp*dqmm
+        
+        dqpp = 1.d0/(dqp+eps)
+        muscl%r(2) = dq*dqpp
+        muscl%r1(2) = dqp1*dqpp
+        muscl%r2(2) = dqm*dqpp
+              
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))
@@ -220,30 +166,7 @@ module muscl_module
       integer :: k
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
-      real(8) :: sensor(2),alpha(4),denominator
-      real(8), parameter :: eps = 1.d-16, eps2 = 1.d-3
-
-
-      alpha(1) = muscl%dvl1(1)*(1.d0-muscl%x(23,6)-muscl%x(23,7))/muscl%dvl1(3)
-      alpha(2) = muscl%dvl(1)*(1.d0-muscl%x(9,6)-muscl%x(9,7))/muscl%dvl(3)
-      alpha(3) = muscl%dvr(1)*(1.d0-muscl%x(10,6)-muscl%x(10,7))/muscl%dvr(3)
-      alpha(4) = muscl%dvr1(1)*(1.d0-muscl%x(32,6)-muscl%x(32,7))/muscl%dvr1(3)
-
-      denominator = alpha(1)+2.d0*alpha(2)+alpha(3)
-      if(denominator.le.eps) then
-        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/eps
-      else
-        sensor(1) = dabs(alpha(1)-2.d0*alpha(2)+alpha(3))/denominator
-      end if
-
-      denominator = alpha(2)+2.d0*alpha(3)+alpha(4)
-      if(denominator.le.eps) then
-        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/eps
-      else
-        sensor(2) = dabs(alpha(2)-2.d0*alpha(3)+alpha(4))/denominator
-      end if
-      sensor(1) = dmin1(sensor(1),1.d0)
-      sensor(2) = dmin1(sensor(2),1.d0)
+      real(8), parameter :: eps = 1.d-30, eps2 = 1.d-3
 
       do k = 1, muscl%npv    
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
@@ -252,44 +175,21 @@ module muscl_module
         dqp  = muscl%x(32,k) - muscl%x(10,k) !i+3/2
         dqp1 = muscl%x(38,k) - muscl%x(32,k) !i+5/2
 
-        if(dabs(dqm).le.eps) then
-          dqmm = 1.d0/eps
-          muscl%r(1)  = dq*dqmm
-          muscl%r1(1) = dqm1*dqmm ! inverse
-          muscl%r2(1) = dqp*dqmm
-        else
-          dqmm = 1.d0/dqm
-          muscl%r(1)  = dq*dqmm
-          muscl%r1(1) = dqm1*dqmm ! inverse
-          muscl%r2(1) = dqp*dqmm
-        end if
+        dqmm = 1.d0/(dqm+eps)
+        muscl%r(1) = dq*dqmm
+        muscl%r1(1) = dqm1*dqmm
+        muscl%r2(1) = dqp*dqmm
+        
+        dqpp = 1.d0/(dqp+eps)
+        muscl%r(2) = dq*dqpp
+        muscl%r1(2) = dqp1*dqpp
+        muscl%r2(2) = dqm*dqpp
 
-        if(dabs(dqp).le.eps) then
-          dqpp = 1.d0/eps
-          muscl%r(2)  = dq*dqpp ! inverse
-          muscl%r1(2) = dqp1*dqpp
-          muscl%r2(2) = dqm*dqpp ! inverse
-        else
-          dqpp = 1.d0/dqp
-          muscl%r(2)  = dq*dqpp ! inverse
-          muscl%r1(2) = dqp1*dqpp
-          muscl%r2(2) = dqm*dqpp ! inverse
-        end if
-
-        if(dabs(muscl%x(10,k)-muscl%x(23,k)).le.eps) then
-          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k)))/eps
-          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k)))/eps
-        else
-          rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/(muscl%x(10,k)-muscl%x(23,k)))
-          rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/(muscl%x(10,k)-muscl%x(23,k)))
-        end if
-        if(dabs(muscl%x(32,k)-muscl%x(9,k)).le.eps) then
-          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k)))/eps
-          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k)))/eps
-        else      
-          rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/(muscl%x(32,k)-muscl%x(9,k)))
-          rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/(muscl%x(32,k)-muscl%x(9,k)))
-        end if
+        rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/(muscl%x(10,k)-muscl%x(23,k)+eps))
+        rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/(muscl%x(10,k)-muscl%x(23,k)+eps))
+             
+        rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/(muscl%x(32,k)-muscl%x(9,k)+eps))
+        rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/(muscl%x(32,k)-muscl%x(9,k)+eps))
         
         if((rxy_l.lt.eps2).and.(rxz_l.lt.eps2)) then
           qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
@@ -347,19 +247,14 @@ module muscl_module
         !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))
         !end if
 
-        if(dabs(dq).le.eps) then
-          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/eps/(1.d0+rxy_l+rxz_l)*qml
-          muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/eps/(1.d0+rxy_r+rxz_r)*qmr
-        else
-          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/dabs(dq)/(1.d0+rxy_l+rxz_l)*qml
-          muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/dabs(dq)/(1.d0+rxy_r+rxz_r)*qmr
-        end if
+        muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/(dabs(dq)+eps)/(1.d0+rxy_l+rxz_l)*qml
+        muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/(dabs(dq)+eps)/(1.d0+rxy_r+rxz_r)*qmr
 
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
       
-        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm*(1.d0-dmax1(sensor(1),sensor(2)))
-        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp*(1.d0-dmax1(sensor(1),sensor(2)))
+        xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
+        xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
       end do
 
       xl(1) = dmax1(-muscl%pref+1.d1,xl(1))

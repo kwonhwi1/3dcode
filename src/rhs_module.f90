@@ -255,7 +255,7 @@ module rhs_module
       real(8) :: grdl(rhs%ngrd),grdr(rhs%ngrd)
       real(8) :: x(rhs%stencil,rhs%npv),dv(18,rhs%ndv)
       real(8) :: pvl(rhs%npv),pvr(rhs%npv)
-      real(8) :: dvl(rhs%ndv),dvr(rhs%ndv),dvl1(rhs%ndv),dvr1(rhs%ndv)
+      real(8) :: dvl(rhs%ndv),dvr(rhs%ndv)
       real(8) :: tvl(rhs%ntv),tvr(rhs%ntv)
       type(t_cav_result) :: cav_result
       type(t_turb_result) :: turb_result
@@ -293,13 +293,10 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i-2,j,k)
               x(ll+2,:) = variable%getpv(i+3,j,k)
               
-              dvl1 = variable%getdv(i-1,j,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i+1,j,k)
-              dvr1 = variable%getdv(i+2,j,k)
 
               call rhs%muscl%setpv(x)
-              call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
@@ -383,13 +380,10 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i,j-2,k)
               x(ll+2,:) = variable%getpv(i,j+3,k)
               
-              dvl1 = variable%getdv(i,j-1,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j+1,k)
-              dvr1 = variable%getdv(i,j+2,k)
 
               call rhs%muscl%setpv(x)
-              call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
@@ -473,13 +467,10 @@ module rhs_module
               x(ll+1,:) = variable%getpv(i,j,k-2)
               x(ll+2,:) = variable%getpv(i,j,k+3)
               
-              dvl1 = variable%getdv(i,j,k-1)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j,k+1)
-              dvr1 = variable%getdv(i,j,k+2)
 
               call rhs%muscl%setpv(x)
-              call rhs%muscl%setdv(dvl1,dvl,dvr,dvr1)
               call rhs%muscl%interpolation(pvl,pvr)
 
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
