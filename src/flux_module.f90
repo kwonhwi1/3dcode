@@ -449,7 +449,7 @@ module flux_module
       real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
       real(8) :: sdst910,sdst79,sdst911,sdst810,sdst1012,sdst39,sdst915,sdst410,sdst1016
-      real(8), parameter :: beta = 0.125d0,ku=0.5d0
+      real(8), parameter :: beta = 0.125d0,ku=1.d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -511,7 +511,7 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr
-      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - 2.d0*ku*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       do k=1,18
         sdst(k) = flux%sdst(k)+flux%pref
@@ -590,7 +590,7 @@ module flux_module
       real(8) :: am2rmid,fmid,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
       real(8) :: zmpl1,zmmr1  
-      real(8), parameter :: beta = 0.125d0, kp = 0.25d0, ku = 0.5d0
+      real(8), parameter :: beta = 0.125d0, kp = 0.25d0, ku = 1.d0
       
 
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
@@ -651,7 +651,7 @@ module flux_module
       end if
       
       zmid = zmpl + zmmr - kp*dmax1(1.d0-am2mid/rdv(6),0.d0)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/rdv(6)/fmid
-      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - ku*2.d0*ppl*pmr*rdv(1)*fmid*amid*(uurr-uull)
+      pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - 2.d0*ku*ppl*pmr*rdv(1)*fmid*amid*(uurr-uull)
       
       if(zmid.gt.0.d0) then
         zmpl1 = zmid 
