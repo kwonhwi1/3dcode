@@ -66,15 +66,12 @@ module rhs_module
 
       case(-2)
         allocate(t_vsflux_laminar::rhs%vsflux)
-
       case(-1)
         allocate(t_vsflux_turbulent::rhs%vsflux)
         allocate(t_kepsilon::rhs%turbsource)
-
       case(0)
         allocate(t_vsflux_turbulent::rhs%vsflux)
         allocate(t_kwsst::rhs%turbsource)
-
       end select
       
       selectcase(config%getnscheme())

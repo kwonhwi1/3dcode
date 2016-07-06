@@ -11,11 +11,11 @@ module turbsource_module
   
   type, abstract :: t_turbsource
     private
-    logical :: tcomp
     integer :: stencil,ngrd,npv,ndv,ntv
     real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
     real(8), pointer :: pv(:,:)
     real(8), pointer :: dv(:),grd(:),tv(:)
+    procedure(p_calturblength), pointer :: calturblength
     contains
       procedure :: construct
       procedure :: destruct
@@ -37,7 +37,7 @@ module turbsource_module
     contains
       procedure ::  calturbsource => kwsst
   end type t_kwsst
-  
+
   abstract interface
     function p_calturbsource(ts) result(turb_result)
       import t_turb_result
@@ -45,7 +45,17 @@ module turbsource_module
       implicit none
       class(t_turbsource), intent(in) :: ts
       type(t_turb_result) :: turb_result
-    end function
+    end function p_calturbsource
+  end interface
+  
+  interface
+    function p_calturblength(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      import t_turbsource
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_des
+    end function p_calturblength
   end interface
   
   contains
@@ -55,19 +65,25 @@ module turbsource_module
       class(t_turbsource), intent(out) :: turbsource
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-     
-      select case(config%gettcomp())
-      case(0)
-        turbsource%tcomp = .false.
-      case(1)
-        turbsource%tcomp = .true.
-      end select
 
       turbsource%stencil = config%getstencil()
       turbsource%npv = config%getnpv()
       turbsource%ndv = config%getndv()
       turbsource%ntv = config%getntv()
       turbsource%ngrd = grid%getngrd()
+      
+      select case(config%getides())
+      case(0)
+        turbsource%calturblength => no_des
+      case(1)
+        turbsource%calturblength => sst_des
+      case(2)
+        turbsource%calturblength => sst_ddes
+      case(3)
+        turbsource%calturblength => sst_iddes
+      case(4)
+        turbsource%calturblength => sst_s_iddes
+      end select
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -75,16 +91,17 @@ module turbsource_module
       implicit none
       class(t_turbsource), intent(inout) :: turbsource
 
-      if(associated(turbsource%cx1))     nullify(turbsource%cx1)     
-      if(associated(turbsource%cx2))     nullify(turbsource%cx2)     
-      if(associated(turbsource%ex1))     nullify(turbsource%ex1)     
-      if(associated(turbsource%ex2))     nullify(turbsource%ex2)
-      if(associated(turbsource%tx1))     nullify(turbsource%tx1)     
-      if(associated(turbsource%tx2))     nullify(turbsource%tx2)
-      if(associated(turbsource%grd))     nullify(turbsource%grd)           
-      if(associated(turbsource%pv))      nullify(turbsource%pv)      
-      if(associated(turbsource%dv))      nullify(turbsource%dv)      
-      if(associated(turbsource%tv))      nullify(turbsource%tv)      
+      if(associated(turbsource%cx1))           nullify(turbsource%cx1)     
+      if(associated(turbsource%cx2))           nullify(turbsource%cx2)     
+      if(associated(turbsource%ex1))           nullify(turbsource%ex1)     
+      if(associated(turbsource%ex2))           nullify(turbsource%ex2)
+      if(associated(turbsource%tx1))           nullify(turbsource%tx1)     
+      if(associated(turbsource%tx2))           nullify(turbsource%tx2)
+      if(associated(turbsource%grd))           nullify(turbsource%grd)           
+      if(associated(turbsource%pv))            nullify(turbsource%pv)      
+      if(associated(turbsource%dv))            nullify(turbsource%dv)      
+      if(associated(turbsource%tv))            nullify(turbsource%tv)
+      if(associated(turbsource%calturblength)) nullify(turbsource%calturblength)      
       
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -148,7 +165,7 @@ module turbsource_module
       real(8) :: v1,v2,v3,v4,v5,v6
       real(8) :: w1,w2,w3,w4,w5,w6
       real(8) :: dkdx,dkdy,dkdz,dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
-      real(8) :: kkyy,prod,re_t,fe1,fe2,mt2,ec,pd,dpdk,dpdo
+      real(8) :: kkyy,prod,re_t,fe1,fe2,dpdk,dpdo
       real(8) :: lam1,lam2,t,d,ki,oi,ei
       real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0
       
@@ -209,39 +226,24 @@ module turbsource_module
       fe2 = 1.d0 - 2.d0/9.d0*dexp(-(re_t/6.d0)**2)
       
       prod = dmin1(prod,30.d0*ts%dv(1)*ts%pv(2,9))
-      
-      if(ts%tcomp) then
-        mt2 = 2.d0*ts%pv(2,8)/ts%dv(6)
-        ec = mt2*ts%pv(2,9)
-        pd = -0.4d0*prod*mt2+0.2d0*ts%dv(1)*ts%pv(2,9)*mt2
-      else
-        mt2 = 0.d0
-        ec = 0.d0
-        pd = 0.d0      
-      end if
-      
+   
       ki = 1.d0/ts%pv(2,8)
       oi = 1.d0/ts%pv(2,9)
       ei = 1.d0/ts%tv(3)
       
       turb_result%omega_cut = 0.d0
-      turb_result%source(1) = (prod - ts%dv(1)*(ts%pv(2,9)+ec) + pd - 2.d0*ts%tv(1)*kkyy)*ts%grd(1)
+      turb_result%source(1) = (prod - ts%dv(1)*ts%pv(2,9) - 2.d0*ts%tv(1)*kkyy)*ts%grd(1)
       turb_result%source(2) = (1.5d0*fe1*prod*ts%pv(2,9) - 1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 &
                             + 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy)*ki*ts%grd(1)
      
-      
       dpdk = 2.d0*prod*ki + c23*ts%dv(1)*(dudx+dvdy+dwdz)
       dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))*oi
       
       turb_result%itt(1) = dpdk
       turb_result%itt(2) = dpdo - ts%dv(1)
-      turb_result%itt(3) = (1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )*ki**2
+      turb_result%itt(3) = 1.5d0*fe1*dpdk*ts%pv(2,9)*ki + (- 1.5d0*fe1*prod*ts%pv(2,9) + 1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 &
+                           - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )*ki**2
       turb_result%itt(4) = (1.5d0*fe1*dpdo*ts%pv(2,9) + 1.5d0*fe1*prod - 3.8d0*fe2*ts%dv(1)*ts%pv(2,9) + 2.9556d0*ts%tv(1)*kkyy)*ki
-      
-      if(ts%tcomp) then
-        turb_result%itt(1) = turb_result%itt(1) + (- 1.6d0*ts%dv(1)*ts%pv(2,9) - 0.8d0*dpdk*ts%pv(2,8)- 0.8d0*prod)/ts%dv(6)
-        turb_result%itt(2) = turb_result%itt(2) + (- ts%dv(1) - 0.4d0*dpdo + 0.2d0*ts%dv(1))*mt2
-      end if
       
       t = turb_result%itt(1)+turb_result%itt(4)
       d = turb_result%itt(1)*turb_result%itt(4)-turb_result%itt(2)*turb_result%itt(3)
@@ -265,8 +267,9 @@ module turbsource_module
       real(8) :: w1,w2,w3,w4,w5,w6
       real(8) :: dkdx,dkdy,dkdz,dodx,dody,dodz
       real(8) :: dudx,dudy,dudz,dvdx,dvdy,dvdz,dwdx,dwdy,dwdz,vol
-      real(8) :: prod,bigf,talpha,tbeta,mt2,pd,dpdk,dpdo
+      real(8) :: prod,bigf,talpha,tbeta,dpdk,dpdo
       real(8) :: lam1,lam2,t,d,ki,oi,ei
+      real(8) :: strain_sq,vorticity_sq,dest
       real(8), parameter :: phi = 1.d0, c23=2.d0/3.d0, c59 = 5.d0/9.d0
 
       k1 = 0.5d0*(ts%pv(1,8)+ts%pv(2,8))
@@ -324,56 +327,38 @@ module turbsource_module
       dwdx = (w2*ts%cx2(1)+w4*ts%ex2(1)+w6*ts%tx2(1)-w1*ts%cx1(1)-w3*ts%ex1(1)-w5*ts%tx1(1))*vol
       dwdy = (w2*ts%cx2(2)+w4*ts%ex2(2)+w6*ts%tx2(2)-w1*ts%cx1(2)-w3*ts%ex1(2)-w5*ts%tx1(2))*vol
       dwdz = (w2*ts%cx2(3)+w4*ts%ex2(3)+w6*ts%tx2(3)-w1*ts%cx1(3)-w3*ts%ex1(3)-w5*ts%tx1(3))*vol
-      
-      prod = ts%tv(3)*(2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2         &
-           - c23*(dudx+dvdy+dwdz)**2) - c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz) 
+
+      strain_sq = 2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2
+      vorticity_sq = (dudy - dvdx)**2 + (dudz - dwdx)**2 + (dvdz - dwdy)**2      
+      prod = ts%tv(3)*(strain_sq - c23*(dudx+dvdy+dwdz)**2) - c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz) 
       
       prod = dmin1(prod,0.9d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9))
       
-      turb_result%omega_cut = dsqrt(2.d0*(dudx**2+dvdy**2+dwdz**2)+(dudy+dvdx)**2+(dudz+dwdx)**2+(dvdz+dwdy)**2     &
-                              - c23*(dudx+dvdy+dwdz)**2)
+      turb_result%omega_cut = dsqrt(strain_sq - c23*(dudx+dvdy+dwdz)**2)
       
       bigf = ts%calbigf(dkdx*dodx+dkdy*dody+dkdz*dodz)
       
       talpha = bigf*c59 +(1.d0-bigf)*0.44d0
       tbeta  = bigf*0.075d0   +(1.d0-bigf)*0.0828d0
       
-      if(ts%tcomp) then
-        mt2 = 2.d0*ts%pv(2,8)/ts%dv(6)
-        pd = -0.4d0*prod*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)*mt2
-      else
-        mt2 = 0.d0
-        pd = 0.d0      
-      end if
-      
       ki = 1.d0/ts%pv(2,8)
       oi = 1.d0/ts%pv(2,9)
       ei = 1.d0/ts%tv(3)
+      
+      dest = ts%dv(1)*ts%pv(2,8)**1.5d0/ts%calturblength(bigf,strain_sq,vorticity_sq)
 
-      turb_result%source(1) = (prod - 0.09d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)*(1.d0+c59*mt2*(1.d0-bigf)) &
-                            + (1.d0-bigf)*pd)*ts%grd(1)
+      turb_result%source(1) = (prod - dest)*ts%grd(1)
       turb_result%source(2) = (talpha*ts%dv(1)*ei*prod - tbeta*ts%dv(1)*ts%pv(2,9)**2 &
-                            + 1.712d0*(1.d0-bigf)*ts%dv(1)*oi*(dkdx*dodx+dkdy*dody+dkdz*dodz) &
-                            + (1.d0-bigf)*0.05d0*mt2*ts%dv(1)*ts%pv(2,9)**2 &
-                            - (1.d0-bigf)*ts%dv(1)*ei*pd )*ts%grd(1)
+                            + 1.712d0*(1.d0-bigf)*ts%dv(1)*oi*(dkdx*dodx+dkdy*dody+dkdz*dodz))*ts%grd(1)
 
       dpdk = prod*ki
       dpdo = - (prod+c23*ts%dv(1)*ts%pv(2,8)*(dudx+dvdy+dwdz))*oi
 
-      turb_result%itt(1) = dpdk - 0.09d0*ts%dv(1)*ts%pv(2,9)
-      turb_result%itt(2) = dpdo - 0.09d0*ts%dv(1)*ts%pv(2,8)
-      turb_result%itt(3) = 0.d0
+      turb_result%itt(1) = dpdk - dest*ki
+      turb_result%itt(2) = dpdo - dest*oi
+      turb_result%itt(3) = talpha*ts%dv(1)*ei*dpdk - talpha*ts%dv(1)*ei*prod*ki
       turb_result%itt(4) = talpha*ts%dv(1)*ei*dpdo + talpha*ts%dv(1)*ei*prod*oi - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
                          - 1.712d0*(1.d0-bigf)*ts%dv(1)*oi**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
-                 
-      if(ts%tcomp) then
-        turb_result%itt(1) = turb_result%itt(1) + (- 0.128d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6) - 0.4d0*dpdk*mt2 - 0.8d0*prod/ts%dv(6) )*(1.d0-bigf)
-        turb_result%itt(2) = turb_result%itt(2) + (- 0.032d0*ts%dv(1)*ts%pv(2,8)*mt2 - 0.4d0*dpdo*mt2 )*(1.d0-bigf)
-        turb_result%itt(3) = turb_result%itt(3) + (0.1d0*ts%dv(1)*ts%pv(2,9)**2/ts%dv(6) + ts%dv(1)*ei*pd*ki &
-                                                - ts%dv(1)*ei*(-0.4d0*dpdk*mt2-0.8d0*prod/ts%dv(6)+0.072d0*ts%dv(1)*ts%pv(2,8)*ts%pv(2,9)/ts%dv(6)))*(1.d0-bigf)
-        turb_result%itt(4) = turb_result%itt(4) + (0.2d0*ts%dv(1)*ts%pv(2,9)*ts%pv(2,8)/ts%dv(6) - ts%dv(1)*ei*pd*oi &
-                                                - ts%dv(1)*ei*(-0.4d0*dpdo*mt2+0.018d0*ts%dv(1)*ts%pv(2,8)*mt2))*(1.d0-bigf)
-      end if
                  
       t = turb_result%itt(1)+turb_result%itt(4)
       d = turb_result%itt(1)*turb_result%itt(4)-turb_result%itt(2)*turb_result%itt(3)
@@ -407,5 +392,177 @@ module turbsource_module
       calbigf = dtanh(arg1**4)
       
     end function calbigf
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function no_des(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_des
+      
+      tl_des = dsqrt(ts%pv(2,8))/9.d0/ts%pv(2,9)*100.d0
+      
+    end function no_des
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function sst_des(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_rans, tl_les, tl_des
+      real(8) :: vol,grid_spacing(3)
+
+      tl_rans = dsqrt(ts%pv(2,8))/9.d0/ts%pv(2,9)*100.d0
+
+        ! turbulent length scale by LES
+          ! inaccurate method -> need to modify
+
+      vol = ts%grd(1)
+      grid_spacing(1) = 0.5d0*(  dsqrt(ts%cx1(1)**2 + ts%cx1(2)**2 + ts%cx1(3)**2) &
+                               + dsqrt(ts%cx2(1)**2 + ts%cx2(2)**2 + ts%cx2(3)**2) )
+      grid_spacing(2) = 0.5d0*(  dsqrt(ts%ex1(1)**2 + ts%ex1(2)**2 + ts%ex1(3)**2) &
+                               + dsqrt(ts%ex2(1)**2 + ts%ex2(2)**2 + ts%ex2(3)**2) )
+      grid_spacing(3) = 0.5d0*(  dsqrt(ts%tx1(1)**2 + ts%tx1(2)**2 + ts%tx1(3)**2) &
+                               + dsqrt(ts%tx2(1)**2 + ts%tx2(2)**2 + ts%tx2(3)**2) )
+      grid_spacing    = vol/grid_spacing
+
+      tl_les  = 0.61d0*dmax1(grid_spacing(1),grid_spacing(2),grid_spacing(3))
+        
+      ! turbulent length scale for DES
+      tl_des = dmin1(tl_rans, tl_les)
+              
+    end function sst_des
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function sst_ddes(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_rans, tl_les, tl_des
+      real(8) :: vol,grid_spacing(3),cdes,rd_num,rd_den,rd,fd
+
+      tl_rans = dsqrt(ts%pv(2,8))/9.d0/ts%pv(2,9)*100.d0
+
+        ! turbulent length scale by LES
+          ! inaccurate method -> need to modify
+
+      vol = ts%grd(1)
+      grid_spacing(1) = 0.5d0*(  dsqrt(ts%cx1(1)**2 + ts%cx1(2)**2 + ts%cx1(3)**2) &
+                               + dsqrt(ts%cx2(1)**2 + ts%cx2(2)**2 + ts%cx2(3)**2) )
+      grid_spacing(2) = 0.5d0*(  dsqrt(ts%ex1(1)**2 + ts%ex1(2)**2 + ts%ex1(3)**2) &
+                               + dsqrt(ts%ex2(1)**2 + ts%ex2(2)**2 + ts%ex2(3)**2) )
+      grid_spacing(3) = 0.5d0*(  dsqrt(ts%tx1(1)**2 + ts%tx1(2)**2 + ts%tx1(3)**2) &
+                               + dsqrt(ts%tx2(1)**2 + ts%tx2(2)**2 + ts%tx2(3)**2) )
+      grid_spacing    = vol/grid_spacing
+
+      cdes = 0.78d0*bigf + 0.61d0*(1.d0 - bigf)
+      tl_les  = cdes*dmax1(grid_spacing(1),grid_spacing(2),grid_spacing(3))
+        
+      rd_num = ts%tv(1) + ts%tv(3)
+      rd_den = 0.41d0**2 * ts%grd(5)**2 * dsqrt(0.5d0*(strain_sq + vorticity_sq))
+      rd = rd_num/rd_den
+      fd = 1.d0 - dtanh( (20.d0*rd)**3 )
+
+      ! turbulent length scale for DES
+      tl_des = tl_rans - fd*dmax1(0.d0, tl_rans - tl_les)
+      
+    end function sst_ddes
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function sst_iddes(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_rans, tl_les, tl_des
+      real(8) :: vol,grid_spacing(3),cdes,hmax
+      real(8) :: alpha,fb,rdt_num,rdt_den,rdt,rdl_num,rdl_den,rdl,fdt,fd,fl,ft,fe,fe1,fe2
+
+      tl_rans = dsqrt(ts%pv(2,8))/9.d0/ts%pv(2,9)*100.d0
+
+        ! turbulent length scale by LES
+          ! inaccurate method -> need to modify
+
+      vol = ts%grd(1)
+      grid_spacing(1) = 0.5d0*(  dsqrt(ts%cx1(1)**2 + ts%cx1(2)**2 + ts%cx1(3)**2) &
+                               + dsqrt(ts%cx2(1)**2 + ts%cx2(2)**2 + ts%cx2(3)**2) )
+      grid_spacing(2) = 0.5d0*(  dsqrt(ts%ex1(1)**2 + ts%ex1(2)**2 + ts%ex1(3)**2) &
+                               + dsqrt(ts%ex2(1)**2 + ts%ex2(2)**2 + ts%ex2(3)**2) )
+      grid_spacing(3) = 0.5d0*(  dsqrt(ts%tx1(1)**2 + ts%tx1(2)**2 + ts%tx1(3)**2) &
+                               + dsqrt(ts%tx2(1)**2 + ts%tx2(2)**2 + ts%tx2(3)**2) )
+      grid_spacing    = vol/grid_spacing
+
+      cdes = 0.78d0*bigf + 0.61d0*(1.d0 - bigf)
+      hmax = dmax1(grid_spacing(1),grid_spacing(2),grid_spacing(3))
+      tl_les  = cdes*dmin1(0.15d0*dmax1(ts%grd(5),hmax),hmax)
+
+      ! empiric sheilding function, fd
+      alpha = 0.25d0 - ts%grd(5)/hmax
+      fb = dmin1(2.d0*dexp(-9.d0*alpha**2), 1.d0)
+
+      rdt_num = ts%tv(3) 
+      rdt_den = 0.41d0**2 * ts%grd(5)**2 * dsqrt(0.5d0*(strain_sq + vorticity_sq))
+      rdt = rdt_num/rdt_den
+
+      fdt = 1.d0 - dtanh( (20.d0*rdt)**3 )
+      fd = dmax1(1.d0 - fdt, fb)
+
+      ! empiric sheilding function, fe
+      rdl_num = ts%tv(1) 
+      rdl_den = rdt_den
+      rdl = rdl_num/rdl_den
+
+      fl = dtanh((25.d0*rdl)**10)
+      ft = dtanh((3.4969d0*rdt)**3 )
+ 
+      fe2 = 1.d0 - dmax1(ft, fl)
+      if(alpha .ge. 0.d0) then
+        fe1 = 2.d0*dexp(-11.09d0*alpha**2)
+      else
+        fe1 = 2.d0*dexp(   -9.d0*alpha**2)
+      endif
+      fe = fe2*dmax1(fe1 - 1.d0, 0.d0)
+
+      ! turbulent length scale for DES
+      tl_des = fd*(1.d0 + fe)*tl_rans + (1.d0 - fd)*tl_les
+              
+    end function sst_iddes
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function sst_s_iddes(ts,bigf,strain_sq,vorticity_sq) result(tl_des)
+      implicit none
+      class(t_turbsource), intent(in) :: ts
+      real(8), intent(in) :: bigf,strain_sq,vorticity_sq
+      real(8) :: tl_rans, tl_les, tl_des
+      real(8) :: vol,grid_spacing(3),cdes,hmax
+      real(8) :: alpha,fb,rdt_num,rdt_den,rdt,fdt,fd
+
+      tl_rans = dsqrt(ts%pv(2,8))/9.d0/ts%pv(2,9)*100.d0
+
+        ! turbulent length scale by LES
+          ! inaccurate method -> need to modify
+
+      vol = ts%grd(1)
+      grid_spacing(1) = 0.5d0*(  dsqrt(ts%cx1(1)**2 + ts%cx1(2)**2 + ts%cx1(3)**2) &
+                               + dsqrt(ts%cx2(1)**2 + ts%cx2(2)**2 + ts%cx2(3)**2) )
+      grid_spacing(2) = 0.5d0*(  dsqrt(ts%ex1(1)**2 + ts%ex1(2)**2 + ts%ex1(3)**2) &
+                               + dsqrt(ts%ex2(1)**2 + ts%ex2(2)**2 + ts%ex2(3)**2) )
+      grid_spacing(3) = 0.5d0*(  dsqrt(ts%tx1(1)**2 + ts%tx1(2)**2 + ts%tx1(3)**2) &
+                               + dsqrt(ts%tx2(1)**2 + ts%tx2(2)**2 + ts%tx2(3)**2) )
+      grid_spacing    = vol/grid_spacing
+
+      cdes = 0.78d0*bigf + 0.61d0*(1.d0 - bigf)
+      hmax = dmax1(grid_spacing(1),grid_spacing(2),grid_spacing(3))
+      tl_les  = cdes*dmin1(0.15d0*dmax1(ts%grd(5),hmax),hmax)
+
+      ! empiric sheilding function, fd
+      alpha = 0.25d0 - ts%grd(5)/hmax
+      fb = dmin1(2.d0*dexp(-9.d0*alpha**2), 1.d0)
+
+      rdt_num = ts%tv(3) 
+      rdt_den = 0.41d0**2 * ts%grd(5)**2 * dsqrt(0.5d0*(strain_sq + vorticity_sq))
+      rdt = rdt_num/rdt_den
+
+      fdt = 1.d0 - dtanh( (20.d0*rdt)**3 )
+      fd = dmax1(1.d0 - fdt, fb)
+
+      ! turbulent length scale for DES
+      tl_des = fd*tl_rans + (1.d0 - fd)*tl_les
+      
+    end function sst_s_iddes
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module turbsource_module

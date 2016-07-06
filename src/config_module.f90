@@ -13,7 +13,7 @@ module config_module
     integer :: nsteady,npmax,ntmax,bond
     real(8) :: dt_phy
     integer :: nexport,nprint
-    integer :: iturb,tcomp
+    integer :: iturb,ides
     integer :: nscheme,nmuscl,nlim
     integer :: timemethod,local,prec
     real(8) :: cfl
@@ -48,6 +48,7 @@ module config_module
       procedure :: getnprint
       procedure :: getrstnum
       procedure :: getiturb
+      procedure :: getides
       procedure :: getnscheme
       procedure :: getnmuscl
       procedure :: getnlim
@@ -55,7 +56,6 @@ module config_module
       procedure :: getlocal
       procedure :: getprec
       procedure :: getncav
-      procedure :: gettcomp
       procedure :: getc_v
       procedure :: getc_c
       procedure :: getgravity
@@ -103,7 +103,7 @@ module config_module
           read(io,*); read(io,*) config%iread,config%rstnum
           read(io,*); read(io,*) config%nsteady,config%npmax,config%ntmax,config%bond,config%dt_phy
           read(io,*); read(io,*) config%nexport,config%nprint
-          read(io,*); read(io,*) config%iturb,config%tcomp
+          read(io,*); read(io,*) config%iturb,config%ides
           read(io,*); read(io,*) config%nscheme,config%nmuscl,config%nlim
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
           read(io,*); read(io,*) config%fluid,config%ngas
@@ -359,6 +359,15 @@ module config_module
       
     end function getiturb
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    pure function getides(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getides
+      
+      getides = config%ides
+      
+    end function getides
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
     pure function getnscheme(config)
       implicit none
       class(t_config), intent(in) :: config
@@ -420,15 +429,6 @@ module config_module
       getncav = config%ncav
       
     end function getncav
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    pure function gettcomp(config)
-      implicit none
-      class(t_config), intent(in) :: config
-      integer :: gettcomp
-      
-      gettcomp = config%tcomp
-      
-    end function gettcomp
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getc_v(config)
       implicit none

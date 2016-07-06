@@ -6,7 +6,7 @@ nsteady       npmax          ntmax          bond           dt_phy
 0             0              0000000        0              0.d0
 nexport       nprt
 0             0
-iturb         tcomp
+iturb         ides
 0             0
 nscheme       nmuscl         nlim
 0             0              0
@@ -37,7 +37,7 @@ dt_phy        : physical time step
 npost         : iteration/post
 nprt          : iteration/print
 iturb         : -3 = euler, -2 = rans, -1 = low reynolds k-e model, 0 = k-w sst
-tcomp         : turbulent compressibility effect, 0 = off, 1 = on
+ides          : 0 = sst only, 1 = sst-des, 2 = sst-ddes, 3 = sst-iddes, 4 = simplified sst-iddes
 nscheme       : 1 = roe/p-roe, 2 = n_roem, 3 = n_ausmpw+, 4 = ausm+up
 nmuscl        : 0 = 1st order, 1 = tvd, 2 = mlp
 nlim          : 0 = no_limiter, 1 = minmod, 2 = superbee, 3 = v.l., 4 = m.c., 5 = v.a., 6 = beta, 7 = 3rd_order, 8 = 5th_order,
