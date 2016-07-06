@@ -241,8 +241,7 @@ module turbsource_module
       
       turb_result%itt(1) = dpdk
       turb_result%itt(2) = dpdo - ts%dv(1)
-      turb_result%itt(3) = 1.5d0*fe1*dpdk*ts%pv(2,9)*ki + (- 1.5d0*fe1*prod*ts%pv(2,9) + 1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 &
-                           - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )*ki**2
+      turb_result%itt(3) = (1.9d0*fe2*ts%dv(1)*ts%pv(2,9)**2 - 2.9556d0*ts%tv(1)*ts%pv(2,9)*kkyy )*ki**2
       turb_result%itt(4) = (1.5d0*fe1*dpdo*ts%pv(2,9) + 1.5d0*fe1*prod - 3.8d0*fe2*ts%dv(1)*ts%pv(2,9) + 2.9556d0*ts%tv(1)*kkyy)*ki
       
       t = turb_result%itt(1)+turb_result%itt(4)
@@ -356,7 +355,7 @@ module turbsource_module
 
       turb_result%itt(1) = dpdk - dest*ki
       turb_result%itt(2) = dpdo - dest*oi
-      turb_result%itt(3) = talpha*ts%dv(1)*ei*dpdk - talpha*ts%dv(1)*ei*prod*ki
+      turb_result%itt(3) = 0.d0
       turb_result%itt(4) = talpha*ts%dv(1)*ei*dpdo + talpha*ts%dv(1)*ei*prod*oi - 2.d0*tbeta*ts%dv(1)*ts%pv(2,9) &
                          - 1.712d0*(1.d0-bigf)*ts%dv(1)*oi**2*(dkdx*dodx+dkdy*dody+dkdz*dodz)
                  
