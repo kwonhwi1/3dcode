@@ -11,7 +11,7 @@ module flux_module
     integer :: npv,ndv,ngrd
     real(8) :: omega(3)
     real(8) :: uref,str,pref
-    real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:),dv(:,:)
+    real(8), pointer :: pvl(:),pvr(:),dvl(:),dvr(:),sdst(:)
     real(8), pointer :: nx(:),grdl(:),grdr(:)
     procedure(p_getsndp2), pointer :: getsndp2
     procedure(p_getsndp2), pointer :: getsndp2_du
@@ -186,13 +186,12 @@ module flux_module
       
     end subroutine setdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine setsdst(flux,sdst,dv)
+    subroutine setsdst(flux,sdst)
       implicit none
       class(t_flux), intent(inout) :: flux
-      real(8), intent(in), target :: sdst(18),dv(18,flux%ndv)
+      real(8), intent(in), target :: sdst(18)
       
       flux%sdst => sdst
-      flux%dv => dv
       
     end subroutine setsdst
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -287,10 +286,9 @@ module flux_module
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
       real(8) :: am2rmid_du,am2rmid,fmid,fmid_du,amid
       real(8) :: uuu,c_star,c_star_du,m_star,u2
-      real(8) :: aaa,add,b1,b2,b1_du,b2_du,ff,gg,sdst(18),pp_l,pp_r!,rhoc2
+      real(8) :: aaa,add,b1,b2,b1_du,b2_du,ff,gg,sdst(18)
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
-      real(8) :: sdst910,sdst79,sdst911,sdst810,sdst1012,sdst39,sdst915,sdst410,sdst1016
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
       
@@ -372,43 +370,28 @@ module flux_module
       do k=6,flux%npv
         fr(k) = flux%dvr(1)*uurr*flux%pvr(k)
       end do
-      
-                              
+    
       do k=1,18
-        sdst(k) = flux%sdst(k)+flux%pref
+        sdst(k) = flux%sdst(k)+flux%pref+0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
       end do
-
-      sdst910  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst79   = 0.1d0*dmin1(flux%dv(7,1)*flux%dv(7,6),flux%dv(9,1)*flux%dv(9,6))
-      sdst911  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(11,1)*flux%dv(11,6))
-      sdst810  = 0.1d0*dmin1(flux%dv(8,1)*flux%dv(8,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst1012 = 0.1d0*dmin1(flux%dv(10,1)*flux%dv(10,6),flux%dv(12,1)*flux%dv(12,6))
-      sdst39   = 0.1d0*dmin1(flux%dv(3,1)*flux%dv(3,6),flux%dv(9,1)*flux%dv(9,6))
-      sdst915  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(15,1)*flux%dv(15,6))
-      sdst410  = 0.1d0*dmin1(flux%dv(4,1)*flux%dv(4,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst1016 = 0.1d0*dmin1(flux%dv(10,1)*flux%dv(10,6),flux%dv(16,1)*flux%dv(16,6))
-      
-      ff = 1.d0 - dmin1((sdst(9)+sdst910)/(sdst(10)+sdst910),(sdst(10)+sdst910)/(sdst(9)+sdst910), &
-                        (sdst(11)+sdst911)/(sdst(9)+sdst911),(sdst(9)+sdst911)/(sdst(11)+sdst911), &
-                        (sdst(9)+sdst79)/(sdst(7)+sdst79),(sdst(7)+sdst79)/(sdst(9)+sdst79),       &
-                        (sdst(9)+sdst39)/(sdst(3)+sdst39),(sdst(3)+sdst39)/(sdst(9)+sdst39),       &
-                        (sdst(9)+sdst915)/(sdst(15)+sdst915),(sdst(15)+sdst915)/(sdst(9)+sdst915), &
-                        (sdst(10)+sdst1012)/(sdst(12)+sdst1012),(sdst(12)+sdst1012)/(sdst(10)+sdst1012),&
-                        (sdst(10)+sdst810)/(sdst(8)+sdst810),(sdst(8)+sdst810)/(sdst(10)+sdst810), &
-                        (sdst(4)+sdst410)/(sdst(10)+sdst410),(sdst(10)+sdst410)/(sdst(4)+sdst410), &
-                        (sdst(10)+sdst1016)/(sdst(16)+sdst1016),(sdst(16)+sdst1016)/(sdst(10)+sdst1016) )
+    
+      ff = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9),  &
+                        sdst(11)/sdst(9),sdst(9)/sdst(11),  &
+                        sdst(9)/sdst(7),sdst(7)/sdst(9),    &
+                        sdst(9)/sdst(3),sdst(3)/sdst(9),    &
+                        sdst(9)/sdst(15),sdst(15)/sdst(9),  &
+                        sdst(10)/sdst(12),sdst(12)/sdst(10),&
+                        sdst(10)/sdst(8),sdst(8)/sdst(10),  &
+                        sdst(4)/sdst(10),sdst(10)/sdst(4),  &
+                        sdst(10)/sdst(16),sdst(16)/sdst(10) )
       
       if(uuu .ne. 0.d0) then
         ff = (dabs(uuu)/amid)**ff
       else
         ff = 1.d0
       end if
-      !rhoc2 = 0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
-      !pp_l = flux%pvl(1)+flux%pref+rhoc2
-      !pp_r = flux%pvr(1)+flux%pref+rhoc2
-      pp_l = sdst(9)+sdst910
-      pp_r = sdst(10)+sdst910
-      gg = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)
+
+      gg = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9))
       
       if(uuu .ne. 0.d0) then
         gg = (dabs(uuu)/amid)**gg
@@ -446,9 +429,8 @@ module flux_module
       real(8) :: amid,zml,zmr,am2mid!, rhoc2
       real(8) :: am2rmid,am2rmid1,fmid,fmid1,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
-      real(8) :: ww1,ww2,ww,sdst(18),pp_l,pp_r
+      real(8) :: ww1,ww2,ww,sdst(18)
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
-      real(8) :: sdst910,sdst79,sdst911,sdst810,sdst1012,sdst39,sdst915,sdst410,sdst1016
       real(8), parameter :: beta = 0.125d0,ku=1.d0
       
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
@@ -514,34 +496,19 @@ module flux_module
       pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - 2.d0*ku*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
       
       do k=1,18
-        sdst(k) = flux%sdst(k)+flux%pref
+        sdst(k) = flux%sdst(k)+flux%pref+0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
       end do
 
-      sdst910  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst79   = 0.1d0*dmin1(flux%dv(7,1)*flux%dv(7,6),flux%dv(9,1)*flux%dv(9,6))
-      sdst911  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(11,1)*flux%dv(11,6))
-      sdst810  = 0.1d0*dmin1(flux%dv(8,1)*flux%dv(8,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst1012 = 0.1d0*dmin1(flux%dv(10,1)*flux%dv(10,6),flux%dv(12,1)*flux%dv(12,6))
-      sdst39   = 0.1d0*dmin1(flux%dv(3,1)*flux%dv(3,6),flux%dv(9,1)*flux%dv(9,6))
-      sdst915  = 0.1d0*dmin1(flux%dv(9,1)*flux%dv(9,6),flux%dv(15,1)*flux%dv(15,6))
-      sdst410  = 0.1d0*dmin1(flux%dv(4,1)*flux%dv(4,6),flux%dv(10,1)*flux%dv(10,6))
-      sdst1016 = 0.1d0*dmin1(flux%dv(10,1)*flux%dv(10,6),flux%dv(16,1)*flux%dv(16,6))
-      
-      !rhoc2 = 0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
-      !pp_l = flux%pvl(1)+flux%pref+rhoc2
-      !pp_r = flux%pvr(1)+flux%pref+rhoc2
-      pp_l = sdst(9)+sdst910
-      pp_r = sdst(10)+sdst910
-      ww1 = 1.d0 - dmin1(pp_l/pp_r,pp_r/pp_l)**3
-      ww2 = 1.d0-dmin1((sdst(9)+sdst910)/(sdst(10)+sdst910),(sdst(10)+sdst910)/(sdst(9)+sdst910), &
-      (sdst(11)+sdst911)/(sdst(9)+sdst911),(sdst(9)+sdst911)/(sdst(11)+sdst911), &
-      (sdst(9)+sdst79)/(sdst(7)+sdst79),(sdst(7)+sdst79)/(sdst(9)+sdst79),       &
-      (sdst(9)+sdst39)/(sdst(3)+sdst39),(sdst(3)+sdst39)/(sdst(9)+sdst39),       &
-      (sdst(9)+sdst915)/(sdst(15)+sdst915),(sdst(15)+sdst915)/(sdst(9)+sdst915), &
-      (sdst(10)+sdst1012)/(sdst(12)+sdst1012),(sdst(12)+sdst1012)/(sdst(10)+sdst1012),&
-      (sdst(10)+sdst810)/(sdst(8)+sdst810),(sdst(8)+sdst810)/(sdst(10)+sdst810), &
-      (sdst(4)+sdst410)/(sdst(10)+sdst410),(sdst(10)+sdst410)/(sdst(4)+sdst410), &
-      (sdst(10)+sdst1016)/(sdst(16)+sdst1016),(sdst(16)+sdst1016)/(sdst(10)+sdst1016) )**2
+      ww1 = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9))**3
+      ww2 = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9), &
+                        sdst(11)/sdst(9),sdst(9)/sdst(11),  &
+                        sdst(9)/sdst(7),sdst(7)/sdst(9),    &
+                        sdst(9)/sdst(3),sdst(3)/sdst(9),    &
+                        sdst(9)/sdst(15),sdst(15)/sdst(9),  &
+                        sdst(10)/sdst(12),sdst(12)/sdst(10),&
+                        sdst(10)/sdst(8),sdst(8)/sdst(10),  &
+                        sdst(4)/sdst(10),sdst(10)/sdst(4),  &
+                        sdst(10)/sdst(16),sdst(16)/sdst(10) )**2
       !ww2 = (1.d0-dmin1(1.d0,4.d0*(sdst(4)-sdst(3))/(sdst(6)+sdst(5)-sdst(1)-sdst(2)+1.d-12)))**2*(1.d0-dmin1(sdst(3)/sdst(4),sdst(4)/sdst(3)))**2
       ww = dmax1(ww1,ww2)
       pmt = pmid+rdv(1)*rdv(6)
