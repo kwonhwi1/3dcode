@@ -18,7 +18,7 @@ module flux_module
     procedure(p_getenthalpy_l), pointer :: getenthalpy_l
     procedure(p_getenthalpy_r), pointer :: getenthalpy_r
     contains
-      procedure :: construct       
+      procedure :: construct
       procedure :: destruct
       procedure :: setnorm         ! (nx)
       procedure :: setgrd          ! (grdl,grdr) vol,x,y,z,ydns
@@ -38,7 +38,7 @@ module flux_module
       real(8), intent(out) :: fx(flux%npv)
     end subroutine p_calflux
   end interface
-  
+
   type, extends(t_flux) :: t_roe
     contains
       procedure :: calflux => roe
@@ -48,17 +48,17 @@ module flux_module
     contains
       procedure :: calflux => roem
   end type t_roem
-  
+
   type, extends(t_flux) :: t_ausmpwp
     contains
       procedure :: calflux => ausmpwp
   end type t_ausmpwp
-  
+
   type, extends(t_flux) :: t_ausmpup
     contains
       procedure :: calflux => ausmpup
   end type t_ausmpup
-  
+
   interface
     function p_getsndp2(flux,snd2,uuu2) result(sndp2)
       import t_flux
@@ -87,9 +87,9 @@ module flux_module
       real(8) :: p_getenthalpy_r
     end function p_getenthalpy_r
   end interface
-        
+
   contains
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(flux,config,grid)
       implicit none
       class(t_flux), intent(out) :: flux
@@ -102,7 +102,7 @@ module flux_module
       flux%str  = config%getstr()
       flux%pref = config%getpref()
       flux%omega = config%getomega()
-            
+
       select case(config%getprec())
       case(0)
         flux%getsndp2 => no_prec
@@ -128,7 +128,7 @@ module flux_module
       flux%ngrd = grid%getngrd()
 
     end subroutine construct
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(flux)
       implicit none
       class(t_flux), intent(inout) :: flux
@@ -151,7 +151,7 @@ module flux_module
       implicit none
       class(t_flux), intent(inout) :: flux
       real(8), intent(in), target :: nx(3)
-      
+
       flux%nx => nx
 
     end subroutine setnorm
@@ -170,29 +170,29 @@ module flux_module
       implicit none
       class(t_flux), intent(inout) :: flux
       real(8), intent(in), target :: pvl(flux%npv),pvr(flux%npv)
-      
+
       flux%pvl => pvl
       flux%pvr => pvr
-      
+
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setdv(flux,dvl,dvr)
       implicit none
       class(t_flux), intent(inout) :: flux
       real(8), intent(in), target :: dvl(flux%ndv),dvr(flux%ndv)
-      
+
       flux%dvl => dvl
       flux%dvr => dvr
-      
+
     end subroutine setdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setsdst(flux,sdst)
       implicit none
       class(t_flux), intent(inout) :: flux
       real(8), intent(in), target :: sdst(18)
-      
+
       flux%sdst => sdst
-      
+
     end subroutine setsdst
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine roe(flux,eos,fx)
@@ -207,18 +207,18 @@ module flux_module
       real(8) :: sndp2,u2
       real(8) :: uuu,uup,ddd,c_star,m_star,du,dp
       real(8) :: df(flux%npv)
-      
+
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
-      
+
       if(dl.eq.0.d0) then
         fx = 0.d0
         return
       end if
-      
+
       nx = flux%nx(1)/dl
       ny = flux%nx(2)/dl
       nz = flux%nx(3)/dl
-      
+
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
 
@@ -241,7 +241,7 @@ module flux_module
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
       sndp2 = flux%getsndp2(rdv(6),u2)
-      
+
       uup = 0.5d0*(1.d0+sndp2/rdv(6))*uuu
       ddd = 0.5d0*dsqrt((1.d0-sndp2/rdv(6))**2*uuu**2+4.d0*sndp2)
 
@@ -250,7 +250,7 @@ module flux_module
 
       du = m_star*(uurr-uull)+(c_star-sndp2/rdv(6)*dabs(uuu)-0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/sndp2
       dp = m_star*(flux%pvr(1)-flux%pvl(1))+(c_star-dabs(uuu)+0.5d0*(1.d0-sndp2/rdv(6))*uuu*m_star)*rdv(1)*(uurr-uull)
-      
+
       df(1) = dabs(uuu)*(flux%dvr(1)             - flux%dvl(1)            ) + du*rdv(1)
       df(2) = dabs(uuu)*(flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)) + du*rdv(1)*ravg(2)  + dp*nx
       df(3) = dabs(uuu)*(flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)) + du*rdv(1)*ravg(3)  + dp*ny
@@ -260,7 +260,7 @@ module flux_module
       do k=6,flux%npv
         df(k) = dabs(uuu)*(flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)) + du*rdv(1)*ravg(k)
       end do
-      
+
       fx(1) = 0.5d0*(flux%dvl(1)*uull + flux%dvr(1)*uurr                     - df(1))*dl
       fx(2) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref) &
                    + flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref) - df(2))*dl
@@ -272,9 +272,9 @@ module flux_module
                    + flux%dvr(1)*uurr*flux%getenthalpy_r()                   - df(5))*dl
       do k=6,flux%npv
         fx(k) = 0.5d0*(flux%dvl(1)*uull*flux%pvl(k) + flux%dvr(1)*uurr*flux%pvr(k) - df(k))*dl
-      end do    
+      end do
     end subroutine roe
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine roem(flux,eos,fx)
       implicit none
       class(t_roem), intent(in) :: flux
@@ -289,21 +289,21 @@ module flux_module
       real(8) :: aaa,add,b1,b2,b1_du,b2_du,ff,gg,sdst(18)
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
-      
+
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
-      
+
       if(dl.eq.0.d0) then
         fx = 0.d0
         return
       end if
-      
+
       nx = flux%nx(1)/dl
       ny = flux%nx(2)/dl
       nz = flux%nx(3)/dl
-      
+
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
-    
+
       ! roe average - 1/2 values
       ravg_d = 1.d0/(dsqrt(flux%dvl(1))+dsqrt(flux%dvr(1)))
       ravg(1) = 0.5d0*(flux%pvl(1)+flux%pvr(1))
@@ -339,12 +339,12 @@ module flux_module
       c_star = 0.5d0*(dabs(b1)+dabs(b2))
       m_star = 0.5d0*(dabs(b1)-dabs(b2))/amid
       c_star_du = 0.5d0*(dabs(b1_du)+dabs(b2_du))
-      
+
       do k=1,flux%npv
         dqp(k) = flux%pvr(k)-flux%pvl(k)
       end do
-      
-      dq(1) = flux%dvr(1)             - flux%dvl(1) 
+
+      dq(1) = flux%dvr(1)             - flux%dvl(1)
       dq(2) = flux%dvr(1)*flux%pvr(2) - flux%dvl(1)*flux%pvl(2)
       dq(3) = flux%dvr(1)*flux%pvr(3) - flux%dvl(1)*flux%pvl(3)
       dq(4) = flux%dvr(1)*flux%pvr(4) - flux%dvl(1)*flux%pvl(4)
@@ -352,7 +352,7 @@ module flux_module
       do k=6,flux%npv
         dq(k) = flux%dvr(1)*flux%pvr(k) - flux%dvl(1)*flux%pvl(k)
       end do
-      
+
       fl(1) = flux%dvl(1)*uull
       fl(2) = flux%dvl(1)*uull*flux%pvl(2)+nx*(flux%pvl(1)+flux%pref)
       fl(3) = flux%dvl(1)*uull*flux%pvl(3)+ny*(flux%pvl(1)+flux%pref)
@@ -361,7 +361,7 @@ module flux_module
       do k=6,flux%npv
         fl(k) = flux%dvl(1)*uull*flux%pvl(k)
       end do
-      
+
       fr(1) = flux%dvr(1)*uurr
       fr(2) = flux%dvr(1)*uurr*flux%pvr(2)+nx*(flux%pvr(1)+flux%pref)
       fr(3) = flux%dvr(1)*uurr*flux%pvr(3)+ny*(flux%pvr(1)+flux%pref)
@@ -370,11 +370,11 @@ module flux_module
       do k=6,flux%npv
         fr(k) = flux%dvr(1)*uurr*flux%pvr(k)
       end do
-    
+
       do k=1,18
         sdst(k) = flux%sdst(k)+flux%pref+0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
       end do
-    
+
       ff = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9),  &
                         sdst(11)/sdst(9),sdst(9)/sdst(11),  &
                         sdst(9)/sdst(7),sdst(7)/sdst(9),    &
@@ -384,7 +384,7 @@ module flux_module
                         sdst(10)/sdst(8),sdst(8)/sdst(10),  &
                         sdst(4)/sdst(10),sdst(10)/sdst(4),  &
                         sdst(10)/sdst(16),sdst(16)/sdst(10) )
-      
+
       if(uuu .ne. 0.d0) then
         ff = (dabs(uuu)/amid)**ff
       else
@@ -392,7 +392,7 @@ module flux_module
       end if
 
       gg = 1.d0 - dmin1(sdst(9)/sdst(10),sdst(10)/sdst(9))
-      
+
       if(uuu .ne. 0.d0) then
         gg = (dabs(uuu)/amid)**gg
       else
@@ -414,9 +414,9 @@ module flux_module
       do k=1,flux%npv
         fx(k) = 0.5d0*(fl(k)+fr(k)-m_star*(fr(k)-fl(k))+(m_star*uuu-c_star)*dq(k)+gg*bdq(k))*dl
       end do
-    
+
     end subroutine roem
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine ausmpwp(flux,eos,fx)
       implicit none
       class(t_ausmpwp), intent(in) :: flux
@@ -432,18 +432,18 @@ module flux_module
       real(8) :: ww1,ww2,ww,sdst(18)
       real(8) :: pmt,pwl,pwr,zmpl1,zmmr1
       real(8), parameter :: beta = 0.125d0,ku=1.d0
-      
+
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
-      
+
       if(dl.eq.0.d0) then
         fx = 0.d0
         return
       end if
-      
+
       nx = flux%nx(1)/dl
       ny = flux%nx(2)/dl
       nz = flux%nx(3)/dl
-      
+
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
 
@@ -462,7 +462,7 @@ module flux_module
       rdv(1) = dsqrt(flux%dvl(1)*flux%dvr(1))
 
       amid = dsqrt(rdv(6))
-      
+
       zmr = uurr/amid
       zml = uull/amid
 
@@ -472,10 +472,10 @@ module flux_module
 
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
       fmid1 = dsqrt(am2rmid1)*(2.d0-dsqrt(am2rmid1))
-      
+
       alpha = 3.d0/16.d0*(-4.d0+5.d0*fmid1**2)
       alpha = dmax1(dmin1(alpha,3.d0/16.d0),-3.d0/4.d0)
-      
+
       if(dabs(zmr).ge.1.d0) then
         zmmr = 0.5d0*(zmr-dabs(zmr))
         pmr = 0.5d0*(1.d0-zmr/dabs(zmr))
@@ -483,18 +483,18 @@ module flux_module
         zmmr = -0.25d0*(zmr-1.d0)**2 - beta*(zmr**2-1.d0)**2
         pmr = 0.25d0*(zmr-1.d0)**2*(2.d0+zmr) - alpha*zmr*(zmr**2-1.d0)**2
       end if
-      
+
       if(dabs(zml).ge.1.d0) then
         zmpl = 0.5d0*(zml+dabs(zml))
         ppl = 0.5d0*(1.d0+zml/dabs(zml))
       else
-        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2  
+        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2
         ppl = 0.25d0*(zml+1.d0)**2*(2.d0-zml) + alpha*zml*(zml**2-1.d0)**2
       end if
-      
+
       zmid = zmpl + zmmr
       pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - 2.d0*ku*ppl*pmr*rdv(1)*fmid1*amid*(uurr-uull)
-      
+
       do k=1,18
         sdst(k) = flux%sdst(k)+flux%pref+0.1d0*dmin1(flux%dvl(1)*flux%dvl(6),flux%dvr(1)*flux%dvr(6))
       end do
@@ -511,8 +511,8 @@ module flux_module
                         sdst(10)/sdst(16),sdst(16)/sdst(10) )**2
       !ww2 = (1.d0-dmin1(1.d0,4.d0*(sdst(4)-sdst(3))/(sdst(6)+sdst(5)-sdst(1)-sdst(2)+1.d-12)))**2*(1.d0-dmin1(sdst(3)/sdst(4),sdst(4)/sdst(3)))**2
       ww = dmax1(ww1,ww2)
-      pmt = pmid+rdv(1)*rdv(6)
-      
+      pmt = rdv(1)*rdv(6)
+
       !if(pmt.ne.0.d0) then
       pwl = ((flux%pvl(1)+flux%pref+rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww)/fmid
       pwr = ((flux%pvr(1)+flux%pref+rdv(1)*rdv(6))/pmt-1.d0)*(1.d0-ww)/fmid
@@ -520,7 +520,7 @@ module flux_module
       !  pwl = 0.d0
       !  pwr = 0.d0
       !end if
-      
+
       if( zmid .ge. 0.d0) then
         pwl = pwl*rdv(1)/flux%dvl(1)
         pwr = pwr*rdv(1)/flux%dvl(1)
@@ -532,7 +532,7 @@ module flux_module
         zmpl1 = zmpl*ww*(1.d0+pwl)
         zmmr1 = zmmr + zmpl*((1.d0-ww)*(1.d0+pwl)-pwr)
       end if
-      
+
       fx(1) = (zmpl1*amid*flux%dvl(1)              + zmmr1*amid*flux%dvr(1)                      )*dl
       fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
@@ -541,9 +541,9 @@ module flux_module
       do k=6,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
-        
+
     end subroutine ausmpwp
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine ausmpup(flux,eos,fx)
       implicit none
       class(t_ausmpup), intent(in) :: flux
@@ -556,21 +556,21 @@ module flux_module
       real(8) :: amid,zml,zmr,am2mid
       real(8) :: am2rmid,fmid,alpha
       real(8) :: zmmr,pmr,zmpl,ppl,pmid,zmid
-      real(8) :: zmpl1,zmmr1  
+      real(8) :: zmpl1,zmmr1
       real(8), parameter :: beta = 0.125d0, kp = 0.25d0, ku = 1.d0
-      
+
 
       dl = dsqrt(flux%nx(1)**2+flux%nx(2)**2+flux%nx(3)**2)
-      
+
       if(dl.eq.0.d0) then
         fx = 0.d0
         return
       end if
-      
+
       nx = flux%nx(1)/dl
       ny = flux%nx(2)/dl
       nz = flux%nx(3)/dl
-      
+
       uull = nx*flux%pvl(2) + ny*flux%pvl(3) + nz*flux%pvl(4)
       uurr = nx*flux%pvr(2) + ny*flux%pvr(3) + nz*flux%pvr(4)
 
@@ -587,20 +587,20 @@ module flux_module
       call eos%deteos_simple(ravg(1)+flux%pref,ravg(5),ravg(6),ravg(7),rdv)
 
       rdv(1) = dsqrt(flux%dvl(1)*flux%dvr(1))
-      
+
       amid = dsqrt(rdv(6))
-      
+
       zmr = uurr/amid
       zml = uull/amid
 
       am2mid =  (nx*ravg(2) + ny*ravg(3) + nz*ravg(4))**2
       am2rmid = flux%getsndp2(rdv(6),am2mid)/rdv(6)
-            
+
       fmid = dsqrt(am2rmid)*(2.d0-dsqrt(am2rmid))
-      
+
       alpha = 3.d0/16.d0*(-4.d0+5.d0*fmid**2)
       alpha = dmax1(dmin1(alpha,3.d0/16.d0),-3.d0/4.d0)
-      
+
       if(dabs(zmr).ge.1.d0) then
         zmmr = 0.5d0*(zmr-dabs(zmr))
         pmr = 0.5d0*(1.d0-zmr/dabs(zmr))
@@ -608,26 +608,26 @@ module flux_module
         zmmr = -0.25d0*(zmr-1.d0)**2 - beta*(zmr**2-1.d0)**2
         pmr = 0.25d0*(zmr-1.d0)**2*(2.d0+zmr) - alpha*zmr*(zmr**2-1.d0)**2
       end if
-      
+
       if(dabs(zml).ge.1.d0) then
         zmpl = 0.5d0*(zml+dabs(zml))
         ppl = 0.5d0*(1.d0+zml/dabs(zml))
       else
-        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2  
+        zmpl = 0.25d0*(zml+1.d0)**2 + beta*(zml**2-1.d0)**2
         ppl = 0.25d0*(zml+1.d0)**2*(2.d0-zml) + alpha*zml*(zml**2-1.d0)**2
       end if
-      
+
       zmid = zmpl + zmmr - kp*dmax1(1.d0-am2mid/rdv(6),0.d0)*(flux%pvr(1)-flux%pvl(1))/rdv(1)/rdv(6)/fmid
       pmid = ppl*(flux%pvl(1)+flux%pref) + pmr*(flux%pvr(1)+flux%pref) - 2.d0*ku*ppl*pmr*rdv(1)*fmid*amid*(uurr-uull)
-      
+
       if(zmid.gt.0.d0) then
-        zmpl1 = zmid 
+        zmpl1 = zmid
         zmmr1 = 0.d0
       else
         zmmr1 = zmid
         zmpl1 = 0.d0
       end if
-      
+
       fx(1) = (zmpl1*amid*flux%dvl(1)              + zmmr1*amid*flux%dvr(1)                      )*dl
       fx(2) = (zmpl1*amid*flux%dvl(1)*flux%pvl(2)  + zmmr1*amid*flux%dvr(1)*flux%pvr(2) + pmid*nx)*dl
       fx(3) = (zmpl1*amid*flux%dvl(1)*flux%pvl(3)  + zmmr1*amid*flux%dvr(1)*flux%pvr(3) + pmid*ny)*dl
@@ -636,7 +636,7 @@ module flux_module
       do k=6,flux%npv
         fx(k) = (zmpl1*amid*flux%dvl(1)*flux%pvl(k)+ zmmr1*amid*flux%dvr(1)*flux%pvr(k))*dl
       end do
-     
+
     end subroutine ausmpup
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function no_prec(flux,snd2,uuu2) result(sndp2)
@@ -644,39 +644,39 @@ module flux_module
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = snd2
-      
+
     end function no_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function steady_prec(flux,snd2,uuu2) result(sndp2)
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      real(8) :: sndp2  
-      
+      real(8) :: sndp2
+
       sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2))
-      
+
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function unsteady_prec(flux,snd2,uuu2) result(sndp2)
       implicit none
       class(t_flux), intent(in) :: flux
       real(8), intent(in) :: snd2,uuu2
-      real(8) :: sndp2  
-      
+      real(8) :: sndp2
+
       sndp2 = dmin1(snd2,dmax1(uuu2,flux%uref**2,flux%str**2))
-      
+
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !    function no_cut(flux,snd2,uuu2) result(sndp2)
 !      implicit none
 !      class(t_flux), intent(in) :: flux
 !      real(8), intent(in) :: snd2,uuu2
-!      real(8) :: sndp2  
-!      
+!      real(8) :: sndp2
+!
 !      sndp2 = dmin1(snd2,uuu2)
-!      
+!
 !    end function no_cut
 !    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function enthalpy_l(flux)
