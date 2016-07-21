@@ -20,7 +20,7 @@ module update_module
   type, abstract :: t_update
     private
     integer :: npv,ndv,ntv,ngrd,nsteady,imax,jmax,kmax
-    logical :: l_timestep,l_lhs,l_eddy,l_jac,l_tv,l_turb,l_cav
+    logical :: l_turb,l_cav
     real(8) :: pref,kref,oref,dt_phy
     class(t_lhs), allocatable :: lhs
     class(t_timestep), allocatable :: timestep
@@ -90,10 +90,17 @@ module update_module
       update%oref = 1.d-16
       update%dt_phy = config%getdt_phy()
 
-      update%l_timestep = .false.
-      update%l_lhs = .false.
-      update%l_eddy = .false.
-      update%l_jac = .false.
+      update%ngrd = grid%getngrd()
+      update%imax = grid%getimax()
+      update%jmax = grid%getjmax()
+      update%kmax = grid%getkmax()
+
+      select case(config%getncav())
+      case(0)
+        update%l_cav = .false.
+      case(1,2,3,4,5)
+        update%l_cav = .true.
+      end select
 
       select case(config%getlocal())
       case(-1)
@@ -104,48 +111,65 @@ module update_module
         allocate(t_localtime::update%timestep)
       end select
 
+      call update%timestep%construct(config,grid)
+
       select case(config%getiturb())
       case(0)
-        update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_kwsst::update%eddy)
-        allocate(t_lhs_flowturball_ex::update%lhs)
       case(-1)
-        update%l_tv = .true.
         update%l_turb = .true.
         allocate(t_eddy_ke::update%eddy)
-        allocate(t_lhs_flowturball_ex::update%lhs)
-      case(-2)
-        update%l_tv = .true.
+      case(-2,-3)
         update%l_turb = .false.
-        allocate(t_lhs_flowonly_ex::update%lhs)
-      case(-3)
-        update%l_tv = .false.
-        update%l_turb = .false.
-        allocate(t_lhs_flowonly_ex::update%lhs)
       end select
 
-      select case(config%getncav())
-      case(0)
-        update%l_cav = .false.
-      case(1,2,3,4,5)
-        update%l_cav = .true.
+      call update%eddy%construct(config,grid)
+
+      select type(update)
+      class is(t_eulerex)
+
+        select case(config%getiturb())
+        case(0,-1)
+          allocate(t_lhs_flowturball_ex::update%lhs)
+        case(-2,-3)
+          allocate(t_lhs_flowonly_ex::update%lhs)
+        end select
+
+      class is(t_rk3rd)
+
+        select case(config%getiturb())
+        case(0,-1)
+          allocate(t_lhs_flowturball_ex::update%lhs)
+        case(-2,-3)
+          allocate(t_lhs_flowonly_ex::update%lhs)
+        end select
+
+        update%a1=(/0.d0,0.75d0,1.d0/3.d0/)
+        update%a2=(/1.d0,0.25d0,2.d0/3.d0/)
+        update%a3=(/1.d0,0.25d0,2.d0/3.d0/)
+
+        allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
+      class is(t_lusgs)
+
+        select case(config%getiturb())
+        case(0,-1)
+          allocate(t_lhs_flowturball::update%lhs)
+          allocate(t_jac_flowturball::update%jac)
+        case(-2,-3)
+          allocate(t_lhs_flowonly::update%lhs)
+          allocate(t_jac_flowonly::update%jac)
+        end select
+
+        allocate(update%dqs(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
+        allocate(update%dcv(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
+
+        call update%jac%construct(config,grid)
+
+      class default
       end select
 
-      if(allocated(update%timestep)) then
-        call update%timestep%construct(config,grid)
-        update%l_timestep = .true.
-      end if
-
-      if(allocated(update%lhs)) then
-        call update%lhs%construct(config,grid)
-        update%l_lhs = .true.
-      end if
-
-      if(allocated(update%eddy)) then
-        call update%eddy%construct(config,grid)
-        update%l_eddy = .true.
-      end if
+      call update%lhs%construct(config,grid)
 
       allocate(update%rhs)
       call update%rhs%construct(config,grid)
@@ -153,23 +177,6 @@ module update_module
       allocate(update%bc)
       call update%bc%construct(config,grid,eos)
 
-      update%ngrd = grid%getngrd()
-      update%imax = grid%getimax()
-      update%jmax = grid%getjmax()
-      update%kmax = grid%getkmax()
-
-      select type(update)
-      class is(t_eulerex)
-      class is(t_rk3rd)
-        update%a1=(/0.d0,0.75d0,1.d0/3.d0/)
-        update%a2=(/1.d0,0.25d0,2.d0/3.d0/)
-        update%a3=(/1.d0,0.25d0,2.d0/3.d0/)
-        allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
-      class is(t_lusgs)
-        allocate(update%dqs(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
-        allocate(update%dcv(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
-      class default
-    end select
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -177,17 +184,13 @@ module update_module
       implicit none
       class(t_update), intent(inout) :: update
 
-      if(update%l_timestep) then
-        call update%timestep%destruct()
-        deallocate(update%timestep)
-      end if
+      call update%timestep%destruct()
+      deallocate(update%timestep)
 
-      if(update%l_lhs) then
-        call update%lhs%destruct()
-        deallocate(update%lhs)
-      end if
+      call update%lhs%destruct()
+      deallocate(update%lhs)
 
-      if(update%l_eddy) then
+      if(update%l_turb) then
         call update%eddy%destruct()
         deallocate(update%eddy)
       end if
@@ -203,6 +206,8 @@ module update_module
       class is(t_rk3rd)
         deallocate(update%rk)
       class is(t_lusgs)
+        call update%jac%destruct()
+        deallocate(update%jac)
         deallocate(update%dqs,update%dcv)
       class default
     end select
@@ -287,7 +292,7 @@ module update_module
         end do
       end do
 
-      if(update%l_eddy) then
+      if(update%l_turb) then
         do k=2,update%kmax
           do j=2,update%jmax
             do i=2,update%imax
@@ -399,7 +404,7 @@ module update_module
             end do
           end do
         end do
-        if(update%l_eddy) then
+        if(update%l_turb) then
           do k=2,update%kmax
             do j=2,update%jmax
               do i=2,update%imax
@@ -674,7 +679,7 @@ module update_module
           end do
         end do
       end do
-      if(update%l_eddy) then
+      if(update%l_turb) then
         do k=2,update%kmax
           do j=2,update%jmax
             do i=2,update%imax
