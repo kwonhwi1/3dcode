@@ -123,8 +123,10 @@ module update_module
       case(-2,-3)
         update%l_turb = .false.
       end select
-
-      call update%eddy%construct(config,grid)
+      
+      if(update%l_turb) then
+        call update%eddy%construct(config,grid)
+      end if
 
       select type(update)
       class is(t_eulerex)
