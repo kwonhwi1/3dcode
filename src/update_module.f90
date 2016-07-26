@@ -129,7 +129,7 @@ module update_module
       end if
 
       select type(update)
-      class is(t_eulerex)
+      type is(t_eulerex)
 
         select case(config%getiturb())
         case(0,-1)
@@ -138,7 +138,7 @@ module update_module
           allocate(t_lhs_flowonly_ex::update%lhs)
         end select
 
-      class is(t_rk3rd)
+      type is(t_rk3rd)
 
         select case(config%getiturb())
         case(0,-1)
@@ -152,7 +152,7 @@ module update_module
         update%a3=(/1.d0,0.25d0,2.d0/3.d0/)
 
         allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
-      class is(t_lusgs)
+      type is(t_lusgs)
 
         select case(config%getiturb())
         case(0,-1)
@@ -204,10 +204,10 @@ module update_module
       deallocate(update%bc)
 
       select type(update)
-      class is(t_eulerex)
-      class is(t_rk3rd)
+      type is(t_eulerex)
+      type is(t_rk3rd)
         deallocate(update%rk)
-      class is(t_lusgs)
+      type is(t_lusgs)
         call update%jac%destruct()
         deallocate(update%jac)
         deallocate(update%dqs,update%dcv)

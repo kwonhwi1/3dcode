@@ -73,8 +73,8 @@ module turbsource_module
       turbsource%ngrd = grid%getngrd()
 
       select type(turbsource)
-      class is (t_kepsilon)
-      class is (t_kwsst)
+      type is (t_kepsilon)
+      type is (t_kwsst)
         select case(config%getides())
         case(0)
           turbsource%calturblength => no_des
@@ -108,8 +108,8 @@ module turbsource_module
       if(associated(turbsource%tv))            nullify(turbsource%tv)
 
       select type(turbsource)
-      class is (t_kepsilon)
-      class is (t_kwsst)
+      type is (t_kepsilon)
+      type is (t_kwsst)
         if(associated(turbsource%calturblength)) nullify(turbsource%calturblength)
       class default
       end select
