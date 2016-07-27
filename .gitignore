@@ -12,6 +12,7 @@
 *.pw
 *.h
 *.fld
+*.defs
 post
 main
 .DS_store

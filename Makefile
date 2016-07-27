@@ -9,21 +9,7 @@ SRC_DIR     =   src
 OBJ_DIR     =   obj
 BIN_DIR     =   bin
 LIB_DIR     =   lib
-INC_DIR     =   inc
-
-ifeq ($(os),mac)
-CGNS_INC    =   /usr/local/include
-CGNS_LIB    =   /usr/local/lib
-HDF_LIB     =   /usr/local/lib
-else ifeq ($(os),tachyon2)
-CGNS_INC    =   /applic/wa/cgnslib_3.2.1/intel-2015/include
-CGNS_LIB    =   /applic/wa/cgnslib_3.2.1/intel-2015/lib
-HDF_LIB     =   /applic/compilers/intel/2015/applib1/HDF5/1.8.13/lib
-else
-CGNS_INC    =   /usr/local/include
-CGNS_LIB    =   /usr/local/lib
-HDF_LIB     =   /usr/lib/x86_64-linux-gnu/hdf5/serial
-endif
+INC_DIR     =   include
 
 # f90 compiler
 ifeq ($(mpi),ompi)
@@ -48,10 +34,10 @@ endif
 endif
 
 # include needed for compile
-IFLAGS = -I $(INC_DIR) -I $(CGNS_INC)
+IFLAGS = -I $(INC_DIR)
 
 # library needed for linking
-LFLAGS = -L $(LIB_DIR) -L $(CGNS_LIB) -lcgns -L $(HDF_LIB) -lhdf5 -lstdc++
+LFLAGS = -L $(LIB_DIR) -lcgns -lhdf5 -lstdc++
 
 # defin needed for preprocessor
 DFLAGS = -D $(def)
