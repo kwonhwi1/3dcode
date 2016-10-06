@@ -2900,8 +2900,11 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
 
             pv(1) = 2.d0*(x(1)-bcinfo%pv(1))-pv(1)
+            pv(2) = 2.d0*ua-pv(2)
+            pv(3) = 2.d0*va-pv(3)
+            pv(4) = 2.d0*wa-pv(4)
             pv(5) = 2.d0*x(2)-pv(5)
-            pv(6) = 2.d0*bcinfo%pv(6)-pv(6)
+            pv(6:bcinfo%npv) = 2.d0*bcinfo%pv(6:bcinfo%npv)-pv(6:bcinfo%npv)
             pv(7) = 2.d0*bcinfo%pv(7)-pv(7)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
