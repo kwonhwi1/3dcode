@@ -2722,7 +2722,7 @@ module bc_module
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: grd(bcinfo%ngrd),nx(3),gridvel(3)
-      real(8) :: ua,va,wa,area,uvwa2,x(2),pa,ta,mdot
+      real(8) :: ua,va,wa,area,uvwa2,x(2),pa,ta,mdot,dl
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
       logical :: check
@@ -2893,6 +2893,39 @@ module bc_module
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
+            select case(bcinfo%face)
+            case('imin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = -grid%getcx(ii-1,jj,kk)
+            case('imax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getcx(ii,jj,kk)
+            case('jmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = -grid%getex(ii,jj-1,kk)
+            case('jmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+              nx = grid%getex(ii,jj,kk)
+            case('kmin')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+              nx = -grid%gettx(ii,jj,kk-1)
+            case('kmax')
+              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+              nx = grid%gettx(ii,jj,kk)
+            end select
+            dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
             jj = bcinfo%origin(2)+bcinfo%dir(2)*j
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
@@ -2900,9 +2933,9 @@ module bc_module
             tv = variable%gettv(ii,jj,kk)
 
             pv(1) = 2.d0*(x(1)-bcinfo%pv(1))-pv(1)
-            pv(2) = 2.d0*ua-pv(2)
-            pv(3) = 2.d0*va-pv(3)
-            pv(4) = 2.d0*wa-pv(4)
+            pv(2) = 2.d0*(-dsqrt(uvwa2)*nx(1)*dl)-pv(2)
+            pv(3) = 2.d0*(-dsqrt(uvwa2)*nx(2)*dl)-pv(3)
+            pv(4) = 2.d0*(-dsqrt(uvwa2)*nx(3)*dl)-pv(4)
             pv(5) = 2.d0*x(2)-pv(5)
             pv(6:bcinfo%npv) = 2.d0*bcinfo%pv(6:bcinfo%npv)-pv(6:bcinfo%npv)
             pv(7) = 2.d0*bcinfo%pv(7)-pv(7)
@@ -3421,7 +3454,7 @@ module bc_module
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-              nx = - grid%getcx(ii-1,jj,kk)
+              nx = -grid%getcx(ii-1,jj,kk)
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
