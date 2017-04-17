@@ -13,6 +13,8 @@ module bc_module
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
     integer :: neighbor4(3),neighbor5(3),neighbor6(3)
     integer :: npv,ntv,ndv,ngrd,ndata
+    integer :: bc_comm_world
+    logical :: head
     character(4) :: face
     real(8) :: massflowrate,pressure,omega(3),time
     real(8), dimension(:), allocatable :: heatflux,tdata
@@ -29,6 +31,7 @@ module bc_module
     private
     integer :: rank,size,iturb,nbc,ncon
     integer :: npv,ntv,ndv,ngrd
+    integer :: bc_comm_world,icolor,ikey
     class(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
     class(t_connectinfo), dimension(:), allocatable :: connectinfo
     class(t_mpitemp), dimension(:), allocatable :: mpitemp
@@ -75,6 +78,9 @@ module bc_module
       logical :: isurf_edge(12),jsurf_edge(12),ksurf_edge(12)
       logical :: isurf_corner(8),jsurf_corner(8),ksurf_corner(8)
       character(8) :: famname8
+      character(1) :: rst
+      integer :: ier,stat
+      logical :: ok
 
       bc%rank = config%getrank() 
       bc%size = config%getsize()
@@ -87,6 +93,7 @@ module bc_module
       bc%ncon = grid%getncon()
       bc%ngrd = grid%getngrd()
 
+      bc%icolor = 0
 
       bc%prec%uref = config%geturef()
       bc%prec%str  = config%getstr()
@@ -102,6 +109,15 @@ module bc_module
       end select
 
       allocate(bc%bcinfo(bc%nbc),bc%connectinfo(bc%ncon))
+
+      write(rst,'(i1.1)') config%getiread()
+      if(bc%rank.eq.0) then
+        open(newunit=io,iostat=stat,file='./track_in_'//rst//'.plt',status='old')
+        if (stat==0) close(io,status='delete')
+        open(newunit=io,iostat=stat,file='./track_out_'//rst//'.plt',status='old')
+        if (stat==0) close(io,status='delete')
+      end if
+      call mpi_barrier(mpi_comm_world,ier)
 
       !cccccccccccccccccc construct nbc ccccccccccccccccccccccccccccc
       do n=1,bc%nbc
@@ -253,10 +269,16 @@ module bc_module
           bc%bcinfo(n)%bctype => bcoutflow
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSubsonic') then
           bc%bcinfo(n)%bctype => bcoutflowsubsonic
+          bc%icolor = 21
           bc%bcinfo(n)%pressure = config%getpref()
-          open(newunit=bc%bcinfo(n)%ioout,file='./track_out.plt',status='unknown',action='write')
-          write(bc%bcinfo(n)%ioout,*) 'variables="nt","mdot_out","p_out"'
-          write(bc%bcinfo(n)%ioout,*) 'zone t="out"'
+          ok = .true.
+          inquire(file='./track_out_'//rst//'.plt',exist=ok)
+          if(.not.ok) then
+            open(newunit=bc%bcinfo(n)%ioout,file='./track_out_'//rst//'.plt',status='unknown',action='write')
+            write(bc%bcinfo(n)%ioout,*) 'variables="nt","mdot_out","p_out"'
+            write(bc%bcinfo(n)%ioout,*) 'zone t="out"'
+          end if
+          bc%bcinfo(n)%head = .not.ok
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCOutflowSupersonic') then
           bc%bcinfo(n)%bctype => bcoutflowsupersonic
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCExtrapolate') then
@@ -274,17 +296,29 @@ module bc_module
           bc%bcinfo(n)%bctype => bcshiftedperiodic
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCMassflowrateIn') then
           bc%bcinfo(n)%bctype => bcmassflowratein
+          bc%icolor = 11
           bc%bcinfo(n)%massflowrate = 0.d0
-          open(newunit=bc%bcinfo(n)%ioin,file='./track_in.plt',status='unknown',action='write')
-          write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
-          write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
+          ok = .true.
+          inquire(file='./track_in_'//rst//'.plt',exist=ok)
+          if(.not.ok) then
+            open(newunit=bc%bcinfo(n)%ioin,file='./track_in_'//rst//'.plt',status='unknown',action='write')
+            write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
+            write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
+          end if
+          bc%bcinfo(n)%head = .not.ok
         else if(trim(bc%bcinfo(n)%bcname).eq.'BCTotalPressureIn') then
           bc%bcinfo(n)%bctype => bctotalpressurein
+          bc%icolor = 12
           bc%bcinfo(n)%pressure = 51551.30907d0
           bc%bcinfo(n)%pv(5) = 300.0003719d0
-          open(newunit=bc%bcinfo(n)%ioin,file='./track_in.plt',status='unknown',action='write')
-          write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
-          write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
+          ok = .true.
+          inquire(file='./track_in_'//rst//'.plt',exist=ok)
+          if(.not.ok)  then
+            open(newunit=bc%bcinfo(n)%ioin,file='./track_in_'//rst//'.plt',status='unknown',action='write')
+            write(bc%bcinfo(n)%ioin,*) 'variables="nt","mdot_in","p_in"'
+            write(bc%bcinfo(n)%ioin,*) 'zone t="in"'
+          end if
+          bc%bcinfo(n)%head = .not.ok
         else
           bc%bcinfo(n)%bctype => null()
           write(*,*) 'error, check bc name',bc%bcinfo(n)%bcname
@@ -298,9 +332,12 @@ module bc_module
         bc%bcinfo(n)%neighbor4 = 0 ! meaningless
         bc%bcinfo(n)%neighbor5 = 0 ! meaningless
         bc%bcinfo(n)%neighbor6 = 0 ! meaningless
+
       end do
       !cccccccccccccccccc construct nbc ccccccccccccccccccccccccccccc
 
+      call mpi_comm_split(mpi_comm_world,bc%icolor,bc%ikey,bc%bc_comm_world,ier)
+      bc%bcinfo(:)%bc_comm_world = bc%bc_comm_world
 
       !cccccccccccccccccc construct ncon ccccccccccccccccccccccccccccc
       do n=1,bc%ncon
@@ -2136,9 +2173,11 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: pv_s(bcinfo%npv),nx(3),dl,a,mdot,area,pa
+      real(8) :: pv_s(bcinfo%npv),nx(3),dl,a
+      real(8) :: mdot,area,pa,mpi_mdot,mpi_area,mpi_pa
       real(8) :: grd(bcinfo%ngrd),gridvel(3),vel
       integer,save :: nt=0
+      integer :: ier
 
       pa = 0.d0
       mdot = 0.d0
@@ -2278,9 +2317,16 @@ module bc_module
         end do
       end do
 
-      pa=pa/area
+      call mpi_reduce(pa,mpi_pa,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(mdot,mpi_mdot,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(area,mpi_area,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_pa,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_mdot,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_area,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+
+      mpi_pa=mpi_pa/mpi_area
       nt=nt+1
-      write(bcinfo%ioout,*) nt,mdot,pa+bcinfo%pv(1)
+      if(bcinfo%head) write(bcinfo%ioout,*) nt,mpi_mdot,mpi_pa+bcinfo%pv(1)
 
     end subroutine bcoutflowsubsonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -2722,16 +2768,15 @@ module bc_module
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: grd(bcinfo%ngrd),nx(3),gridvel(3)
-      real(8) :: ua,va,wa,area,uvwa2,x(2),pa,ta,mdot,dl
+      real(8) :: mdot,area,mpi_mdot,mpi_area
+      real(8),dimension(:) :: pv_a(5),mpi_pv_a(5)
+      real(8) :: uvwa2,x(2),dl
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
       logical :: check
+      integer :: ier
 
-      ua = 0.d0
-      va = 0.d0
-      wa = 0.d0
-      pa = 0.d0
-      ta = 0.d0
+      pv_a = 0.d0
       mdot = 0.d0
       area = 0.d0
 
@@ -2751,15 +2796,8 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             case('imax')
               if(i.eq.bcinfo%iend(1)) then
@@ -2773,15 +2811,8 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             case('jmin')
               if(j.eq.bcinfo%istart(2)) then
@@ -2795,15 +2826,8 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             case('jmax')
               if(j.eq.bcinfo%iend(2)) then
@@ -2817,15 +2841,8 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             case('kmin')
               if(k.eq.bcinfo%istart(3)) then
@@ -2839,15 +2856,8 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             case('kmax')
               if(k.eq.bcinfo%iend(3)) then
@@ -2861,32 +2871,40 @@ module bc_module
                 gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
                 gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
                 gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
-
-                ua = ua + (pv(2)+gridvel(1))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                va = va + (pv(3)+gridvel(2))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                wa = wa + (pv(4)+gridvel(3))*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                pa = pa + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                ta = ta + pv(5)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                     (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+              else
+                go to 10
               end if
             end select
+
+            dl = dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+            pv_a(1) = pv_a(1) + pv(1)*dl
+            pv_a(5) = pv_a(5) + pv(5)*dl
+            do m=2,4
+              pv_a(m) = pv_a(m) + (pv(m)+gridvel(m-1))*dl
+            end do
+            mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
+                                 (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
+            area = area + dl
+
+10          continue
           end do
         end do
       end do
 
-      ua = ua/area
-      va = va/area
-      wa = wa/area
-      pa = pa/area
-      ta = ta/area
-      uvwa2 = ua**2+va**2+wa**2
+      call mpi_reduce(pv_a,mpi_pv_a,5,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(mdot,mpi_mdot,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(area,mpi_area,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_pv_a,5,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_mdot,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_area,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+
+      mpi_pv_a = mpi_pv_a/mpi_area
+      uvwa2 = mpi_pv_a(2)**2 + mpi_pv_a(3)**2 + mpi_pv_a(4)**2
 
       ! initial guess
       ! x(1)=static pressure, x(2)=static temperature
-      x(1) = pa+bcinfo%pv(1)
-      x(2) = ta
+      x(1) = mpi_pv_a(1) + bcinfo%pv(1)
+      x(2) = mpi_pv_a(5)
 
       call newt(eos,bcinfo%ndv,2,bcinfo%pressure,bcinfo%pv(5),bcinfo%dv(2),bcinfo%pv(6),bcinfo%pv(7),uvwa2,x,check)
 
@@ -2957,7 +2975,7 @@ module bc_module
       end do
 
       nt=nt+1
-      write(bcinfo%ioin,*) nt,mdot,pa+bcinfo%pv(1)
+      if(bcinfo%head) write(bcinfo%ioin,*) nt,mpi_mdot,mpi_pv_a(1)+bcinfo%pv(1)
 
     end subroutine bctotalpressurein
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -3350,9 +3368,11 @@ module bc_module
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv)
       real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: nx(3),dl,mdot,area,pp,v
+      real(8) :: nx(3),dl,v
+      real(8) :: mdot,area,pp,mpi_mdot,mpi_area,mpi_pp
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
+      integer :: ier
 
       pp = 0.d0
       mdot = 0.d0
@@ -3439,12 +3459,19 @@ module bc_module
         end do
       end do
 
-      pp = pp/area
-      call eos%deteos_simple(pp+bcinfo%pv(1),bcinfo%pv(5),bcinfo%pv(6),bcinfo%pv(7),dv)
-      v = bcinfo%massflowrate/(dv(1)*area)
+      call mpi_reduce(pp,mpi_pp,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(mdot,mpi_mdot,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_reduce(area,mpi_area,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_pp,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_mdot,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+      call mpi_bcast(mpi_area,1,mpi_real8,0,bcinfo%bc_comm_world,ier)
+
+      mpi_pp = mpi_pp/mpi_area
+      call eos%deteos_simple(mpi_pp+bcinfo%pv(1),bcinfo%pv(5),bcinfo%pv(6),bcinfo%pv(7),dv)
+      v = bcinfo%massflowrate/(dv(1)*mpi_area)
 
       nt=nt+1
-      write(bcinfo%ioin,*) nt,-mdot,pp+bcinfo%pv(1)
+      if(bcinfo%head) write(bcinfo%ioin,*) nt,-mpi_mdot,mpi_pp+bcinfo%pv(1)
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
