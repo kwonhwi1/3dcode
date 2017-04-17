@@ -55,7 +55,7 @@ module residual_module
           end select
           write(resi%io,*) 'zone t ="newstart"'
         end if
-      else !iread=1 restart
+      else !iread=1: restart
         if(resi%rank.eq.0) then
           open(newunit=resi%io,file='./res.plt',status='unknown',action='write',position='append')
           select case(config%getiturb())

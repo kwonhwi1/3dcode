@@ -67,7 +67,7 @@ module solve_module
         case default
           allocate(t_ini_initial_rot::solve%ini)
         end select
-      case(1)
+      case(1:)
         allocate(t_ini_restart::solve%ini)
       end select
       
