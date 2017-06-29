@@ -2024,7 +2024,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: pv_s(bcinfo%npv),nx(3),var,dl,a,vel
+      real(8) :: pv_s(bcinfo%npv),grd(bcinfo%ngrd),nx(3),var,dl,a,vel
 
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
@@ -2793,9 +2793,6 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
@@ -2808,9 +2805,6 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
@@ -2823,9 +2817,6 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
@@ -2838,9 +2829,6 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
@@ -2853,9 +2841,6 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
@@ -2868,13 +2853,14 @@ module bc_module
                 grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
                 pv = variable%getpv(ii,jj,kk)
                 dv = variable%getdv(ii,jj,kk)
-                gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
-                gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
-                gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
               else
                 go to 10
               end if
             end select
+
+            gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+            gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+            gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
 
             dl = dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             pv_a(1) = pv_a(1) + pv(1)*dl
@@ -2883,7 +2869,8 @@ module bc_module
               pv_a(m) = pv_a(m) + (pv(m)+gridvel(m-1))*dl
             end do
             mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
-                                 (pv(3)+gridvel(2))*nx(2) + (pv(4)+gridvel(3))*nx(3))
+                                 (pv(3)+gridvel(2))*nx(2) + &
+                                 (pv(4)+gridvel(3))*nx(3))
             area = area + dl
 
 10          continue
@@ -2917,31 +2904,37 @@ module bc_module
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getcx(ii-1,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getex(ii,jj-1,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = -grid%gettx(ii,jj,kk-1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
             end select
             dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
@@ -2949,11 +2942,14 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
+            gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+            gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+            gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
 
             pv(1) = 2.d0*(x(1)-bcinfo%pv(1))-pv(1)
-            pv(2) = 2.d0*(-dsqrt(uvwa2)*nx(1)*dl)-pv(2)
-            pv(3) = 2.d0*(-dsqrt(uvwa2)*nx(2)*dl)-pv(3)
-            pv(4) = 2.d0*(-dsqrt(uvwa2)*nx(3)*dl)-pv(4)
+            pv(2) = 2.d0*(-dsqrt(uvwa2)*nx(1)*dl-gridvel(1))-pv(2)
+            pv(3) = 2.d0*(-dsqrt(uvwa2)*nx(2)*dl-gridvel(2))-pv(3)
+            pv(4) = 2.d0*(-dsqrt(uvwa2)*nx(3)*dl-gridvel(3))-pv(4)
             pv(5) = 2.d0*x(2)-pv(5)
             pv(6:bcinfo%npv) = 2.d0*bcinfo%pv(6:bcinfo%npv)-pv(6:bcinfo%npv)
             pv(7) = 2.d0*bcinfo%pv(7)-pv(7)
@@ -3367,8 +3363,8 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv)
-      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
-      real(8) :: nx(3),dl,v
+      real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv),grd(bcinfo%ngrd)
+      real(8) :: nx(3),dl,v,gridvel(3)
       real(8) :: mdot,area,pp,mpi_mdot,mpi_area,mpi_pp
       real(8),parameter :: pi = 4.d0*datan(1.d0)
       integer,save :: nt=0
@@ -3383,78 +3379,91 @@ module bc_module
           do i=bcinfo%istart(1),bcinfo%iend(1)
             select case(bcinfo%face)
             case('imin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-              nx = -grid%getcx(ii-1,jj,kk)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%istart(1)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%iend(1)
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = -grid%getcx(ii-1,jj,kk)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
+              else
+                go to 20
               end if
             case('imax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-              nx = grid%getcx(ii,jj,kk)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(i.eq.bcinfo%iend(1)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = grid%getcx(ii,jj,kk)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
+              else
+                go to 20
               end if
             case('jmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-              nx = -grid%getex(ii,jj-1,kk)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(j.eq.bcinfo%istart(2)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = -grid%getex(ii,jj-1,kk)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
+              else
+                go to 20
               end if
             case('jmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*k
-              nx = grid%getex(ii,jj,kk)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(j.eq.bcinfo%iend(2)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*k
+                nx = grid%getex(ii,jj,kk)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
+              else
+                go to 20
               end if
             case('kmin')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
-              nx = -grid%gettx(ii,jj,kk-1)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(k.eq.bcinfo%istart(3)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
+                nx = -grid%gettx(ii,jj,kk-1)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
+              else
+                go to 20
               end if
             case('kmax')
-              ii = bcinfo%origin(1)+bcinfo%dir(1)*i
-              jj = bcinfo%origin(2)+bcinfo%dir(2)*j
-              kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
-              nx = grid%gettx(ii,jj,kk)
-              pv = variable%getpv(ii,jj,kk)
-              dv = variable%getdv(ii,jj,kk)
               if(k.eq.bcinfo%iend(3)) then
-                pp = pp + pv(1)*dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
-                mdot = mdot + dv(1)*(pv(2)*nx(1)+pv(3)*nx(2)+pv(4)*nx(3))
-                area = area + dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+                ii = bcinfo%origin(1)+bcinfo%dir(1)*i
+                jj = bcinfo%origin(2)+bcinfo%dir(2)*j
+                kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
+                nx = grid%gettx(ii,jj,kk)
+                pv = variable%getpv(ii,jj,kk)
+                dv = variable%getdv(ii,jj,kk)
+                grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
+              else
+                go to 20
               end if
             end select
+
+            gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+            gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+            gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
+
+            dl = dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
+            pp = pp + pv(1)*dl
+            mdot = mdot + dv(1)*((pv(2)+gridvel(1))*nx(1) + &
+                                 (pv(3)+gridvel(2))*nx(2) + &
+                                 (pv(4)+gridvel(3))*nx(3))
+            area = area + dl
+
+20          continue
           end do
         end do
       end do
@@ -3482,31 +3491,37 @@ module bc_module
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getcx(ii-1,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii-1,jj,kk))
             case('imax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*bcinfo%istart(1)
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getcx(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii+1,jj,kk))
             case('jmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%iend(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = -grid%getex(ii,jj-1,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj-1,kk))
             case('jmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*bcinfo%istart(2)
               kk = bcinfo%origin(3)+bcinfo%dir(3)*k
               nx = grid%getex(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj+1,kk))
             case('kmin')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%iend(3)
               nx = -grid%gettx(ii,jj,kk-1)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk-1))
             case('kmax')
               ii = bcinfo%origin(1)+bcinfo%dir(1)*i
               jj = bcinfo%origin(2)+bcinfo%dir(2)*j
               kk = bcinfo%origin(3)+bcinfo%dir(3)*bcinfo%istart(3)
               nx = grid%gettx(ii,jj,kk)
+              grd = 0.5d0*(grid%getgrd(ii,jj,kk)+grid%getgrd(ii,jj,kk+1))
             end select
             dl = 1.d0/dsqrt(nx(1)**2+nx(2)**2+nx(3)**2)
             ii = bcinfo%origin(1)+bcinfo%dir(1)*i
@@ -3514,10 +3529,13 @@ module bc_module
             kk = bcinfo%origin(3)+bcinfo%dir(3)*k
             pv = variable%getpv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
+            gridvel(1) = bcinfo%omega(2)*grd(4)-bcinfo%omega(3)*grd(3)
+            gridvel(2) = bcinfo%omega(3)*grd(2)-bcinfo%omega(1)*grd(4)
+            gridvel(3) = bcinfo%omega(1)*grd(3)-bcinfo%omega(2)*grd(2)
 
-            pv(2) = 2.d0*(-v*nx(1)*dl) - pv(2)
-            pv(3) = 2.d0*(-v*nx(2)*dl) - pv(3)
-            pv(4) = 2.d0*(-v*nx(3)*dl) - pv(4)
+            pv(2) = 2.d0*(-v*nx(1)*dl-gridvel(1)) - pv(2)
+            pv(3) = 2.d0*(-v*nx(2)*dl-gridvel(2)) - pv(3)
+            pv(4) = 2.d0*(-v*nx(3)*dl-gridvel(3)) - pv(4)
             pv(5:bcinfo%npv) = 2.d0*bcinfo%pv(5:bcinfo%npv) - pv(5:bcinfo%npv)
             pv(6) = dmin1(dmax1(pv(6),0.d0),1.d0)
             pv(7) = dmin1(dmax1(pv(7),0.d0),1.d0)
