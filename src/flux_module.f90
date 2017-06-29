@@ -285,7 +285,7 @@ module flux_module
       real(8) :: uurr,uull
       real(8) :: ravg(flux%npv),ravg_d,ravg_ht
       real(8) :: am2rmid_du,am2rmid,fmid,fmid_du,amid
-      real(8) :: uuu,c_star,c_star_du,m_star,u2
+      real(8) :: uuu,u2,m_tilde,m_tilde_du
       real(8) :: aaa,add,b1,b2,b1_du,b2_du,ff,gg,sdst(18)
       real(8) :: dqp(flux%npv),fl(flux%npv),fr(flux%npv),bdq(flux%npv),dq(flux%npv)
       real(8) :: rdv(flux%ndv)
@@ -320,7 +320,6 @@ module flux_module
       u2 = ravg(2)**2+ravg(3)**2+ravg(4)**2
       rdv(1) = dsqrt(flux%dvl(1)*flux%dvr(1))
 
-
       uuu = nx*ravg(2) + ny*ravg(3) + nz*ravg(4)
 
       am2rmid_du = flux%getsndp2_du(rdv(6),u2)/rdv(6)
@@ -331,14 +330,13 @@ module flux_module
 
       amid = dsqrt(rdv(6))
 
-      b1 = dmax1(uuu+amid,uurr+amid)
-      b2 = dmin1(uuu-amid,uull-amid)
-      b1_du = dmax1(uuu+fmid_du*amid,uurr+fmid_du*amid)
-      b2_du = dmin1(uuu-fmid_du*amid,uull-fmid_du*amid)
+      b1 = dmax1(0.d0,uuu+amid,uurr+amid)
+      b2 = dmin1(0.d0,uuu-amid,uull-amid)
+      b1_du = dmax1(0.d0,uuu+fmid_du*amid,uurr+fmid_du*amid)
+      b2_du = dmin1(0.d0,uuu-fmid_du*amid,uull-fmid_du*amid)
 
-      c_star = 0.5d0*(dabs(b1)+dabs(b2))
-      m_star = 0.5d0*(dabs(b1)-dabs(b2))/amid
-      c_star_du = 0.5d0*(dabs(b1_du)+dabs(b2_du))
+      m_tilde    = dsign(1.d0,uuu)*dmin1(dabs(uuu)/amid,1.d0)
+      m_tilde_du = dsign(1.d0,uuu)*dmin1(dabs(uuu)/(fmid_du*amid),1.d0)
 
       do k=1,flux%npv
         dqp(k) = flux%pvr(k)-flux%pvl(k)
@@ -399,21 +397,24 @@ module flux_module
         gg = 1.d0
       end if
 
-      add = c_star-dabs(uuu)
-      aaa = c_star_du-dabs(uuu)
+      add = 1.d0 + dabs(m_tilde)
+      aaa = 1.d0 + dabs(m_tilde_du)
 
-      bdq(1) = add*(dq(1)-ff*dqp(1)/rdv(6)/fmid)
-      bdq(2) = bdq(1)*ravg(2)  + rdv(1)*(add*dqp(2)-aaa*nx*(uurr-uull))
-      bdq(3) = bdq(1)*ravg(3)  + rdv(1)*(add*dqp(3)-aaa*ny*(uurr-uull))
-      bdq(4) = bdq(1)*ravg(4)  + rdv(1)*(add*dqp(4)-aaa*nz*(uurr-uull))
-      bdq(5) = bdq(1)*ravg_ht  + rdv(1)*add*(flux%getenthalpy_r()-flux%getenthalpy_l())
+      bdq(1) = dq(1)-ff*dqp(1)/rdv(6)/fmid
+      bdq(2) = bdq(1)*ravg(2)  + rdv(1)*dqp(2)
+      bdq(3) = bdq(1)*ravg(3)  + rdv(1)*dqp(3)
+      bdq(4) = bdq(1)*ravg(4)  + rdv(1)*dqp(4)
+      bdq(5) = bdq(1)*ravg_ht  + rdv(1)*(flux%getenthalpy_r()-flux%getenthalpy_l())
       do k=6,flux%npv
-        bdq(k) = bdq(1)*ravg(k) + rdv(1)*add*dqp(k)
+        bdq(k) = bdq(1)*ravg(k) + rdv(1)*dqp(k)
       end do
 
       do k=1,flux%npv
-        fx(k) = 0.5d0*(fl(k)+fr(k)-m_star*(fr(k)-fl(k))+(m_star*uuu-c_star)*dq(k)+gg*bdq(k))*dl
+        fx(k) = (b1*fl(k) - b2*fr(k) + b1*b2*(dq(k)-gg*bdq(k)/add))/(b1-b2)*dl
       end do
+      fx(2) = fx(2) + gg*b1_du*b2_du*rdv(1)*(uurr-uull)*nx/aaa/(b1_du-b2_du)*dl
+      fx(3) = fx(3) + gg*b1_du*b2_du*rdv(1)*(uurr-uull)*ny/aaa/(b1_du-b2_du)*dl
+      fx(4) = fx(4) + gg*b1_du*b2_du*rdv(1)*(uurr-uull)*nz/aaa/(b1_du-b2_du)*dl
 
     end subroutine roem
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
