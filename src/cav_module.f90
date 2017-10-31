@@ -142,7 +142,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
       
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
-      if(cav%pv(2,4).ge.cav%t_crit) return
+      if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
       
@@ -176,7 +176,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
 
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
-      if(cav%pv(2,4).ge.cav%t_crit) return
+      if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
       
@@ -213,7 +213,7 @@ module cav_module
       real(8), parameter :: phi = 1.d0
       
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
-      if(cav%pv(2,4).ge.cav%t_crit) return
+      if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       sigma = eos%get_sigma(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(3)
@@ -262,7 +262,7 @@ module cav_module
       ! Y2 in INPUT.INP should not be 0.d0 / 1.d-7 recommended
 
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
-      if(cav%pv(2,4).ge.cav%t_crit) return
+      if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
       rho3 = 1.d0/cav%dv(3)
