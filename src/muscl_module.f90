@@ -247,8 +247,14 @@ module muscl_module
         !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))
         !end if
 
-        muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/(dabs(dq)+eps)/(1.d0+rxy_l+rxz_l)*qml
-        muscl%alp(2) = 2.d0*dmax1(1.d0,muscl%r(2))/(dabs(dq)+eps)/(1.d0+rxy_r+rxz_r)*qmr
+        if(dabs(dq).le.eps) then
+          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/(dabs(dq)+eps)/(1.d0+rxy_l+rxz_l)*qml
+          muscl%alp(2) = 2.d0*dmax1(1.d0,dqp/eps)*dabs(dqpp)/(1.d0+rxy_r+rxz_r)*qmr
+        else
+          muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/(dabs(dq)+eps)/(1.d0+rxy_l+rxz_l)*qml
+          muscl%alp(2) = 2.d0*dmax1(1.d0,1.d0/muscl%r(2))*dabs(dqpp)/(1.d0+rxy_r+rxz_r)*qmr
+        end if
+          
 
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
