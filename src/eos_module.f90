@@ -272,6 +272,17 @@ module eos_module
         eos%gamma_f = 1.4d0
         call eos%set_srk_property(4,eos%srk_vapor_property)
         eos%eos_vs  => srk_g
+      case(7) ! database Dimethyl ether (DME)
+        call eos%set_database(6,1)
+        call eos%set_database(6,2)
+        eos%eos_l  => database
+        eos%eos_v  => database
+        eos%get_pww => DME_pww
+        eos%get_tww => DME_tww
+        eos%get_sigma => DME_sigma
+        eos%gamma_f = 1.247d0
+        call eos%set_srk_property(6,eos%srk_vapor_property)
+        eos%eos_vs  => srk_g
       case default
       end select
 
@@ -292,7 +303,7 @@ module eos_module
         eos%gamma_g = 1.66d0
         call eos%set_srk_property(config%getngas(),eos%srk_gas_property)
         eos%eos_gs => srk_g
-     case(6,7,8) ! nitrogen,oxygen,hydrogen
+      case(6,7,8) ! nitrogen,oxygen,hydrogen
         call eos%set_srk_property(config%getngas()-4,eos%srk_gas_property)
         eos%eos_g  => srk_g
         eos%gamma_g = 1.4d0
@@ -401,6 +412,20 @@ module eos_module
         eos%get_sigma => h2_sigma
         eos%gamma_f = 1.4d0
         call eos%set_srk_property(4,eos%srk_vapor_property)
+        eos%eos_vs => srk_g
+        eos%eos_vs_prop  => srk_g_prop
+     case(7)! database DME
+        call eos%set_database(6,1)
+        call eos%set_database(6,2)
+        eos%eos_l  => database
+        eos%eos_l_prop  => database_prop
+        eos%eos_v  => database
+        eos%eos_v_prop  => database_prop
+        eos%get_pww => DME_pww
+        eos%get_tww => DME_tww
+        eos%get_sigma => DME_sigma
+        eos%gamma_f = 1.247d0
+        call eos%set_srk_property(6,eos%srk_vapor_property)
         eos%eos_vs => srk_g
         eos%eos_vs_prop  => srk_g_prop
       case default
@@ -733,6 +758,15 @@ module eos_module
         srk_property%mw  = 4.0026d-3
         srk_property%w   = -0.382d0
         srk_property%cv0 = 0.d0         ! should be filled
+
+      case(6) ! DME
+        srk_property%tc  = 400.38d0
+        srk_property%pc  = 5.3368d6
+        srk_property%tb  = 4.23d0
+        srk_property%mw  = 4.0026d-3
+        srk_property%w   = -0.382d0
+        srk_property%cv0 = 0.d0         ! should be filled
+
       case default
       end select
 
@@ -763,6 +797,8 @@ module eos_module
         c_fluid = 'h2'
       case(5) ! helium
         c_fluid = 'he'
+      case(6) ! DME
+        c_fluid = 'DME'
       case default
       end select
 
@@ -2282,6 +2318,25 @@ module eos_module
 
     end function h2_pww
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function DME_pww(eos,t) result(pww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: t
+      real(8) :: pww
+
+      if(t.le.239d0) then
+        pww = 2.51936448014985d-26 * t**1.27973987394184d1
+      else if((t.gt.240d0).and.(t.le.279d0)) then
+        pww = 2.75551246362286d-20 * t**1.02562411384623d1
+      else if((t.gt.280d0).and.(t.le.319d0)) then
+        pww = 3.40630759109831d-16 * t**8.58195169665804d0
+      else if((t.gt.320d0).and.(t.le.359d0)) then
+        pww = 1.83248328175938d-13 * t**7.49068550945385d0
+      else
+        pww = 5.89759662712948d-12 * t**6.89997409467499d0
+      end if
+    end function DME_pww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_tww(eos,p) result(tww)
       implicit none
       class(t_eos), intent(in) :: eos
@@ -2350,6 +2405,27 @@ module eos_module
         tww = 3.377d0*p**0.1748d0 - 6.394d0
       end if
     end function h2_tww
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function DME_tww(eos,p) result(tww)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: p
+      real(8) :: tww
+
+      if(p.le.1.d5) then
+        tww = 3.32986432802911d1 + 1.85534379486282d1*dlog(p)
+      else if((p.gt.1.d5).and.(p.le.3.d5)) then
+        tww = -5.57196453839085d1 + 2.63140232108003d1*dlog(p)
+      else if((p.gt.3.d5).and.(p.le.7.d5)) then
+        tww = -1.38577037376019d2 + 3.28692957589036d1*dlog(p)
+      else if((p.gt.7.d5).and.(p.le.1.d6)) then
+        tww = -2.07517520436400d2 + 3.80114376290005d1*dlog(p)
+      else if((p.gt.1.d6).and.(p.le.3.d6)) then
+        tww = -3.25691065803963d2 + 4.64639077454879d1*dlog(p)
+      else
+        tww = -4.63045141170944d2 + 5.57207292900318d1*dlog(p)
+      end if
+    end function DME_tww
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2o_sigma(eos,t) result(sigma)
       implicit none
@@ -2394,6 +2470,22 @@ module eos_module
             + 2.18364493308481d-7*t**3 -  5.43761039654375d-9*t**4 + 5.62476539114984d-11*t**5
 
     end function h2_sigma
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function DME_sigma(eos,t) result(sigma)
+      implicit none
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: t
+      real(8) :: sigma
+
+      if(t.le.200.d0) then
+        sigma = 7.674692739168850d12 * t**(-4.460029937536576d0)
+      else if((t.gt.200.d0).and.(t.le.300.d0)) then
+        sigma = 3.360744776376887d9 * t**(-3.004965901433068d0)
+      else
+        sigma = 7.719551553645169d13 * t**(-4.726125971944006d0)
+      end if
+
+    end function DME_sigma
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function cubicsolver(pin,tin,aalpha,bin,mw)
       implicit none

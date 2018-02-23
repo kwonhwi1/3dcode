@@ -528,6 +528,56 @@ module initial_module
       nts = 1
       timeprev = 0.d0
     end subroutine initial
+
+#elif sivb_sloshing
+    subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
+      implicit none
+      class(t_ini_initial), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
+      integer :: i,j,k
+      real(8) :: pv(ini%npv)
+      real(8) :: grd(grid%getngrd())
+
+    ! tank geometry : sivb tank
+    ! test paper : Analysis of cryogenic propellant behaviour in microgravity and low thrust environments, MF Fisher, 1992
+
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            grd = grid%getgrd(i,j,k)
+
+    ! real grid is 43.3 times smaller than test grid
+          ! dimethylether
+            if(dsqrt((grd(2)-0.05765d0)**2+(grd(3)+0.04878d0)**2).ge.0.19d0) then
+              call variable%setpv(1,i,j,k,0.61793d6-ini%pref)
+              call variable%setpv(2,i,j,k,0.d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
+              call variable%setpv(5,i,j,k,299.85d0-ini%tref)
+              call variable%setpv(6,i,j,k,0.d0)
+              call variable%setpv(7,i,j,k,0.d0)
+          ! air
+            else
+              call variable%setpv(1,i,j,k,0.61793d6-ini%pref)
+              call variable%setpv(2,i,j,k,0.d0)
+              call variable%setpv(3,i,j,k,0.d0)
+              call variable%setpv(4,i,j,k,0.d0)
+              call variable%setpv(5,i,j,k,299.85d0-ini%tref)
+              call variable%setpv(6,i,j,k,0.d0)
+              call variable%setpv(7,i,j,k,1.d0)
+            end if
+          end do
+        end do
+      end do
+
+      call set_others(ini,variable,eos,nps,nts,timeprev)
+
+    end subroutine initial
+
 #else
     subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
@@ -592,5 +642,57 @@ module initial_module
     end subroutine initial
 #endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine set_others(ini,variable,eos,nps,nts,timeprev)
+      implicit none
+      type(t_ini_initial), intent(in) :: ini
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
+      integer :: i,j,k,n
+      real(8) :: pv(ini%npv),dv(ini%ndv),tv(ini%ntv),qq(ini%npv)
+
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            pv = variable%getpv(i,j,k)
+            call eos%deteos(pv(1)+ini%pref,pv(5)+ini%tref,pv(6),pv(7),dv,tv)
+
+            do n=1,ini%ndv
+              call variable%setdv(n,i,j,k,dv(n))
+            end do
+
+            if(ini%iturb.ge.-1) then
+              tv(3) = ini%emutref
+              call variable%setpv(8,i,j,k,ini%kref)
+              call variable%setpv(9,i,j,k,ini%oref)
+            end if
+
+            do n=1,ini%ntv
+              call variable%settv(n,i,j,k,tv(n))
+            end do
+
+            if(ini%nsteady.eq.1) then
+              qq(1) = dv(1)
+              qq(2) = dv(1)*pv(2)
+              qq(3) = dv(1)*pv(3)
+              qq(4) = dv(1)*pv(4)
+              qq(5) = dv(1)*(dv(2)+0.5d0*(pv(2)**2+pv(3)**2+pv(4)**2))-pv(1)-ini%pref
+              do n=6,ini%npv
+                qq(n) = dv(1)*pv(n)
+              end do
+
+              call variable%setqq(1,i,j,k,qq)
+              call variable%setqq(2,i,j,k,qq)
+            end if
+          end do
+        end do
+      end do
+      nps = 1
+      nts = 1
+      timeprev = 0.d0
+    end subroutine set_others
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
 end module initial_module
 
