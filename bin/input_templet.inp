@@ -29,7 +29,7 @@ l_chord       l_character    scale          l_domain
 name          : project name = geometry name
 iread         : 0 = new start, 1 = restart
 rstnum        : 8 count
-nsteady       : 0 = steady, 1 = unsteady 
+nsteady       : 0 = steady, 1 = unsteady
 npmax         : maximum unsteady iteration
 ntmax         : sub-iteration max
 bond          : convergence criteria
@@ -52,7 +52,7 @@ ngas          : 1 = ideal gas, 2 = nitrogen database, 3 = oxygen database, 4 = h
 ncav          : 0 = no source term, 1 = merkle, 2 = kunz, 3 = singhal
 c_v           : vaporization coefficient
 c_c           : condensation coefficient
-gravity       : 0= no gravitataionsl acceleration 1,-1 = gravity on (+-)x-axis, 2,-2 = gravity on (+-)y-axis, 3,-3 = gravity on (+-)z-axis
+gravity       : 0= no gravitataionsl acceleration 1,-1 = gravity on (+-)x-axis, 2,-2 = gravity on (+-)y-axis, 3,-3 = gravity on (+-)z-axis, 4 = user-defined with file read
 rotation      : 0= no rotation 1,-1 = rotating along (+-)x-axis, 2,-2 = rotating along (+-)y-axis, 3,-3 = rotating aling (+-)z-axis
 rpm           : revolution per minute
 pref          : reference pressure

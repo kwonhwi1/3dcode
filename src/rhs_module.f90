@@ -115,7 +115,7 @@ module rhs_module
 
       select case(config%getgravity())
       case(0)
-      case(-1,1,-2,2,-3,3)
+      case(-1,1,-2,2,-3,3,4)
         allocate(t_gravity::rhs%gravity)
       case default
       end select
@@ -238,12 +238,13 @@ module rhs_module
 
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine calrhs(rhs,grid,variable,eos)
+    subroutine calrhs(rhs,grid,variable,eos,time)
       implicit none
       class(t_rhs), intent(inout) :: rhs
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(in) :: variable
       class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: time
       integer :: i,j,k
       integer :: ii,jj,kk,ll
       real(8) :: nx(3)
@@ -570,7 +571,7 @@ module rhs_module
               call rhs%gravity%setpv(x)
               call rhs%gravity%setdv(dvl)
               call rhs%gravity%setgrd(grdl)
-              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + rhs%gravity%getgravitysource()
+              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + rhs%gravity%getgravitysource(time)
             end if
 
             if(rhs%l_rotation) then

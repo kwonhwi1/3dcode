@@ -240,7 +240,7 @@ module update_module
         time = update%dt_phy*dble(nt_phy)
       end if
       call update%bc%setbc(grid,variable,eos,time)
-      call update%rhs%calrhs(grid,variable,eos)
+      call update%rhs%calrhs(grid,variable,eos,time)
 
       do k=2,update%kmax
         do j=2,update%jmax
@@ -352,7 +352,7 @@ module update_module
           time = update%dt_phy*dble(nt_phy)
         end if
         call update%bc%setbc(grid,variable,eos,time)
-        call update%rhs%calrhs(grid,variable,eos)
+        call update%rhs%calrhs(grid,variable,eos,time)
         do k=2,update%kmax
           do j=2,update%jmax
             do i=2,update%imax
@@ -464,7 +464,7 @@ module update_module
         time = update%dt_phy*dble(nt_phy)
       end if
       call update%bc%setbc(grid,variable,eos,time)
-      call update%rhs%calrhs(grid,variable,eos)
+      call update%rhs%calrhs(grid,variable,eos,time)
 
       update%dcv = 0.d0
       update%dqs = 0.d0
