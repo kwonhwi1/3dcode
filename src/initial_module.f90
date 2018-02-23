@@ -7,7 +7,7 @@ module initial_module
   implicit none
   private
   public :: t_ini,t_ini_initial,t_ini_initial_rot,t_ini_restart
-  
+
   type, abstract :: t_ini
     private
     logical :: l_ini
@@ -20,7 +20,7 @@ module initial_module
       procedure :: destruct
       procedure(p_initialize), deferred :: initialize
   end type t_ini
-  
+
   type, extends(t_ini) :: t_ini_initial
     contains
       procedure :: initialize => initial
@@ -35,7 +35,7 @@ module initial_module
     contains
       procedure :: initialize => restart
   end type t_ini_restart
-  
+
   abstract interface
     subroutine p_initialize(ini,grid,variable,eos,nps,nts,timeprev)
       import t_ini
@@ -51,7 +51,7 @@ module initial_module
       real(8), intent(out) :: timeprev
     end subroutine p_initialize
   end interface
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(ini,config,grid)
@@ -164,11 +164,11 @@ module initial_module
             do n=1,ini%npv
               call variable%setpv(n,i,j,k,pv(n,i,j,k))
             end do
-        
+
             do n=1,ini%ntv
               call variable%settv(n,i,j,k,tv(n,i,j,k))
-            end do      
-            
+            end do
+
             call eos%deteos_simple(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
 
             do n=1,ini%ndv
@@ -274,13 +274,13 @@ module initial_module
             do n=1,ini%npv
               call variable%setpv(n,i,j,k,pv(n,i,j,k))
             end do
-        
+
             do n=1,ini%ntv
               call variable%settv(n,i,j,k,tv(n,i,j,k))
-            end do      
-            
+            end do
+
             call eos%deteos_simple(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
-            
+
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
             end do
@@ -299,13 +299,13 @@ module initial_module
 
       nts = nts + 1
       nps = nps + 1
-      
+
       if(ini%nsteady.eq.1) then
         nts = 1
       else
         nps = 1
       end if
-      
+
     end subroutine restart
 #endif
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -393,7 +393,7 @@ module initial_module
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
       real(8) :: x(5)
-      
+
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
@@ -416,24 +416,24 @@ module initial_module
               call variable%setpv(6,i,j,k,ini%y1ref)
               call variable%setpv(7,i,j,k,ini%y2ref)
             end if
-            pv = variable%getpv(i,j,k)   
-        
+            pv = variable%getpv(i,j,k)
+
             call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv)
-            
+
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
+
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
               call variable%setpv(8,i,j,k,ini%kref)
-              call variable%setpv(9,i,j,k,ini%oref)          
+              call variable%setpv(9,i,j,k,ini%oref)
             end if
-            
+
             do n=1,ini%ntv
               call variable%settv(n,i,j,k,tv(n))
             end do
-            
+
             if(ini%nsteady.eq.1) then
               qq(1) = dv(1)
               qq(2) = dv(1)*pv(2)
@@ -468,7 +468,7 @@ module initial_module
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
       real(8) :: grd(grid%getngrd())
-      
+
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
@@ -490,24 +490,24 @@ module initial_module
               call variable%setpv(6,i,j,k,ini%y1ref)
               call variable%setpv(7,i,j,k,ini%y2ref)
             end if
-            pv = variable%getpv(i,j,k)   
-        
+            pv = variable%getpv(i,j,k)
+
             call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv)
-            
+
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
+
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
               call variable%setpv(8,i,j,k,ini%kref)
-              call variable%setpv(9,i,j,k,ini%oref)          
+              call variable%setpv(9,i,j,k,ini%oref)
             end if
-            
+
             do n=1,ini%ntv
               call variable%settv(n,i,j,k,tv(n))
             end do
-            
+
             if(ini%nsteady.eq.1) then
               qq(1) = dv(1)
               qq(2) = dv(1)*pv(2)
@@ -540,7 +540,7 @@ module initial_module
       integer :: i,j,k,n
       real(8) :: pv(ini%npv),dv(ini%ndv)
       real(8) :: tv(ini%ntv),qq(ini%npv)
-      
+
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
@@ -551,25 +551,25 @@ module initial_module
             call variable%setpv(5,i,j,k,ini%tref)
             call variable%setpv(6,i,j,k,ini%y1ref)
             call variable%setpv(7,i,j,k,ini%y2ref)
-            
-            pv = variable%getpv(i,j,k)   
-        
+
+            pv = variable%getpv(i,j,k)
+
             call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv)
-            
+
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
             end do
-            
+
             if(ini%iturb.ge.-1) then
               tv(3) = ini%emutref
               call variable%setpv(8,i,j,k,ini%kref)
-              call variable%setpv(9,i,j,k,ini%oref)          
+              call variable%setpv(9,i,j,k,ini%oref)
             end if
-            
+
             do n=1,ini%ntv
               call variable%settv(n,i,j,k,tv(n))
             end do
-            
+
             if(ini%nsteady.eq.1) then
               qq(1) = dv(1)
               qq(2) = dv(1)*pv(2)
@@ -579,7 +579,7 @@ module initial_module
               do n=6,ini%npv
                 qq(n) = dv(1)*pv(n)
               end do
-              
+
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if

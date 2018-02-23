@@ -4,27 +4,29 @@ module eos_module
   implicit none
   private
   public :: t_eos,t_eosonly,t_eos_prop
-    
+
   type t_iapws_coeff_eos
     integer, dimension(:), allocatable :: i,j,ir,jr
     real(8), dimension(:), allocatable :: n,nr
   end type t_iapws_coeff_eos
-  
+
   type t_iapws_coeff_prop
     real(8), dimension(:), allocatable :: h,l
     real(8), dimension(:,:), allocatable :: hh,ll
   end type t_iapws_coeff_prop
 
   type t_srk_property
-    real(8) :: tc, pc, tb, mw, w, k, cv0
+    real(8) :: tc,pc,tb,mw,w,k,cv0 ! fluid properties
+    real(8) :: s,a,b ! coefficients for srk
   end type t_srk_property
-  
+
   type t_db_data
     real(8) :: t
     integer :: p_nstart,p_nend,p_nsub
     integer, allocatable :: p_iboundary(:)
     real(8), allocatable :: p_boundary(:),p_delta(:)
-    real(8), allocatable :: dbv(:,:) !p,rho,h,drdp,drdt,dhdp,dhdt,vis,cond
+    real(8), allocatable :: p(:)
+    real(8), allocatable :: rho(:,:),h(:,:),vis(:,:),cond(:,:)
   end type t_db_data
 
   type t_db_const
@@ -41,19 +43,19 @@ module eos_module
     real(8) :: gamma_f,gamma_g
     procedure(p_pww), public, pointer :: get_pww
     procedure(p_tww), public, pointer :: get_tww
-    procedure(p_sigma), public, pointer :: get_sigma
+    procedure(p_sigma), public, pointer :: get_sigma ! sigma of fluid with its vapor
     procedure(p_eos_l), pointer :: eos_l
-    procedure(p_eos_v), pointer :: eos_v
-    procedure(p_eos_g), pointer :: eos_g
+    procedure(p_eos_v), pointer :: eos_v,eos_vs
+    procedure(p_eos_g), pointer :: eos_g,eos_gs
     procedure(p_eos_l_prop), pointer :: eos_l_prop
-    procedure(p_eos_v_prop), pointer :: eos_v_prop
-    procedure(p_eos_g_prop), pointer :: eos_g_prop
+    procedure(p_eos_v_prop), pointer :: eos_v_prop,eos_vs_prop
+    procedure(p_eos_g_prop), pointer :: eos_g_prop,eos_gs_prop
     type(t_iapws_coeff_eos)  :: iapws_liquid_coeff,iapws_vapor_coeff,iapws_m_vapor_coeff
     type(t_iapws_coeff_prop) :: iapws_prop_coeff
-    type(t_srk_property) :: srk_gas_property
+    type(t_srk_property) :: srk_vapor_property,srk_gas_property
     type(t_db_const) :: db_const(3) ! 1=liquid,2=vapor,3=gas
     contains
-      procedure :: construct
+      procedure(p_construct), deferred :: construct
       procedure :: destruct
       procedure :: deteos_simple
       procedure :: getgamma_f
@@ -75,10 +77,19 @@ module eos_module
       real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
       real(8), intent(inout) :: tv(eos%ntv)
     end subroutine p_deteos
+
+    subroutine p_construct(eos,config)
+      import t_config
+      import t_eos
+      implicit none
+      class(t_eos), intent(inout) :: eos
+      type(t_config), intent(in) :: config
+    end subroutine p_construct
   end interface
 
   type, extends(t_eos) :: t_eosonly
     contains
+      procedure :: construct => construct_eos
       procedure :: deteos => deteosonly
   end type t_eosonly
 
@@ -90,16 +101,11 @@ module eos_module
 
   type t_eos2
     real(8) :: rho,h,drdp,drdt,dhdp,dhdt
-    logical :: flag
   end type t_eos2
 
   type t_prop2
     real(8) :: vis,cond
   end type t_prop2
-
-  type t_srk_coeff
-    real(8) :: a,alpha,b,s
-  end type t_srk_coeff
 
   interface
     function p_pww(eos,t) result(pww)
@@ -109,7 +115,7 @@ module eos_module
       real(8), intent(in) :: t
       real(8) :: pww
     end function p_pww
-    
+
     function p_tww(eos,p) result(tww)
       import t_eos
       implicit none
@@ -125,7 +131,7 @@ module eos_module
       real(8), intent(in) :: t
       real(8) :: sigma
     end function p_sigma
-    
+
     subroutine p_eos_l(eos,p,t,phase,eos2)
       import t_eos
       import t_eos2
@@ -135,7 +141,7 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
     end subroutine p_eos_l
-    
+
     subroutine p_eos_v(eos,p,t,phase,eos2)
       import t_eos
       import t_eos2
@@ -145,7 +151,7 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
     end subroutine p_eos_v
-    
+
     subroutine p_eos_g(eos,p,t,phase,eos2)
       import t_eos
       import t_eos2
@@ -167,7 +173,7 @@ module eos_module
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
     end subroutine p_eos_l_prop
-    
+
     subroutine p_eos_v_prop(eos,p,t,phase,eos2,prop2)
       import t_eos
       import t_eos2
@@ -179,7 +185,7 @@ module eos_module
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
     end subroutine p_eos_v_prop
-    
+
     subroutine p_eos_g_prop(eos,p,t,phase,eos2,prop2)
       import t_eos
       import t_eos2
@@ -194,10 +200,10 @@ module eos_module
   end interface
 
   contains
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc    
-    subroutine construct(eos,config)
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine construct_eos(eos,config)
       implicit none
-      class(t_eos), intent(out) :: eos
+      class(t_eosonly), intent(inout) :: eos
       type(t_config), intent(in) :: config
 
       eos%ndv = config%getndv()
@@ -213,6 +219,7 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
         eos%eos_l  => iapws97_l
@@ -221,6 +228,7 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
       case(3)! database water
         call eos%set_database(1,1)
         call eos%set_database(1,2)
@@ -230,6 +238,7 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
       case(4)! database nitrogen
         call eos%set_database(2,1)
         call eos%set_database(2,2)
@@ -239,6 +248,8 @@ module eos_module
         eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
         eos%gamma_f = 1.4d0
+        call eos%set_srk_property(2,eos%srk_vapor_property)
+        eos%eos_vs  => srk_g
       case(5)! database oxygen
         call eos%set_database(3,1)
         call eos%set_database(3,2)
@@ -248,6 +259,8 @@ module eos_module
         eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
         eos%gamma_f = 1.4d0
+        call eos%set_srk_property(3,eos%srk_vapor_property)
+        eos%eos_vs  => srk_g
       case(6)! database hydrogen
         call eos%set_database(4,1)
         call eos%set_database(4,2)
@@ -257,6 +270,8 @@ module eos_module
         eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
         eos%gamma_f = 1.4d0
+        call eos%set_srk_property(4,eos%srk_vapor_property)
+        eos%eos_vs  => srk_g
       case default
       end select
 
@@ -264,34 +279,43 @@ module eos_module
       case(1) ! ideal gas
         eos%eos_g  => ideal
         eos%gamma_g = 1.4d0
+        eos%eos_gs => null()
       case(2,3,4) ! nitrogen,oxygen,hydrogen
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
         eos%gamma_g = 1.4d0
+        call eos%set_srk_property(config%getngas(),eos%srk_gas_property)
+        eos%eos_gs => srk_g
       case(5) ! helium
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
         eos%gamma_g = 1.66d0
-      case(6,7,8) ! nitrogen,oxygen,hydrogen
-        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_srk_property(config%getngas(),eos%srk_gas_property)
+        eos%eos_gs => srk_g
+     case(6,7,8) ! nitrogen,oxygen,hydrogen
+        call eos%set_srk_property(config%getngas()-4,eos%srk_gas_property)
         eos%eos_g  => srk_g
         eos%gamma_g = 1.4d0
+        eos%eos_gs => null()
       case(9) ! helium
-        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_srk_property(config%getngas()-4,eos%srk_gas_property)
         eos%eos_g  => srk_g
         eos%gamma_g = 1.66d0
+        eos%eos_gs => null()
       case default
       end select
 
       eos%eos_l_prop => null()
       eos%eos_v_prop => null()
       eos%eos_g_prop => null()
-    
-    end subroutine construct
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+      eos%eos_vs_prop => null()
+      eos%eos_gs_prop => null()
+
+    end subroutine construct_eos
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct_eos_prop(eos,config)
       implicit none
-      class(t_eos_prop), intent(out) :: eos
+      class(t_eos_prop), intent(inout) :: eos
       type(t_config), intent(in) :: config
 
       eos%ndv = config%getndv()
@@ -309,6 +333,8 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
+        eos%eos_vs_prop => null()
       case(2) ! iapws97 for water
         call eos%set_iapws97_eos()
         call eos%set_iapws97_prop()
@@ -320,6 +346,8 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
+        eos%eos_vs_prop => null()
       case(3)! database water
         call eos%set_database(1,1)
         call eos%set_database(1,2)
@@ -331,6 +359,8 @@ module eos_module
         eos%get_tww => h2o_tww
         eos%get_sigma => h2o_sigma
         eos%gamma_f = 1.33d0
+        eos%eos_vs => null()
+        eos%eos_vs_prop => null()
       case(4)! database nitrogen
         call eos%set_database(2,1)
         call eos%set_database(2,2)
@@ -342,7 +372,10 @@ module eos_module
         eos%get_tww => n2_tww
         eos%get_sigma => n2_sigma
         eos%gamma_f = 1.4d0
-      case(5)! database oxygen
+        call eos%set_srk_property(2,eos%srk_vapor_property)
+        eos%eos_vs => srk_g
+        eos%eos_vs_prop  => srk_g_prop
+     case(5)! database oxygen
         call eos%set_database(3,1)
         call eos%set_database(3,2)
         eos%eos_l  => database
@@ -353,7 +386,10 @@ module eos_module
         eos%get_tww => o2_tww
         eos%get_sigma => o2_sigma
         eos%gamma_f = 1.4d0
-      case(6)! database hydrogen
+        call eos%set_srk_property(3,eos%srk_vapor_property)
+        eos%eos_vs => srk_g
+        eos%eos_vs_prop  => srk_g_prop
+     case(6)! database hydrogen
         call eos%set_database(4,1)
         call eos%set_database(4,2)
         eos%eos_l  => database
@@ -364,6 +400,9 @@ module eos_module
         eos%get_tww => h2_tww
         eos%get_sigma => h2_sigma
         eos%gamma_f = 1.4d0
+        call eos%set_srk_property(4,eos%srk_vapor_property)
+        eos%eos_vs => srk_g
+        eos%eos_vs_prop  => srk_g_prop
       case default
       end select
 
@@ -372,31 +411,43 @@ module eos_module
         eos%eos_g  => ideal
         eos%eos_g_prop  => ideal_prop
         eos%gamma_g = 1.4d0
+        eos%eos_gs => null()
+        eos%eos_gs_prop => null()
       case(2,3,4) ! nitrogen,oxygen,hydrogen
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
         eos%eos_g_prop  => database_prop
         eos%gamma_g = 1.4d0
-      case(5) ! helium
+        call eos%set_srk_property(config%getngas(),eos%srk_gas_property)
+        eos%eos_gs => srk_g
+        eos%eos_gs_prop => srk_g_prop
+     case(5) ! helium
         call eos%set_database(config%getngas(),3)
         eos%eos_g  => database
         eos%eos_g_prop  => database_prop
         eos%gamma_g = 1.66d0
+        call eos%set_srk_property(config%getngas(),eos%srk_gas_property)
+        eos%eos_gs => srk_g
+        eos%eos_gs_prop => srk_g_prop
       case(6,7,8) ! nitrogen,oxygen,hydrogen
-        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_srk_property(config%getngas()-4,eos%srk_gas_property)
         call eos%set_database(config%getngas()-4,3)
         eos%eos_g  => srk_g
         eos%eos_g_prop  => srk_g_prop
         eos%gamma_g = 1.4d0
+        eos%eos_gs => null()
+        eos%eos_gs_prop => null()
       case(9) ! helium
-        call eos%set_srk_property(config%getngas()-4)
+        call eos%set_srk_property(config%getngas()-4,eos%srk_gas_property)
         call eos%set_database(config%getngas()-4,3)
         eos%eos_g  => srk_g
         eos%eos_g_prop  => srk_g_prop
         eos%gamma_g = 1.66d0
+        eos%eos_gs => null()
+        eos%eos_gs_prop => null()
       case default
       end select
-    
+
     end subroutine construct_eos_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(eos)
@@ -413,18 +464,28 @@ module eos_module
       if(associated(eos%eos_l_prop)) nullify(eos%eos_l_prop)
       if(associated(eos%eos_v_prop)) nullify(eos%eos_v_prop)
       if(associated(eos%eos_g_prop)) nullify(eos%eos_g_prop)
+      if(associated(eos%eos_vs))     nullify(eos%eos_vs)
+      if(associated(eos%eos_gs))     nullify(eos%eos_gs)
+      if(associated(eos%eos_vs_prop)) nullify(eos%eos_vs_prop)
+      if(associated(eos%eos_gs_prop)) nullify(eos%eos_gs_prop)
 
       do n=1,3
-        do m=1,eos%db_const(n)%t_ndata
-          if(allocated(eos%db_const(n)%db(m)%p_boundary))  deallocate(eos%db_const(n)%db(m)%p_boundary)
-          if(allocated(eos%db_const(n)%db(m)%p_iboundary)) deallocate(eos%db_const(n)%db(m)%p_iboundary)
-          if(allocated(eos%db_const(n)%db(m)%p_delta))     deallocate(eos%db_const(n)%db(m)%p_delta)
-          if(allocated(eos%db_const(n)%db(m)%dbv))         deallocate(eos%db_const(n)%db(m)%dbv)
-        end do
-        if(allocated(eos%db_const(n)%db))          deallocate(eos%db_const(n)%db)
-        if(allocated(eos%db_const(n)%t_boundary))  deallocate(eos%db_const(n)%t_boundary)
-        if(allocated(eos%db_const(n)%t_iboundary)) deallocate(eos%db_const(n)%t_iboundary)
-        if(allocated(eos%db_const(n)%t_delta))     deallocate(eos%db_const(n)%t_delta)
+        if(allocated(eos%db_const(n)%db)) then
+          do m=1,eos%db_const(n)%t_ndata
+            if(allocated(eos%db_const(n)%db(m)%p_boundary))  deallocate(eos%db_const(n)%db(m)%p_boundary)
+            if(allocated(eos%db_const(n)%db(m)%p_iboundary)) deallocate(eos%db_const(n)%db(m)%p_iboundary)
+            if(allocated(eos%db_const(n)%db(m)%p_delta))     deallocate(eos%db_const(n)%db(m)%p_delta)
+            if(allocated(eos%db_const(n)%db(m)%p))           deallocate(eos%db_const(n)%db(m)%p)
+            if(allocated(eos%db_const(n)%db(m)%rho))         deallocate(eos%db_const(n)%db(m)%rho)
+            if(allocated(eos%db_const(n)%db(m)%h))           deallocate(eos%db_const(n)%db(m)%h)
+            if(allocated(eos%db_const(n)%db(m)%vis))         deallocate(eos%db_const(n)%db(m)%vis)
+            if(allocated(eos%db_const(n)%db(m)%cond))        deallocate(eos%db_const(n)%db(m)%cond)
+          end do
+          if(allocated(eos%db_const(n)%t_boundary))  deallocate(eos%db_const(n)%t_boundary)
+          if(allocated(eos%db_const(n)%t_iboundary)) deallocate(eos%db_const(n)%t_iboundary)
+          if(allocated(eos%db_const(n)%t_delta))     deallocate(eos%db_const(n)%t_delta)
+          deallocate(eos%db_const(n)%db)
+        end if
       end do
 
       if(allocated(eos%iapws_liquid_coeff%i))   deallocate(eos%iapws_liquid_coeff%i)
@@ -450,22 +511,22 @@ module eos_module
     subroutine set_iapws97_eos(eos)
       implicit none
       class(t_eos), intent(inout) :: eos
-     
+
       allocate(eos%iapws_liquid_coeff%i(34),eos%iapws_liquid_coeff%j(34),eos%iapws_liquid_coeff%n(34))
-     
+
       allocate(eos%iapws_vapor_coeff%j(9),eos%iapws_vapor_coeff%n(9))
       allocate(eos%iapws_vapor_coeff%ir(43),eos%iapws_vapor_coeff%jr(43),eos%iapws_vapor_coeff%nr(43))
-     
+
       allocate(eos%iapws_m_vapor_coeff%j(9),eos%iapws_m_vapor_coeff%n(9))
       allocate(eos%iapws_m_vapor_coeff%ir(13),eos%iapws_m_vapor_coeff%jr(13),eos%iapws_m_vapor_coeff%nr(13))
 
-      eos%iapws_liquid_coeff%i(1)  =  0;     eos%iapws_liquid_coeff%j(1)  =   -2;    eos%iapws_liquid_coeff%n(1)  =   0.14632971213167d0      
+      eos%iapws_liquid_coeff%i(1)  =  0;     eos%iapws_liquid_coeff%j(1)  =   -2;    eos%iapws_liquid_coeff%n(1)  =   0.14632971213167d0
       eos%iapws_liquid_coeff%i(2)  =  0;     eos%iapws_liquid_coeff%j(2)  =   -1;    eos%iapws_liquid_coeff%n(2)  = - 0.84548187169114d0
       eos%iapws_liquid_coeff%i(3)  =  0;     eos%iapws_liquid_coeff%j(3)  =    0;    eos%iapws_liquid_coeff%n(3)  = - 0.37563603672040d1
       eos%iapws_liquid_coeff%i(4)  =  0;     eos%iapws_liquid_coeff%j(4)  =    1;    eos%iapws_liquid_coeff%n(4)  =   0.33855169168385d1
       eos%iapws_liquid_coeff%i(5)  =  0;     eos%iapws_liquid_coeff%j(5)  =    2;    eos%iapws_liquid_coeff%n(5)  = - 0.95791963387872d0
       eos%iapws_liquid_coeff%i(6)  =  0;     eos%iapws_liquid_coeff%j(6)  =    3;    eos%iapws_liquid_coeff%n(6)  =   0.15772038513228d0
-      eos%iapws_liquid_coeff%i(7)  =  0;     eos%iapws_liquid_coeff%j(7)  =    4;    eos%iapws_liquid_coeff%n(7)  = - 0.16616417199501d-1 
+      eos%iapws_liquid_coeff%i(7)  =  0;     eos%iapws_liquid_coeff%j(7)  =    4;    eos%iapws_liquid_coeff%n(7)  = - 0.16616417199501d-1
       eos%iapws_liquid_coeff%i(8)  =  0;     eos%iapws_liquid_coeff%j(8)  =    5;    eos%iapws_liquid_coeff%n(8)  =   0.81214629983568d-3
       eos%iapws_liquid_coeff%i(9)  =  1;     eos%iapws_liquid_coeff%j(9)  =   -9;    eos%iapws_liquid_coeff%n(9)  =   0.28319080123804d-3
       eos%iapws_liquid_coeff%i(10) =  1;     eos%iapws_liquid_coeff%j(10)  =  -7;    eos%iapws_liquid_coeff%n(10) = - 0.60706301565874d-3
@@ -478,7 +539,7 @@ module eos_module
       eos%iapws_liquid_coeff%i(17) =  2;     eos%iapws_liquid_coeff%j(17)  =   1;    eos%iapws_liquid_coeff%n(17) =   0.47661393906987d-4
       eos%iapws_liquid_coeff%i(18) =  2;     eos%iapws_liquid_coeff%j(18)  =   3;    eos%iapws_liquid_coeff%n(18) = - 0.44141845330846d-5
       eos%iapws_liquid_coeff%i(19) =  2;     eos%iapws_liquid_coeff%j(19)  =  17;    eos%iapws_liquid_coeff%n(19) = - 0.72694996297594d-15
-      eos%iapws_liquid_coeff%i(20) =  3;     eos%iapws_liquid_coeff%j(20)  =  -4;    eos%iapws_liquid_coeff%n(20) = - 0.31679644845054d-4 
+      eos%iapws_liquid_coeff%i(20) =  3;     eos%iapws_liquid_coeff%j(20)  =  -4;    eos%iapws_liquid_coeff%n(20) = - 0.31679644845054d-4
       eos%iapws_liquid_coeff%i(21) =  3;     eos%iapws_liquid_coeff%j(21)  =   0;    eos%iapws_liquid_coeff%n(21) = - 0.28270797985312d-5
       eos%iapws_liquid_coeff%i(22) =  3;     eos%iapws_liquid_coeff%j(22)  =   6;    eos%iapws_liquid_coeff%n(22) = - 0.85205128120103d-9
       eos%iapws_liquid_coeff%i(23) =  4;     eos%iapws_liquid_coeff%j(23)  =  -5;    eos%iapws_liquid_coeff%n(23) = - 0.22425281908000d-5
@@ -492,27 +553,27 @@ module eos_module
       eos%iapws_liquid_coeff%i(31) = 29;     eos%iapws_liquid_coeff%j(31)  = -38;    eos%iapws_liquid_coeff%n(31) =   0.26335781662795d-22
       eos%iapws_liquid_coeff%i(32) = 30;     eos%iapws_liquid_coeff%j(32)  = -39;    eos%iapws_liquid_coeff%n(32) = - 0.11947622640071d-22
       eos%iapws_liquid_coeff%i(33) = 31;     eos%iapws_liquid_coeff%j(33)  = -40;    eos%iapws_liquid_coeff%n(33) =   0.18228094581404d-23
-      eos%iapws_liquid_coeff%i(34) = 32;     eos%iapws_liquid_coeff%j(34)  = -41;    eos%iapws_liquid_coeff%n(34) = - 0.93537087292458d-25  
+      eos%iapws_liquid_coeff%i(34) = 32;     eos%iapws_liquid_coeff%j(34)  = -41;    eos%iapws_liquid_coeff%n(34) = - 0.93537087292458d-25
 
-      eos%iapws_vapor_coeff%j(1)  =    0;    eos%iapws_vapor_coeff%n(1)  = - 0.96927686500217d1     
+      eos%iapws_vapor_coeff%j(1)  =    0;    eos%iapws_vapor_coeff%n(1)  = - 0.96927686500217d1
       eos%iapws_vapor_coeff%j(2)  =    1;    eos%iapws_vapor_coeff%n(2)  =   0.10086655968018d2
       eos%iapws_vapor_coeff%j(3)  =   -5;    eos%iapws_vapor_coeff%n(3)  = - 0.56087911283020d-2
       eos%iapws_vapor_coeff%j(4)  =   -4;    eos%iapws_vapor_coeff%n(4)  =   0.71452738081455d-1
       eos%iapws_vapor_coeff%j(5)  =   -3;    eos%iapws_vapor_coeff%n(5)  = - 0.40710498223928d0
       eos%iapws_vapor_coeff%j(6)  =   -2;    eos%iapws_vapor_coeff%n(6)  =   0.14240819171444d1
       eos%iapws_vapor_coeff%j(7)  =   -1;    eos%iapws_vapor_coeff%n(7)  = - 0.43839511319450d1
-      eos%iapws_vapor_coeff%j(8)  =    2;    eos%iapws_vapor_coeff%n(8)  = - 0.28408632460772d0  
-      eos%iapws_vapor_coeff%j(9)  =    3;    eos%iapws_vapor_coeff%n(9)  =   0.21268463753307d-1  
+      eos%iapws_vapor_coeff%j(8)  =    2;    eos%iapws_vapor_coeff%n(8)  = - 0.28408632460772d0
+      eos%iapws_vapor_coeff%j(9)  =    3;    eos%iapws_vapor_coeff%n(9)  =   0.21268463753307d-1
 
-      eos%iapws_m_vapor_coeff%j(1)  =    0;    eos%iapws_m_vapor_coeff%n(1)  = - 0.96937268393049d1    
+      eos%iapws_m_vapor_coeff%j(1)  =    0;    eos%iapws_m_vapor_coeff%n(1)  = - 0.96937268393049d1
       eos%iapws_m_vapor_coeff%j(2)  =    1;    eos%iapws_m_vapor_coeff%n(2)  =   0.10087275970006d2
       eos%iapws_m_vapor_coeff%j(3)  =   -5;    eos%iapws_m_vapor_coeff%n(3)  = - 0.56087911283020d-2
       eos%iapws_m_vapor_coeff%j(4)  =   -4;    eos%iapws_m_vapor_coeff%n(4)  =   0.71452738081455d-1
       eos%iapws_m_vapor_coeff%j(5)  =   -3;    eos%iapws_m_vapor_coeff%n(5)  = - 0.40710498223928d0
       eos%iapws_m_vapor_coeff%j(6)  =   -2;    eos%iapws_m_vapor_coeff%n(6)  =   0.14240819171444d1
       eos%iapws_m_vapor_coeff%j(7)  =   -1;    eos%iapws_m_vapor_coeff%n(7)  = - 0.43839511319450d1
-      eos%iapws_m_vapor_coeff%j(8)  =    2;    eos%iapws_m_vapor_coeff%n(8)  = - 0.28408632460772d0  
-      eos%iapws_m_vapor_coeff%j(9)  =    3;    eos%iapws_m_vapor_coeff%n(9)  =   0.21268463753307d-1  
+      eos%iapws_m_vapor_coeff%j(8)  =    2;    eos%iapws_m_vapor_coeff%n(8)  = - 0.28408632460772d0
+      eos%iapws_m_vapor_coeff%j(9)  =    3;    eos%iapws_m_vapor_coeff%n(9)  =   0.21268463753307d-1
 
       eos%iapws_vapor_coeff%ir(1)  =  1;     eos%iapws_vapor_coeff%jr(1)  =    0;    eos%iapws_vapor_coeff%nr(1)  = - 0.17731742473213d-2
       eos%iapws_vapor_coeff%ir(2)  =  1;     eos%iapws_vapor_coeff%jr(2)  =    1;    eos%iapws_vapor_coeff%nr(2)  = - 0.17834862292358d-1
@@ -547,7 +608,7 @@ module eos_module
       eos%iapws_vapor_coeff%ir(31) = 10;     eos%iapws_vapor_coeff%jr(31)  =  14;    eos%iapws_vapor_coeff%nr(31) = - 0.10018179379511d-8
       eos%iapws_vapor_coeff%ir(32) = 16;     eos%iapws_vapor_coeff%jr(32)  =  29;    eos%iapws_vapor_coeff%nr(32) = - 0.80882908646985d-10
       eos%iapws_vapor_coeff%ir(33) = 16;     eos%iapws_vapor_coeff%jr(33)  =  50;    eos%iapws_vapor_coeff%nr(33) =   0.10693031879409d0
-      eos%iapws_vapor_coeff%ir(34) = 18;     eos%iapws_vapor_coeff%jr(34)  =  57;    eos%iapws_vapor_coeff%nr(34) = - 0.33662250574171d0 
+      eos%iapws_vapor_coeff%ir(34) = 18;     eos%iapws_vapor_coeff%jr(34)  =  57;    eos%iapws_vapor_coeff%nr(34) = - 0.33662250574171d0
       eos%iapws_vapor_coeff%ir(35) = 20;     eos%iapws_vapor_coeff%jr(35)  =  20;    eos%iapws_vapor_coeff%nr(35) =   0.89185845355421d-24
       eos%iapws_vapor_coeff%ir(36) = 20;     eos%iapws_vapor_coeff%jr(36)  =  35;    eos%iapws_vapor_coeff%nr(36) =   0.30629316876232d-12
       eos%iapws_vapor_coeff%ir(37) = 20;     eos%iapws_vapor_coeff%jr(37)  =  48;    eos%iapws_vapor_coeff%nr(37) = - 0.42002467698208d-5
@@ -556,8 +617,8 @@ module eos_module
       eos%iapws_vapor_coeff%ir(40) = 23;     eos%iapws_vapor_coeff%jr(40)  =  39;    eos%iapws_vapor_coeff%nr(40) = - 0.12768608934681d-14
       eos%iapws_vapor_coeff%ir(41) = 24;     eos%iapws_vapor_coeff%jr(41)  =  26;    eos%iapws_vapor_coeff%nr(41) =   0.73087610595061d-28
       eos%iapws_vapor_coeff%ir(42) = 24;     eos%iapws_vapor_coeff%jr(42)  =  40;    eos%iapws_vapor_coeff%nr(42) =   0.55414715350778d-16
-      eos%iapws_vapor_coeff%ir(43) = 24;     eos%iapws_vapor_coeff%jr(43)  =  58;    eos%iapws_vapor_coeff%nr(43) = - 0.94369707241210d-6  
-          
+      eos%iapws_vapor_coeff%ir(43) = 24;     eos%iapws_vapor_coeff%jr(43)  =  58;    eos%iapws_vapor_coeff%nr(43) = - 0.94369707241210d-6
+
       eos%iapws_m_vapor_coeff%ir(1)  =  1;     eos%iapws_m_vapor_coeff%jr(1)  =    0;    eos%iapws_m_vapor_coeff%nr(1)  = - 0.73362260186506d-2
       eos%iapws_m_vapor_coeff%ir(2)  =  1;     eos%iapws_m_vapor_coeff%jr(2)  =    2;    eos%iapws_m_vapor_coeff%nr(2)  = - 0.88223831943146d-1
       eos%iapws_m_vapor_coeff%ir(3)  =  1;     eos%iapws_m_vapor_coeff%jr(3)  =    5;    eos%iapws_m_vapor_coeff%nr(3)  = - 0.72334555213245d-1
@@ -571,13 +632,13 @@ module eos_module
       eos%iapws_m_vapor_coeff%ir(11) =  4;     eos%iapws_m_vapor_coeff%jr(11)  =  10;    eos%iapws_m_vapor_coeff%nr(11) = - 0.79238375446139d-2
       eos%iapws_m_vapor_coeff%ir(12) =  5;     eos%iapws_m_vapor_coeff%jr(12)  =   9;    eos%iapws_m_vapor_coeff%nr(12) = - 0.22888160778447d-3
       eos%iapws_m_vapor_coeff%ir(13) =  5;     eos%iapws_m_vapor_coeff%jr(13)  =  10;    eos%iapws_m_vapor_coeff%nr(13) = - 0.26456501482810d-2
-     
+
     end subroutine set_iapws97_eos
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine set_iapws97_prop(eos)
       implicit none
       class(t_eos), intent(inout) :: eos
-      
+
       allocate(eos%iapws_prop_coeff%h(0:3),eos%iapws_prop_coeff%l(0:3))
       allocate(eos%iapws_prop_coeff%hh(0:5,0:6),eos%iapws_prop_coeff%ll(0:4,0:5))
 
@@ -633,11 +694,12 @@ module eos_module
       eos%iapws_prop_coeff%ll(4,5) =   0.d0
     end subroutine set_iapws97_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine set_srk_property(eos,fluid)
+    subroutine set_srk_property(eos,fluid,srk_property)
       implicit none
       class(t_eos), intent(inout) :: eos
       integer, intent(in) :: fluid
-      type(t_srk_property) :: srk_property
+      type(t_srk_property),intent(out) :: srk_property
+      real(8),parameter :: ru=8.314d0
 
       select case(fluid)
       case(2) ! nitrogen
@@ -647,7 +709,7 @@ module eos_module
         srk_property%mw  = 28.013d-3
         srk_property%w   = 0.0372d0
         srk_property%cv0 = 742.2d0
-        
+
       case(3) ! oxygen
         srk_property%tc  = 154.58d0
         srk_property%pc  = 5.043d6
@@ -662,8 +724,8 @@ module eos_module
         srk_property%tb  = 20.369d0
         srk_property%mw  = 2.0159d-3
         srk_property%w   = -0.219d0
-        srk_property%cv0 = 0.d0         ! should be filled
-        
+        srk_property%cv0 = 6186.6d0     ! should be filled
+
       case(5) ! helium
         srk_property%tc  = 5.1953d0
         srk_property%pc  = 0.22746d6
@@ -674,23 +736,11 @@ module eos_module
       case default
       end select
 
-      eos%srk_gas_property = srk_property
+      srk_property%s     = 0.48508d0+1.5517d0*srk_property%w-0.15613d0*srk_property%w**2
+      srk_property%a     = 0.42747d0*(ru*srk_property%tc)**2/srk_property%pc
+      srk_property%b     = 0.08664d0*ru*srk_property%tc/srk_property%pc
 
     end subroutine set_srk_property
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine set_srk_coeff(p,t,srk_property,srk_coeff)
-      implicit none
-      real(8), intent(in) :: p,t
-      type(t_srk_property), intent(in) :: srk_property
-      type(t_srk_coeff), intent(out) :: srk_coeff
-      real(8),parameter :: ru=8.314d0
-
-      srk_coeff%s     = 0.48508d0 + 1.5517d0*srk_property%w - 0.15613d0*srk_property%w**2
-      srk_coeff%a     = 0.42747d0*(ru*srk_property%tc)**2/srk_property%pc
-      srk_coeff%alpha = (1.d0 + srk_coeff%s*(1.d0-dsqrt(t/srk_property%tc)))**2
-      srk_coeff%b     = 0.08664d0*ru*srk_property%tc/srk_property%pc
-
-    end subroutine set_srk_coeff
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine set_database(eos,fluid,phase)
       implicit none
@@ -698,7 +748,6 @@ module eos_module
       integer, intent(in) :: fluid,phase
       !integer :: n,l,k
       integer :: m,io,ier
-      !integer :: nstart,nend
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
       character(3) :: c_phase,c_fluid
@@ -749,8 +798,8 @@ module eos_module
 !          do m=1,eos%db_const(phase)%t_ndata
 !            read(10) eos%db_const(phase)%db(m)%t
 !            read(10) eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend
-!            allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend,9))
-! 
+!            allocate(eos%db_const(phase)%db(m)%p(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend))
+!
 !            read(10) eos%db_const(phase)%db(m)%p_nsub
 !            allocate(eos%db_const(phase)%db(m)%p_boundary(eos%db_const(phase)%db(m)%p_nsub+1))
 !            allocate(eos%db_const(phase)%db(m)%p_iboundary(eos%db_const(phase)%db(m)%p_nsub+1))
@@ -760,18 +809,38 @@ module eos_module
 !              read(10) eos%db_const(phase)%db(m)%p_boundary(n)
 !              read(10) eos%db_const(phase)%db(m)%p_iboundary(n)
 !            end do
-!  
+!
 !            do n=1,eos%db_const(phase)%db(m)%p_nsub
 !              read(10) eos%db_const(phase)%db(m)%p_delta(n)
 !            end do
 !
-!            do n=eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend 
+!            do n=eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend
+!              read(10) eos%db_const(phase)%db(m)%p(n)
+!            end do
+!
+!          end do
+!
+!          do m=1,eos%db_const(phase)%t_ndata-1
+!            allocate(eos%db_const(phase)%db(m)%rho(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,9))
+!            allocate(eos%db_const(phase)%db(m)%h(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,9))
+!            allocate(eos%db_const(phase)%db(m)%vis(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,4))
+!            allocate(eos%db_const(phase)%db(m)%cond(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,4))
+!
+!            do n=eos%db_const(phase)%db(m)%p_nstart,eos%db_const(phase)%db(m)%p_nend-1
 !              do l=1,9
-!                read(10) eos%db_const(phase)%db(m)%dbv(n,l)
+!                read(10) eos%db_const(phase)%db(m)%rho(n,l)
+!              end do
+!              do l=1,9
+!                read(10) eos%db_const(phase)%db(m)%h(n,l)
+!              end do
+!              do l=1,4
+!                read(10) eos%db_const(phase)%db(m)%vis(n,l)
+!              end do
+!              do l=1,4
+!                read(10) eos%db_const(phase)%db(m)%cond(n,l)
 !              end do
 !            end do
 !          end do
-!
 !          close(10)
 !
 !        end if
@@ -832,10 +901,28 @@ module eos_module
 !        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
 !        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p_delta,eos%db_const(phase)%db(m)%p_nsub,mpi_real8,mpi_status_ignore,ier)
 !        disp = disp + realsize*eos%db_const(phase)%db(m)%p_nsub
-! 
+!
 !        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%dbv,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9,mpi_real8,mpi_status_ignore,ier)
-!        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9
+!        call mpi_file_write_all(io,eos%db_const(phase)%db(m)%p,eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1,mpi_real8,mpi_status_ignore,ier)
+!        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)
+!
+!        if (m.lt.eos%db_const(phase)%t_ndata) then
+!          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!          call mpi_file_write_all(io,eos%db_const(phase)%db(m)%rho,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9,mpi_real8,mpi_status_ignore,ier)
+!          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9
+!
+!          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!          call mpi_file_write_all(io,eos%db_const(phase)%db(m)%h,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9,mpi_real8,mpi_status_ignore,ier)
+!          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9
+!
+!          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!          call mpi_file_write_all(io,eos%db_const(phase)%db(m)%vis,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4,mpi_real8,mpi_status_ignore,ier)
+!          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4
+!
+!          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+!          call mpi_file_write_all(io,eos%db_const(phase)%db(m)%cond,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4,mpi_real8,mpi_status_ignore,ier)
+!          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4
+!        end if
 !
 !      end do
 !
@@ -880,12 +967,12 @@ module eos_module
         call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
         call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nstart,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
-        
+
         call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
         call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nend,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
-        allocate(eos%db_const(phase)%db(m)%dbv(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend,9))
-      
+        allocate(eos%db_const(phase)%db(m)%p(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend))
+
         call mpi_file_set_view(io,disp,mpi_integer,mpi_integer,'native',mpi_info_null,ier)
         call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_nsub,1,mpi_integer,mpi_status_ignore,ier)
         disp = disp + intsize
@@ -904,10 +991,33 @@ module eos_module
         call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
         call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p_delta,eos%db_const(phase)%db(m)%p_nsub,mpi_real8,mpi_status_ignore,ier)
         disp = disp + realsize*eos%db_const(phase)%db(m)%p_nsub
-  
+
         call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%dbv,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9,mpi_real8,mpi_status_ignore,ier)
-        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)*9
+        call mpi_file_read_all(io,eos%db_const(phase)%db(m)%p,eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart+1)
+
+        if(m.lt.eos%db_const(phase)%t_ndata) then
+          allocate(eos%db_const(phase)%db(m)%rho(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,9))
+          allocate(eos%db_const(phase)%db(m)%h(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,9))
+          allocate(eos%db_const(phase)%db(m)%vis(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,4))
+          allocate(eos%db_const(phase)%db(m)%cond(eos%db_const(phase)%db(m)%p_nstart:eos%db_const(phase)%db(m)%p_nend-1,4))
+
+          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+          call mpi_file_read_all(io,eos%db_const(phase)%db(m)%rho,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9,mpi_real8,mpi_status_ignore,ier)
+          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9
+
+          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+          call mpi_file_read_all(io,eos%db_const(phase)%db(m)%h,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9,mpi_real8,mpi_status_ignore,ier)
+          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*9
+
+          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+          call mpi_file_read_all(io,eos%db_const(phase)%db(m)%vis,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4,mpi_real8,mpi_status_ignore,ier)
+          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4
+
+          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+          call mpi_file_read_all(io,eos%db_const(phase)%db(m)%cond,(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4,mpi_real8,mpi_status_ignore,ier)
+          disp = disp + realsize*(eos%db_const(phase)%db(m)%p_nend-eos%db_const(phase)%db(m)%p_nstart)*4
+        end if
 
       end do
 
@@ -922,19 +1032,11 @@ module eos_module
       real(8), intent(out) :: dv(eos%ndv) ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
       type(t_eos2)  :: l_eos,v_eos,g_eos
       real(8) :: irhol,irhov,irhog,irho,yl
-
-      l_eos%flag = .true.
-      v_eos%flag = .true.
-      g_eos%flag = .true.
+      real(8) :: ic2l,ic2v,ic2g
 
       call eos%eos_l(p,t,1,l_eos)
       call eos%eos_v(p,t,2,v_eos)
       call eos%eos_g(p,t,3,g_eos)
-      
-      if(.not.l_eos%flag) l_eos = v_eos
-      if(.not.v_eos%flag) v_eos = l_eos
-      if(.not.g_eos%flag) g_eos = l_eos
-      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in simple',p,t,y1,y2
 
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
@@ -956,14 +1058,22 @@ module eos_module
                        + y2*irhog**2*g_eos%drdt)
       dv(9)  = dv(1)**2*(irhol - irhov)
       dv(10) = dv(1)**2*(irhol - irhog)
-    
+
       dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
       dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
       dv(13) = v_eos%h - l_eos%h
       dv(14) = g_eos%h - l_eos%h
-      
+
       dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
-      
+      if(dv(6).le.0.d0) then
+        write(*,*) 'alternative calculation for snd2'
+
+        ic2l = (dv(3)*l_eos%drdp*l_eos%dhdt + l_eos%drdt*(1.d0-dv(3)*l_eos%dhdp))/(dv(3)*l_eos%dhdt)
+        ic2v = (dv(4)*v_eos%drdp*v_eos%dhdt + v_eos%drdt*(1.d0-dv(4)*v_eos%dhdp))/(dv(4)*v_eos%dhdt)
+        ic2g = (dv(5)*g_eos%drdp*g_eos%dhdt + g_eos%drdt*(1.d0-dv(5)*g_eos%dhdp))/(dv(5)*g_eos%dhdt)
+        dv(6) = 1.d0/(dv(1)**2*(yl*ic2l*irhol**2+y1*ic2v*irhov**2+y2*ic2g*irhog**2))
+      end if
+
       dv(15) = v_eos%drdp
       dv(16) = v_eos%drdt
       dv(17) = l_eos%drdp
@@ -979,20 +1089,12 @@ module eos_module
       real(8), intent(inout) :: tv(eos%ntv)
       type(t_eos2)  :: l_eos,v_eos,g_eos
       real(8) :: irhol,irhov,irhog,irho,yl
-
-      l_eos%flag = .true.
-      v_eos%flag = .true.
-      g_eos%flag = .true.
+      real(8) :: ic2l,ic2v,ic2g
 
       call eos%eos_l(p,t,1,l_eos)
       call eos%eos_v(p,t,2,v_eos)
       call eos%eos_g(p,t,3,g_eos)
-      
-      if(.not.l_eos%flag) l_eos = v_eos
-      if(.not.v_eos%flag) v_eos = l_eos
-      if(.not.g_eos%flag) g_eos = l_eos
-      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in only',p,t,y1,y2
-      
+
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
       dv(5)  = g_eos%rho
@@ -1013,14 +1115,21 @@ module eos_module
                        + y2*irhog**2*g_eos%drdt)
       dv(9)  = dv(1)**2*(irhol - irhov)
       dv(10) = dv(1)**2*(irhol - irhog)
-    
+
       dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
       dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
       dv(13) = v_eos%h - l_eos%h
       dv(14) = g_eos%h - l_eos%h
-      
+
       dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
-      
+      if(dv(6).le.0.d0) then
+        write(*,*) 'alternative calculation for snd2'
+        ic2l = (dv(3)*l_eos%drdp*l_eos%dhdt + l_eos%drdt*(1.d0-dv(3)*l_eos%dhdp))/(dv(3)*l_eos%dhdt)
+        ic2v = (dv(4)*v_eos%drdp*v_eos%dhdt + v_eos%drdt*(1.d0-dv(4)*v_eos%dhdp))/(dv(4)*v_eos%dhdt)
+        ic2g = (dv(5)*g_eos%drdp*g_eos%dhdt + g_eos%drdt*(1.d0-dv(5)*g_eos%dhdp))/(dv(5)*g_eos%dhdt)
+        dv(6) = 1.d0/(dv(1)**2*(yl*ic2l*irhol**2+y1*ic2v*irhov**2+y2*ic2g*irhog**2))
+      end if
+
       dv(15) = v_eos%drdp
       dv(16) = v_eos%drdt
       dv(17) = l_eos%drdp
@@ -1037,19 +1146,11 @@ module eos_module
       type(t_eos2)  :: l_eos,v_eos,g_eos
       type(t_prop2) :: l_prop,v_prop,g_prop
       real(8) :: irhol,irhov,irhog,irho,yl
-
-      l_eos%flag = .true.
-      v_eos%flag = .true.
-      g_eos%flag = .true.
+      real(8) :: ic2l,ic2v,ic2g
 
       call eos%eos_l_prop(p,t,1,l_eos,l_prop)
       call eos%eos_v_prop(p,t,2,v_eos,v_prop)
       call eos%eos_g_prop(p,t,3,g_eos,g_prop)
-      
-      if(.not.l_eos%flag) l_eos = v_eos
-      if(.not.v_eos%flag) v_eos = l_eos
-      if(.not.g_eos%flag) g_eos = l_eos
-      if((.not.l_eos%flag).and.(.not.v_eos%flag)) write(*,*) 'l_eos & v_eos flags are both .false. in prop',p,t,y1,y2
 
       dv(3)  = l_eos%rho
       dv(4)  = v_eos%rho
@@ -1071,14 +1172,21 @@ module eos_module
                        + y2*irhog**2*g_eos%drdt)
       dv(9)  = dv(1)**2*(irhol - irhov)
       dv(10) = dv(1)**2*(irhol - irhog)
-    
+
       dv(11) = yl*l_eos%dhdp + y1*v_eos%dhdp + y2*g_eos%dhdp
       dv(12) = yl*l_eos%dhdt + y1*v_eos%dhdt + y2*g_eos%dhdt
       dv(13) = v_eos%h - l_eos%h
       dv(14) = g_eos%h - l_eos%h
-      
+
       dv(6)  = dv(1)*dv(12)/(dv(1)*dv(7)*dv(12)+dv(8)*(1.d0-dv(1)*dv(11)))
-      
+      if(dv(6).le.0.d0) then
+        write(*,*) 'alternative calculation for snd2'
+        ic2l = (dv(3)*l_eos%drdp*l_eos%dhdt + l_eos%drdt*(1.d0-dv(3)*l_eos%dhdp))/(dv(3)*l_eos%dhdt)
+        ic2v = (dv(4)*v_eos%drdp*v_eos%dhdt + v_eos%drdt*(1.d0-dv(4)*v_eos%dhdp))/(dv(4)*v_eos%dhdt)
+        ic2g = (dv(5)*g_eos%drdp*g_eos%dhdt + g_eos%drdt*(1.d0-dv(5)*g_eos%dhdp))/(dv(5)*g_eos%dhdt)
+        dv(6) = 1.d0/(dv(1)**2*(yl*ic2l*irhol**2+y1*ic2v*irhov**2+y2*ic2g*irhog**2))
+      end if
+
       dv(15) = v_eos%drdp
       dv(16) = v_eos%drdt
       dv(17) = l_eos%drdp
@@ -1143,7 +1251,7 @@ module eos_module
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      real(8), parameter :: r1 = 0.00037160906726d0 !1.d0/2691.d0
+      real(8), parameter :: r1 = 0.00037160906726d0 !2.8d0/1.8d0/4186.d0
       real(8) :: tau
 
       tau = 1.d0/t
@@ -1164,7 +1272,7 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out):: prop2
-      real(8), parameter :: r1 = 0.00037160906726d0 !1.d0/2691.d0
+      real(8), parameter :: r1 = 0.00037160906726d0 !2.8d0/1.8d0/4186.d0
       real(8) :: tau,temp
 
       tau = 1.d0/t
@@ -1196,7 +1304,7 @@ module eos_module
 
       pi = p*0.00000006049607d0!/16.53d6
       tau = 1386d0/t
-      
+
       pi1 = 1.d0/(7.1d0-pi)
       tau1 = 1.d0/(tau-1.222d0)
       gt = 0.d0
@@ -1216,10 +1324,10 @@ module eos_module
         gpp = gpp + g3
         gtt = gtt + g4
         gpt = gpt + g5
-      end do      
-      
+      end do
+
       gp1 = 1.d0/gp
-      
+
       eos2%rho  = 25.841246054191803727*tau*gp1
       eos2%h    = 639675.036d0*gt
       eos2%drdp = -gpp*1.5632937721834122d-6*tau*gp1**2
@@ -1240,16 +1348,16 @@ module eos_module
       real(8) :: g0,g01,g02
       real(8) :: gr,gr1,gr2,gr3,gr4,gr5,pi1,tau1,tau2,gp1
       integer :: k
-      
+
       pww = eos%get_pww(t)
-      
+
       pi = p*1d-6
       tau = 540d0/t
-      
+
       pi1 = 1.d6/p
       tau1 = 1.d0/tau
       tau2 = 1.d0/(tau-0.5d0)
-      
+
       g0t = 0.d0
       g0p = pi1
       g0pp = -pi1**2
@@ -1260,7 +1368,7 @@ module eos_module
       grpp = 0.d0
       grtt = 0.d0
       grpt = 0.d0
-    
+
       if(p.gt.pww) then
         do k = 1,13
           if(k.le.9) then
@@ -1304,9 +1412,9 @@ module eos_module
           grpt = grpt + gr5
         end do
       end if
-      
+
       gp1 = 1.d0/(g0p+grp)
-      
+
       eos2%rho  = 4.01245401527075799d0*tau*gp1
       eos2%h    = 249224.04d0*(g0t+grt)
       eos2%drdp = -(g0pp+grpp)*4.01245401527075799d-6*tau*gp1**2
@@ -1330,7 +1438,7 @@ module eos_module
 
       pi = p*0.00000006049607d0!/16.53d6
       tau = 1386d0/t
-      
+
       pi1 = 1.d0/(7.1d0-pi)
       tau1 = 1.d0/(tau-1.222d0)
       gt = 0.d0
@@ -1350,10 +1458,10 @@ module eos_module
         gpp = gpp + g3
         gtt = gtt + g4
         gpt = gpt + g5
-      end do      
-      
+      end do
+
       gp1 = 1.d0/gp
-      
+
       eos2%rho  = 25.841246054191803727*tau*gp1
       eos2%h    = 639675.036d0*gt
       eos2%drdp = -gpp*1.5632937721834122d-6*tau*gp1**2
@@ -1364,7 +1472,7 @@ module eos_module
       tt = t*0.00154495032985d0!/647.27d0
       rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))*0.00314699949333d0!/317.763d0
       tt1 = 647.27d0/t
-      
+
       mu0 = dsqrt(tt)/(eos%iapws_prop_coeff%h(0) + eos%iapws_prop_coeff%h(1)*tt1  &
                   + eos%iapws_prop_coeff%h(2)*tt1**2 + eos%iapws_prop_coeff%h(3)*tt1**3)
 
@@ -1407,16 +1515,16 @@ module eos_module
       real(8) :: gr,gr1,gr2,gr3,gr4,gr5,pi1,tau1,tau2,gp1
       real(8) :: tt,rr,mu0,mu1,mu2,lam0,lam1,lam2,tt1
       integer :: i,j,k
-      
+
       pww = eos%get_pww(t)
-      
+
       pi = p*1d-6
       tau = 540d0/t
-      
+
       pi1 = 1.d6/p
       tau1 = 1.d0/tau
       tau2 = 1.d0/(tau-0.5d0)
-      
+
       g0t = 0.d0
       g0p = pi1
       g0pp = -pi1**2
@@ -1427,7 +1535,7 @@ module eos_module
       grpp = 0.d0
       grtt = 0.d0
       grpt = 0.d0
-    
+
       if(p.gt.pww) then
         do k = 1,13
           if(k.le.9) then
@@ -1471,9 +1579,9 @@ module eos_module
           grpt = grpt + gr5
         end do
       end if
-      
+
       gp1 = 1.d0/(g0p+grp)
-      
+
       eos2%rho  = 4.01245401527075799d0*tau*gp1
       eos2%h    = 249224.04d0*(g0t+grt)
       eos2%drdp = -(g0pp+grpp)*4.01245401527075799d-6*tau*gp1**2
@@ -1484,7 +1592,7 @@ module eos_module
       tt = t*0.00154495032985d0!/647.27d0
       rr = dmax1(1.d-3,dmin1(1332.4d0,eos2%rho))*0.00314699949333d0!/317.763d0
       tt1 = 647.27d0/t
-      
+
       mu0 = dsqrt(tt)/(eos%iapws_prop_coeff%h(0) + eos%iapws_prop_coeff%h(1)*tt1  &
                   + eos%iapws_prop_coeff%h(2)*tt1**2 + eos%iapws_prop_coeff%h(3)*tt1**3)
 
@@ -1521,9 +1629,10 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       integer :: t_index,p_index,l
-      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
-      real(8) :: t1,t2,p1,p2,snd2
-      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,m3,m4,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2
+      real(8) :: x(2),y(4)
+      real(8) :: xi,eta,dp,dt,output(3),coeff(9)
 
       t_subn = 0
       p_subn1 = 0
@@ -1541,14 +1650,20 @@ module eos_module
       end do
 
       if(t_subn.eq.0) then
-        eos2%flag = .false.
-        return
+        if(t.le.eos%db_const(phase)%t_boundary(1)) then
+          n1 = 1
+          n2 = 2
+        else if(t.ge.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+          n1 = eos%db_const(phase)%t_ndata-1
+          n2 = eos%db_const(phase)%t_ndata
+        end if
+      else
+        t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) &
+                + eos%db_const(phase)%t_iboundary(t_subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
       end if
 
-      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
-      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
-      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
-      
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
@@ -1564,16 +1679,24 @@ module eos_module
       end do
 
       if(p_subn1.eq.0) then
-        eos2%flag = .false.
-        return
+        if(p.le.eos%db_const(phase)%db(n1)%p_boundary(1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_nstart
+          m2 = eos%db_const(phase)%db(n1)%p_nstart+1
+          p_subn1 = 1
+        else if(p.ge.eos%db_const(phase)%db(n1)%p_boundary(eos%db_const(phase)%db(n1)%p_nsub+1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)-1
+          m2 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)
+          p_subn1 = eos%db_const(phase)%db(n1)%p_nsub
+        end if
+      else
+        p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) &
+                + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
       end if
 
-      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
-      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
-      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
-      
-      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n1)%p(m2)
 
 
       ! defining the pressure index 2
@@ -1587,57 +1710,62 @@ module eos_module
       end do
 
       if(p_subn2.eq.0) then
-        eos2%flag = .false.
-        return
-      end if
-
-      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
-      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
-      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
-
-      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
-      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
-
-
-      ! interpolation
-      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
-        ! barycentric interpolation in triangle
-        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
-          n = n1
-          m = m2
-        else
-          n = n2
-          m = m4
+        if(p.le.eos%db_const(phase)%db(n2)%p_boundary(1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_nstart
+          m3 = eos%db_const(phase)%db(n2)%p_nstart+1
+          p_subn2 = 1
+        else if(p.ge.eos%db_const(phase)%db(n2)%p_boundary(eos%db_const(phase)%db(n2)%p_nsub+1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)-1
+          m3 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)
+          p_subn2 = eos%db_const(phase)%db(n2)%p_nsub
         end if
-        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
-        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
-        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
-        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
-
-        eos2%rho  = (eos%db_const(phase)%db(n)%dbv(m,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3)*a0
-        eos2%h    = (eos%db_const(phase)%db(n)%dbv(m,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3)*a0
-        eos2%drdp = (eos%db_const(phase)%db(n)%dbv(m,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3)*a0
-        eos2%drdt = (eos%db_const(phase)%db(n)%dbv(m,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3)*a0
-        eos2%dhdp = (eos%db_const(phase)%db(n)%dbv(m,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3)*a0
-        eos2%dhdt = (eos%db_const(phase)%db(n)%dbv(m,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3)*a0
       else
-        ! bilinear interpolation
-        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-        a1 = dabs((x(2)-t)*(y(2)-p))
-        a2 = dabs((x(2)-t)*(p-y(1)))
-        a3 = dabs((t-x(1))*(p-y(1)))
-        a4 = dabs((t-x(1))*(y(2)-p))
-     
-        eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,2)*a4 )*a0
-        eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,3)*a4 )*a0
-        eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,4)*a4 )*a0
-        eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,5)*a4 )*a0
-        eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,6)*a4 )*a0
-        eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,7)*a4 )*a0
+        p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) &
+                + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+        m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+        m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
       end if
 
-      snd2 = eos2%rho*eos2%dhdt/(eos2%rho*eos2%dhdt*eos2%drdp + eos2%drdt*(1.d0-eos2%rho*eos2%dhdp))
-      if(snd2.lt.0.d0) eos2%flag = .false.
+      y(4) = eos%db_const(phase)%db(n2)%p(m4)
+      y(3) = eos%db_const(phase)%db(n2)%p(m3)
+
+
+      ! construct regular grid
+      ! m1~m4: clockwise from the lower left point (m1)
+      if (y(1) .lt. y(4)) then
+        m4 = int((y(1)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m1 = int((y(4)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      if (y(2) .gt. y(3)) then
+        m3 = int((y(2)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m2 = int((y(3)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n2)%p(m3)
+
+
+      ! biquadratic interpolation
+      dt = x(2)-x(1)
+      dp = y(2)-y(1)
+
+      xi  = dmin1(dmax1((t-x(1))/(x(2)-x(1)),0.d0),1.d0)
+      eta = dmin1(dmax1((p-y(1))/(y(2)-y(1)),0.d0),1.d0)
+
+      coeff = eos%db_const(phase)%db(n1)%rho(m1,:)
+      call biquadratic_interpolation(coeff,xi,eta,dt,dp,output)
+      eos2%rho  = output(1)
+      eos2%drdt = output(2)
+      eos2%drdp = output(3)
+
+      coeff = eos%db_const(phase)%db(n1)%h(m1,:)
+      call biquadratic_interpolation(coeff,xi,eta,dt,dp,output)
+      eos2%h    = output(1)
+      eos2%dhdt = output(2)
+      eos2%dhdp = output(3)
 
     end subroutine database
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1649,9 +1777,10 @@ module eos_module
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
       integer :: t_index,p_index,l
-      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
-      real(8) :: t1,t2,p1,p2,snd2
-      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,m3,m4,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2
+      real(8) :: x(2),y(4)
+      real(8) :: xi,eta,dp,dt,output(3),coeff(9)
 
       t_subn = 0
       p_subn1 = 0
@@ -1669,14 +1798,20 @@ module eos_module
       end do
 
       if(t_subn.eq.0) then
-        eos2%flag = .false.
-        return
+        if(t.le.eos%db_const(phase)%t_boundary(1)) then
+          n1 = 1
+          n2 = 2
+        else if(t.ge.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+          n1 = eos%db_const(phase)%t_ndata-1
+          n2 = eos%db_const(phase)%t_ndata
+        end if
+      else
+        t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) &
+                + eos%db_const(phase)%t_iboundary(t_subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
       end if
 
-      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
-      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
-      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
-      
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
@@ -1692,16 +1827,24 @@ module eos_module
       end do
 
       if(p_subn1.eq.0) then
-        eos2%flag = .false.
-        return
+        if(p.le.eos%db_const(phase)%db(n1)%p_boundary(1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_nstart
+          m2 = eos%db_const(phase)%db(n1)%p_nstart+1
+          p_subn1 = 1
+        else if(p.ge.eos%db_const(phase)%db(n1)%p_boundary(eos%db_const(phase)%db(n1)%p_nsub+1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)-1
+          m2 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)
+          p_subn1 = eos%db_const(phase)%db(n1)%p_nsub
+        end if
+      else
+        p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) &
+                + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
       end if
 
-      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
-      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
-      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
-      
-      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n1)%p(m2)
 
 
       ! defining the pressure index 2
@@ -1715,61 +1858,71 @@ module eos_module
       end do
 
       if(p_subn2.eq.0) then
-        eos2%flag = .false.
-        return
-      end if
-
-      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
-      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
-      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
-
-      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
-      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
-
-
-      ! interpolation
-      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
-        ! barycentric interpolation in triangle
-        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
-          n = n1
-          m = m2
-        else
-          n = n2
-          m = m4
+        if(p.le.eos%db_const(phase)%db(n2)%p_boundary(1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_nstart
+          m3 = eos%db_const(phase)%db(n2)%p_nstart+1
+          p_subn2 = 1
+        else if(p.ge.eos%db_const(phase)%db(n2)%p_boundary(eos%db_const(phase)%db(n2)%p_nsub+1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)-1
+          m3 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)
+          p_subn2 = eos%db_const(phase)%db(n2)%p_nsub
         end if
-        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
-        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
-        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
-        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
-
-        eos2%rho  = (eos%db_const(phase)%db(n)%dbv(m,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3)*a0
-        eos2%h    = (eos%db_const(phase)%db(n)%dbv(m,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3)*a0
-        eos2%drdp = (eos%db_const(phase)%db(n)%dbv(m,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3)*a0
-        eos2%drdt = (eos%db_const(phase)%db(n)%dbv(m,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3)*a0
-        eos2%dhdp = (eos%db_const(phase)%db(n)%dbv(m,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3)*a0
-        eos2%dhdt = (eos%db_const(phase)%db(n)%dbv(m,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3)*a0
-        prop2%vis = (eos%db_const(phase)%db(n)%dbv(m,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3)*a0
-        prop2%cond = (eos%db_const(phase)%db(n)%dbv(m,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3)*a0
-     else
-        ! bilinear interpolation
-        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-        a1 = dabs((x(2)-t)*(y(2)-p))
-        a2 = dabs((x(2)-t)*(p-y(1)))
-        a3 = dabs((t-x(1))*(p-y(1)))
-        a4 = dabs((t-x(1))*(y(2)-p))
-     
-        eos2%rho  = (eos%db_const(phase)%db(n1)%dbv(m1,2)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,2)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,2)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,2)*a4 )*a0
-        eos2%h    = (eos%db_const(phase)%db(n1)%dbv(m1,3)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,3)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,3)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,3)*a4 )*a0
-        eos2%drdp = (eos%db_const(phase)%db(n1)%dbv(m1,4)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,4)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,4)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,4)*a4 )*a0
-        eos2%drdt = (eos%db_const(phase)%db(n1)%dbv(m1,5)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,5)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,5)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,5)*a4 )*a0
-        eos2%dhdp = (eos%db_const(phase)%db(n1)%dbv(m1,6)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,6)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,6)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,6)*a4 )*a0
-        eos2%dhdt = (eos%db_const(phase)%db(n1)%dbv(m1,7)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,7)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,7)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,7)*a4 )*a0
-        prop2%vis = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,8)*a4 )*a0
-        prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,9)*a4 )*a0
+      else
+        p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) &
+                + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+        m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+        m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
       end if
 
-      snd2 = eos2%rho*eos2%dhdt/(eos2%rho*eos2%dhdt*eos2%drdp + eos2%drdt*(1.d0-eos2%rho*eos2%dhdp))
-      if(snd2.lt.0.d0) eos2%flag = .false.
+      y(4) = eos%db_const(phase)%db(n2)%p(m4)
+      y(3) = eos%db_const(phase)%db(n2)%p(m3)
+
+      ! construct regular grid
+      ! m1~m4: clockwise from the lower left point (m1)
+      if (y(1) .lt. y(4)) then
+        m4 = int((y(1)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m1 = int((y(4)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      if (y(2) .gt. y(3)) then
+        m3 = int((y(2)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m2 = int((y(3)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n2)%p(m3)
+
+
+      ! biquadratic interpolation
+      dt = x(2)-x(1)
+      dp = y(2)-y(1)
+
+      xi  = dmin1(dmax1((t-x(1))/(x(2)-x(1)),0.d0),1.d0)
+      eta = dmin1(dmax1((p-y(1))/(y(2)-y(1)),0.d0),1.d0)
+
+      coeff = eos%db_const(phase)%db(n1)%rho(m1,:)
+      call biquadratic_interpolation(coeff,xi,eta,dt,dp,output)
+      eos2%rho  = output(1)
+      eos2%drdt = output(2)
+      eos2%drdp = output(3)
+
+      coeff = eos%db_const(phase)%db(n1)%h(m1,:)
+      call biquadratic_interpolation(coeff,xi,eta,dt,dp,output)
+      eos2%h    = output(1)
+      eos2%dhdt = output(2)
+      eos2%dhdp = output(3)
+
+
+      ! bilinear interpolation
+      coeff(1:4) = eos%db_const(phase)%db(n1)%vis(m1,:)
+      call bilinear_interpolation(coeff(1:4),xi,eta,dt,dp,output)
+      prop2%vis = output(1)
+
+      coeff(1:4) = eos%db_const(phase)%db(n1)%cond(m1,:)
+      call bilinear_interpolation(coeff(1:4),xi,eta,dt,dp,output)
+      prop2%cond = output(1)
 
     end subroutine database_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1779,27 +1932,37 @@ module eos_module
       real(8), intent(in) :: p,t
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
-      type(t_srk_coeff) :: srk_coeff
       real(8),parameter :: ru=8.314d0
-      real(8) :: a,alpha,b,mw,s,tc,pc,cv0
+      real(8) :: a,alpha,b,mw,s,tc,pc,tb,cv0
       real(8) :: rho,e,h,pv
       real(8) :: dpdt,dpdr
       real(8) :: daadt,dsaadt,daidt
       real(8) :: ddaaddt,ddsaaddt,ddaiddt
       real(8) :: cv,cp,bp,bt,ap,ar
 
-      call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
+      if(phase.eq.2) then
+        tc   = eos%srk_vapor_property%tc
+        pc   = eos%srk_vapor_property%pc
+        tb   = eos%srk_vapor_property%tb
+        mw   = eos%srk_vapor_property%mw
+        cv0  = eos%srk_vapor_property%cv0
+        s    = eos%srk_vapor_property%s
+        a    = eos%srk_vapor_property%a
+        b    = eos%srk_vapor_property%b
+      else if(phase.eq.3) then
+        tc   = eos%srk_gas_property%tc
+        pc   = eos%srk_gas_property%pc
+        tb   = eos%srk_gas_property%tb
+        mw   = eos%srk_gas_property%mw
+        cv0  = eos%srk_gas_property%cv0
+        s    = eos%srk_gas_property%s
+        a    = eos%srk_gas_property%a
+        b    = eos%srk_gas_property%b
+      end if
 
-      a     = srk_coeff%a
-      alpha = srk_coeff%alpha
-      b     = srk_coeff%b
-      mw    = eos%srk_gas_property%mw
-      s     = srk_coeff%s
-      tc    = eos%srk_gas_property%tc
-      pc    = eos%srk_gas_property%pc
-      cv0   = eos%srk_gas_property%cv0
+      alpha = (1.d0 + s*(1.d0-dsqrt(t/tc)))**2
 
-      pv = computepv(tc,pc,eos%srk_gas_property%tb,t)
+      pv = computepv(tc,pc,tb,t)
       !if ((p.le.pv).and.(t.le.tc)) then
       if ((p.le.pv)) then
         alpha = pv/pc
@@ -1851,33 +2014,44 @@ module eos_module
       integer, intent(in) :: phase
       type(t_eos2), intent(out) :: eos2
       type(t_prop2), intent(out) :: prop2
-      type(t_srk_coeff) :: srk_coeff
       real(8),parameter :: ru=8.314d0
-      real(8) :: a,alpha,b,mw,s,tc,pc,cv0
+      real(8) :: a,alpha,b,mw,s,tc,pc,tb,cv0
       real(8) :: rho,e,h,pv
       real(8) :: dpdt,dpdr
       real(8) :: daadt,dsaadt,daidt
       real(8) :: ddaaddt,ddsaaddt,ddaiddt
       real(8) :: cv,cp,bp,bt,ap,ar
       integer :: t_index,p_index,l
-      integer :: n1,n2,m1,m2,m3,m4,n,m,t_subn,p_subn1,p_subn2
-      real(8) :: t1,t2,p1,p2,snd2
-      real(8) :: x(2),y(4),a0,a1,a2,a3,a4
+      integer :: n1,n2,m1,m2,m3,m4,t_subn,p_subn1,p_subn2
+      real(8) :: t1,t2,p1,p2
+      real(8) :: x(2),y(4)
+      real(8) :: xi,eta,dp,dt,output(3),coeff(4)
 
       ! srk for eos2
 
-      call set_srk_coeff(p,t,eos%srk_gas_property,srk_coeff)
+      if(phase.eq.2) then
+        tc   = eos%srk_vapor_property%tc
+        pc   = eos%srk_vapor_property%pc
+        tb   = eos%srk_vapor_property%tb
+        mw   = eos%srk_vapor_property%mw
+        cv0  = eos%srk_vapor_property%cv0
+        s    = eos%srk_vapor_property%s
+        a    = eos%srk_vapor_property%a
+        b    = eos%srk_vapor_property%b
+     else if(phase.eq.3) then
+        tc   = eos%srk_gas_property%tc
+        pc   = eos%srk_gas_property%pc
+        tb   = eos%srk_gas_property%tb
+        mw   = eos%srk_gas_property%mw
+        cv0  = eos%srk_gas_property%cv0
+        s    = eos%srk_gas_property%s
+        a    = eos%srk_gas_property%a
+        b    = eos%srk_gas_property%b
+      end if
 
-      a     = srk_coeff%a
-      alpha = srk_coeff%alpha
-      b     = srk_coeff%b
-      mw    = eos%srk_gas_property%mw
-      s     = srk_coeff%s
-      tc    = eos%srk_gas_property%tc
-      pc    = eos%srk_gas_property%pc
-      cv0   = eos%srk_gas_property%cv0
+      alpha = (1.d0 + s*(1.d0-dsqrt(t/tc)))**2
 
-      pv = computepv(tc,pc,eos%srk_gas_property%tb,t)
+      pv = computepv(tc,pc,tb,t)
       !if ((p.le.pv).and.(t.le.tc)) then
       if ((p.le.pv)) then
         alpha = pv/pc
@@ -1939,14 +2113,20 @@ module eos_module
       end do
 
       if(t_subn.eq.0) then
-        eos2%flag = .false.
-        return
+        if(t.le.eos%db_const(phase)%t_boundary(1)) then
+          n1 = 1
+          n2 = 2
+        else if(t.ge.eos%db_const(phase)%t_boundary(eos%db_const(phase)%t_nsub+1)) then
+          n1 = eos%db_const(phase)%t_ndata-1
+          n2 = eos%db_const(phase)%t_ndata
+        end if
+      else
+        t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) &
+                + eos%db_const(phase)%t_iboundary(t_subn)
+        n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
+        n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
       end if
 
-      t_index = int((t-eos%db_const(phase)%t_boundary(t_subn))/eos%db_const(phase)%t_delta(t_subn)) + eos%db_const(phase)%t_iboundary(t_subn)
-      n1 = min0(t_index,eos%db_const(phase)%t_iboundary(t_subn+1)-1)
-      n2 = min0(t_index+1,eos%db_const(phase)%t_iboundary(t_subn+1))
-      
       x(1) = eos%db_const(phase)%db(n1)%t
       x(2) = eos%db_const(phase)%db(n2)%t
 
@@ -1962,16 +2142,24 @@ module eos_module
       end do
 
       if(p_subn1.eq.0) then
-        eos2%flag = .false.
-        return
+        if(p.le.eos%db_const(phase)%db(n1)%p_boundary(1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_nstart
+          m2 = eos%db_const(phase)%db(n1)%p_nstart+1
+          p_subn1 = 1
+        else if(p.ge.eos%db_const(phase)%db(n1)%p_boundary(eos%db_const(phase)%db(n1)%p_nsub+1)) then
+          m1 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)-1
+          m2 = eos%db_const(phase)%db(n1)%p_iboundary(eos%db_const(phase)%db(n1)%p_nsub+1)
+          p_subn1 = eos%db_const(phase)%db(n1)%p_nsub
+        end if
+      else
+        p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) &
+                + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+        m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
+        m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
       end if
 
-      p_index = int((p-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
-      m1 = min0(p_index,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1)-1)
-      m2 = min0(p_index+1,eos%db_const(phase)%db(n1)%p_iboundary(p_subn1+1))
-      
-      y(1) = eos%db_const(phase)%db(n1)%dbv(m1,1)
-      y(2) = eos%db_const(phase)%db(n1)%dbv(m2,1)
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n1)%p(m2)
 
 
       ! defining the pressure index 2
@@ -1985,46 +2173,57 @@ module eos_module
       end do
 
       if(p_subn2.eq.0) then
-        eos2%flag = .false.
-        return
-      end if
-
-      p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
-      m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
-      m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
-
-      y(4) = eos%db_const(phase)%db(n2)%dbv(m4,1)
-      y(3) = eos%db_const(phase)%db(n2)%dbv(m3,1)
-
-
-      ! interpolation
-      if((y(1).ne.y(4)).or.(y(2).ne.y(3))) then   
-        ! barycentric interpolation in triangle
-        if(((x(2)-x(1))*(p-y(1))-(y(3)-y(1))*(t-x(1))).ge.0.d0) then
-          n = n1
-          m = m2
-        else
-          n = n2
-          m = m4
+        if(p.le.eos%db_const(phase)%db(n2)%p_boundary(1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_nstart
+          m3 = eos%db_const(phase)%db(n2)%p_nstart+1
+          p_subn2 = 1
+        else if(p.ge.eos%db_const(phase)%db(n2)%p_boundary(eos%db_const(phase)%db(n2)%p_nsub+1)) then
+          m4 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)-1
+          m3 = eos%db_const(phase)%db(n2)%p_iboundary(eos%db_const(phase)%db(n2)%p_nsub+1)
+          p_subn2 = eos%db_const(phase)%db(n2)%p_nsub
         end if
-        a1 = trianglearea(t,p,x(2),y(3),x(1),y(1))
-        a2 = trianglearea(t,p,x(2),y(3),eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1))
-        a3 = trianglearea(t,p,eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1))
-        a0 = 1.d0/trianglearea(eos%db_const(phase)%db(n)%t,eos%db_const(phase)%db(n)%dbv(m,1),x(1),y(1),x(2),y(3))
-
-        prop2%vis = (eos%db_const(phase)%db(n)%dbv(m,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3)*a0
-        prop2%cond = (eos%db_const(phase)%db(n)%dbv(m,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m1,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3)*a0
-     else
-        ! bilinear interpolation
-        a0 = 1.d0/((x(2)-x(1))*(y(2)-y(1)))
-        a1 = dabs((x(2)-t)*(y(2)-p))
-        a2 = dabs((x(2)-t)*(p-y(1)))
-        a3 = dabs((t-x(1))*(p-y(1)))
-        a4 = dabs((t-x(1))*(y(2)-p))
-     
-        prop2%vis = (eos%db_const(phase)%db(n1)%dbv(m1,8)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,8)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,8)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,8)*a4 )*a0
-        prop2%cond = (eos%db_const(phase)%db(n1)%dbv(m1,9)*a1 + eos%db_const(phase)%db(n1)%dbv(m2,9)*a2 + eos%db_const(phase)%db(n2)%dbv(m3,9)*a3 + eos%db_const(phase)%db(n2)%dbv(m4,9)*a4 )*a0
+      else
+        p_index = int((p-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) &
+                + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+        m4 = min0(p_index,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1)-1)
+        m3 = min0(p_index+1,eos%db_const(phase)%db(n2)%p_iboundary(p_subn2+1))
       end if
+
+      y(4) = eos%db_const(phase)%db(n2)%p(m4)
+      y(3) = eos%db_const(phase)%db(n2)%p(m3)
+
+
+      ! construct regular grid
+      if (y(1) .lt. y(4)) then
+        m4 = int((y(1)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m1 = int((y(4)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      if (y(2) .gt. y(3)) then
+        m3 = int((y(2)-eos%db_const(phase)%db(n2)%p_boundary(p_subn2))/eos%db_const(phase)%db(n2)%p_delta(p_subn2)) + eos%db_const(phase)%db(n2)%p_iboundary(p_subn2)
+      else
+        m2 = int((y(3)-eos%db_const(phase)%db(n1)%p_boundary(p_subn1))/eos%db_const(phase)%db(n1)%p_delta(p_subn1)) + eos%db_const(phase)%db(n1)%p_iboundary(p_subn1)
+      end if
+
+      y(1) = eos%db_const(phase)%db(n1)%p(m1)
+      y(2) = eos%db_const(phase)%db(n2)%p(m3)
+
+
+      dt = x(2)-x(1)
+      dp = y(2)-y(1)
+
+      xi  = dmin1(dmax1((t-x(1))/(x(2)-x(1)),0.d0),1.d0)
+      eta = dmin1(dmax1((p-y(1))/(y(2)-y(1)),0.d0),1.d0)
+
+      ! bilinear interpolation
+      coeff(1:4) = eos%db_const(phase)%db(n1)%vis(m1,:)
+      call bilinear_interpolation(coeff(1:4),xi,eta,dt,dp,output)
+      prop2%vis = output(1)
+
+      coeff(1:4) = eos%db_const(phase)%db(n1)%cond(m1,:)
+      call bilinear_interpolation(coeff(1:4),xi,eta,dt,dp,output)
+      prop2%cond = output(1)
 
     end subroutine srk_g_prop
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -2034,7 +2233,7 @@ module eos_module
       real(8), intent(in) :: t
       real(8) :: pww
       real(8) :: tt,theta,a,b,c
-      
+
       tt = dmin1(dmax1(t,273.15d0),647.096d0)
       theta = tt - 0.23855557567849d0/(tt - 0.65017534844798d3)
       a = theta**2 + 0.11670521452767d4*theta - 0.72421316703206d6
@@ -2111,7 +2310,7 @@ module eos_module
         tww = 1.899d0*p**0.2499d0 + 43.51d0
       else if((p.gt.300000.d0).and.(p.le.1000000.d0)) then
         tww = 1.245d0*p**0.2302d0 + 47.67d0
-      else 
+      else
         tww = 1.591*p**0.2622d0 + 44.17d0
       end if
     end function n2_tww
@@ -2157,10 +2356,10 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: sigma
-      
+
       sigma = 0.0881130429998226d0 + 0.0000616475914044782d0*t - 4.4860167748009d-7*t**2      &
             + 2.53682468718936d-10*t**3 - 2.62005668908913d-13*t**4 + 2.97878955533757d-16*t**5
-            
+
     end function h2o_sigma
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function n2_sigma(eos,t) result(sigma)
@@ -2168,10 +2367,10 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: sigma
-      
+
       sigma = 0.0277139593881926d0 - 0.0001871381651395d0*t - 2.47277506113986d-6*t**2        &
             + 3.73212791877442d-8*t**3 - 2.44521143856208d-10*t**4 + 6.90956437271856d-13*t**5
-                
+
     end function n2_sigma
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function o2_sigma(eos,t) result(sigma)
@@ -2179,10 +2378,10 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: sigma
-      
+
       sigma = 0.0383957397934739d0 - 0.000292004596094666d0*t - 1.63784793251168d-7*t**2      &
             + 5.57366451318535d-9*t**3 - 3.42769625844841d-11*t**4 + 1.05411729447465d-13*t**5
-            
+
     end function o2_sigma
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function h2_sigma(eos,t) result(sigma)
@@ -2190,10 +2389,10 @@ module eos_module
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: t
       real(8) :: sigma
-      
+
       sigma = 0.00520006147168522d0 - 0.000129664670257188d0*t -  4.14551445475162d-6*t**2    &
             + 2.18364493308481d-7*t**3 -  5.43761039654375d-9*t**4 + 5.62476539114984d-11*t**5
-                            
+
     end function h2_sigma
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function cubicsolver(pin,tin,aalpha,bin,mw)
@@ -2205,7 +2404,7 @@ module eos_module
       real(8) :: phi,k,pi
       real(8),parameter :: ru=8.314d0
       pi = datan(1.d0)*4.d0
-      
+
       p = (bin**2*pin*mw - aalpha*mw + ru*tin*bin*mw)/(aalpha*bin)
       q = mw**2*ru*tin/(aalpha*bin)
       r = -mw**3*pin/(aalpha*bin)
@@ -2213,13 +2412,13 @@ module eos_module
       a = (3.d0*q - p**2)/3.d0
       b = (2.d0*p**3 - 9.d0*p*q + 27.d0*r)/27.d0
       d = a**3/27.d0 + b**2/4.d0
-      
-      if (d.gt.0.d0) then      
+
+      if (d.gt.0.d0) then
         m = (-0.5d0*b+dsqrt(d))
         n = (-0.5d0*b-dsqrt(d))
         m = dsign(1.d0,m)*dabs(m)**(1.d0/3.d0)
         n = dsign(1.d0,n)*dabs(n)**(1.d0/3.d0)
-        cubicsolver = m+n-p/3.d0  
+        cubicsolver = m+n-p/3.d0
       else if(d.eq.0.d0) then
         m = (-0.5d0*b+dsqrt(d))
         n = (-0.5d0*b-dsqrt(d))
@@ -2234,12 +2433,12 @@ module eos_module
         k = 0.d0
         if (b.gt.0.d0) then
           phi = dacos(-dsqrt(-27.d0*b**2/(4.d0*a**3)))
-        else    
+        else
           phi = dacos(dsqrt(-27.d0*b**2/(4.d0*a**3)))
         end if
-        cubicsolver = 2.d0*dsqrt(-a/3.d0)*dcos((phi+120.d0*k)*pi/180.d0) - p/3.d0   
+        cubicsolver = 2.d0*dsqrt(-a/3.d0)*dcos((phi+120.d0*k)*pi/180.d0) - p/3.d0
       end if
-      
+
     end function cubicsolver
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function computepv(tc,pc,tb,t)
@@ -2248,40 +2447,31 @@ module eos_module
       real(8) :: computepv
 
       ! using reidel's formula
-      
+
       real(8) :: a,b,c,d
       real(8) :: tr,tbr,pbr
       real(8) :: k1,k2,psi,q,alphac,tt
-      
+
       k1 = 0.0838d0
       k2 = 3.758d0
-      
+
       tt=dmin1(tc-2.d0,t)
-      
-      tr  = tt/tc  
+
+      tr  = tt/tc
       tbr = tb/tc
       pbr = 101325.d0/pc
-      
+
       psi = -35.d0 + 36.d0/tbr + 42.d0*dlog(tbr) - tbr**6
       alphac = (k1*k2*psi-dlog(pbr))/(k1*psi-dlog(tbr))
       q = k1*(k2-alphac)
-      
+
       a = -35.d0*q
       b = -36.d0*q
       c = 42.d0*q + alphac
       d = -q
       computepv = pc*dexp(a - b/tr + c*dlog(tr) + d*tr**6)
-      
+
     end function computepv
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    function trianglearea(a,b,c,d,e,f)
-      implicit none
-      real(8), intent(in) :: a,b,c,d,e,f
-      real(8) :: trianglearea
-
-      trianglearea = 0.5d0*dabs(a*d+c*f+e*b-a*f-e*d-c*b)
-
-    end function trianglearea
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getgamma_f(eos)
       implicit none
@@ -2300,5 +2490,34 @@ module eos_module
       getgamma_g = eos%gamma_g
 
     end function getgamma_g
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine biquadratic_interpolation(coeff,xi,eta,dt,dp,output)
+      real(8), intent(in) :: coeff(9)
+      real(8), intent(in) :: xi,eta,dp,dt
+      real(8), intent(inout) :: output(3)
+
+      output(1) = coeff(1)        + coeff(2)*xi        + coeff(3)*xi**2 +        &
+                  coeff(4)*eta    + coeff(5)*xi*eta    + coeff(6)*xi**2*eta +    &
+                  coeff(7)*eta**2 + coeff(8)*xi*eta**2 + coeff(9)*xi**2*eta**2
+
+      output(2) = coeff(2) + 2.d0*coeff(3)*xi + coeff(5)*eta + 2.d0*coeff(6)*xi*eta + coeff(8)*eta**2 + 2.d0*coeff(9)*xi*eta**2
+
+      output(3) = coeff(4) + 2.d0*coeff(7)*eta + coeff(5)*xi  + 2.d0*coeff(8)*xi*eta + coeff(6)*xi**2  + 2.d0*coeff(9)*xi**2*eta
+
+      output(2) = output(2)/dt
+      output(3) = output(3)/dp
+
+    end subroutine biquadratic_interpolation
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine bilinear_interpolation(coeff,xi,eta,dt,dp,output)
+      real(8), intent(in) :: coeff(4)
+      real(8), intent(in) :: xi,eta,dt,dp
+      real(8), intent(inout) :: output(3)
+
+      output(1) = coeff(1) + coeff(2)*xi + coeff(3)*eta + coeff(4)*xi*eta
+      output(2) = (coeff(2) + coeff(4)*eta)/dt
+      output(3) = (coeff(3) + coeff(4)*xi )/dp
+
+    end subroutine bilinear_interpolation
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module eos_module

@@ -66,9 +66,9 @@ module gravity_module
       implicit none
       class(t_gravity), intent(inout) :: gravity
       real(8), intent(in), target :: pv(gravity%stencil,gravity%npv)
-      
+
       gravity%pv => pv
-      
+
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setdv(gravity,dv)

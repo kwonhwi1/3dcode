@@ -3,14 +3,14 @@ program postprocess
   use eos_module
   use postgrid_module
   use postvariable_module
-  
+
   implicit none
   type(t_config) :: config
   class(t_eos), allocatable :: eos
   type(t_grid) :: grid
   type(t_variable) :: variable
   real(8), dimension(:), allocatable :: dv,tv
-  
+
   integer :: io,istart,iend,nsolution,mode,nsolname
   real(8) :: area
 
@@ -22,7 +22,7 @@ program postprocess
   read(io,*); read(io,*) area
   read(io,*); read(io,*) nsolname
   close(io)
-      
+
   call config%construct()
 
   select case(config%getiturb())
@@ -41,7 +41,7 @@ program postprocess
 
   call eos%deteos(config%getpref(),config%gettref(),config%gety1ref(),config%gety2ref(),dv,tv)
   call config%setref(dv,tv)
-  
+
   select case(mode)
   case(1)
     call variable%cgnswriting(config,grid,nsolname)
@@ -51,7 +51,7 @@ program postprocess
     call variable%clcd_writing(config,grid,area)
   case default
   end select
-  
+
   call variable%destruct(grid)
   call grid%destruct()
   call eos%destruct()

@@ -7,7 +7,7 @@ module bc_module
   implicit none
   private
   public :: t_bc
-  
+
   type, extends(t_bcinfo) :: t_bcinfo2
     integer :: origin(3),dir(3),ioin,ioout
     integer :: neighbor1(3),neighbor2(3),neighbor3(3)
@@ -82,7 +82,7 @@ module bc_module
       integer :: ier,stat
       logical :: ok
 
-      bc%rank = config%getrank() 
+      bc%rank = config%getrank()
       bc%size = config%getsize()
       bc%npv = config%getnpv()
       bc%ndv = config%getndv()
@@ -152,7 +152,7 @@ module bc_module
           bc%bcinfo(n)%istart(m) = grid%getbcistart(n,m)
           bc%bcinfo(n)%iend(m)   = grid%getbciend(n,m)
         end do
-        
+
         if(bc%bcinfo(n)%istart(1).eq.bc%bcinfo(n)%iend(1)) then
           if(bc%bcinfo(n)%istart(1).eq.1) then
             bc%bcinfo(n)%face = 'imin'
@@ -191,7 +191,7 @@ module bc_module
             bc%bcinfo(n)%origin(3) = 0
             bc%bcinfo(n)%dir(1) =  1
             bc%bcinfo(n)%dir(2) = -1
-            bc%bcinfo(n)%dir(3) =  1         
+            bc%bcinfo(n)%dir(3) =  1
           end if
         else if(bc%bcinfo(n)%istart(3).eq.bc%bcinfo(n)%iend(3)) then
           if(bc%bcinfo(n)%istart(3).eq.1) then
@@ -202,7 +202,7 @@ module bc_module
             bc%bcinfo(n)%origin(3) = 2*bc%bcinfo(n)%iend(3)+1
             bc%bcinfo(n)%dir(1) =  1
             bc%bcinfo(n)%dir(2) =  1
-            bc%bcinfo(n)%dir(3) = -1         
+            bc%bcinfo(n)%dir(3) = -1
           else
             bc%bcinfo(n)%face = 'kmax'
             bc%bcinfo(n)%iend(3) = bc%bcinfo(n)%iend(3)+2
@@ -211,13 +211,13 @@ module bc_module
             bc%bcinfo(n)%origin(3) =  2*bc%bcinfo(n)%istart(3)-1
             bc%bcinfo(n)%dir(1) =  1
             bc%bcinfo(n)%dir(2) =  1
-            bc%bcinfo(n)%dir(3) = -1         
-          end if 
+            bc%bcinfo(n)%dir(3) = -1
+          end if
         end if
 
         write(famname8,'(a8)') trim(bc%bcinfo(n)%famname)
 
-        if(trim(bc%bcinfo(n)%bcname).eq.'BCWall') then 
+        if(trim(bc%bcinfo(n)%bcname).eq.'BCWall') then
           if(trim(bc%bcinfo(n)%famname).eq.'CounterRotating') then
             select case(config%getiturb())
             case(0)
@@ -351,7 +351,7 @@ module bc_module
       !cccccccccccccccccc construct ncon ccccccccccccccccccccccccccccc
       do n=1,bc%ncon
         bc%connectinfo(n)%donor = grid%getconnectdonor(n)
-        
+
         do m=1,dim
           bc%connectinfo(n)%istart(m) = grid%getconnectistart(n,m)
           bc%connectinfo(n)%iend(m)   = grid%getconnectiend(n,m)
@@ -366,22 +366,22 @@ module bc_module
           if(bc%connectinfo(n)%istart(2).eq.2) then
             bc%connectinfo(n)%iend(2) = bc%connectinfo(n)%iend(2) + 2
             if(bc%connectinfo(n)%transmat(1,2).eq.1) then
-              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(2,2).eq.1) then
-              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2
             else if(bc%connectinfo(n)%transmat(2,2).eq.-1) then
               bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
             else if(bc%connectinfo(n)%transmat(3,2).eq.1) then
-              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2
             else if(bc%connectinfo(n)%transmat(3,2).eq.-1) then
               bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
             end if
           else
             bc%connectinfo(n)%istart(2) = bc%connectinfo(n)%istart(2) - 2
             if(bc%connectinfo(n)%transmat(1,2).eq.1) then
-              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(2,2).eq.1) then
@@ -398,22 +398,22 @@ module bc_module
           if(bc%connectinfo(n)%istart(1).eq.2) then
             bc%connectinfo(n)%iend(1) = bc%connectinfo(n)%iend(1) + 2
             if(bc%connectinfo(n)%transmat(1,1).eq.1) then
-              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(2,1).eq.1) then
-              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2
             else if(bc%connectinfo(n)%transmat(2,1).eq.-1) then
               bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
             else if(bc%connectinfo(n)%transmat(3,1).eq.1) then
-              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2
             else if(bc%connectinfo(n)%transmat(3,1).eq.-1) then
               bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
             end if
           else
             bc%connectinfo(n)%istart(1) = bc%connectinfo(n)%istart(1) - 2
             if(bc%connectinfo(n)%transmat(1,1).eq.1) then
-              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(2,1).eq.1) then
@@ -430,22 +430,22 @@ module bc_module
           if(bc%connectinfo(n)%istart(3).eq.2) then
             bc%connectinfo(n)%iend(3) = bc%connectinfo(n)%iend(3) + 2
             if(bc%connectinfo(n)%transmat(1,3).eq.1) then
-              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2 
+              bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(2,3).eq.1) then
-              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2 
+              bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) + 2
             else if(bc%connectinfo(n)%transmat(2,3).eq.-1) then
               bc%connectinfo(n)%iend_donor(2) = bc%connectinfo(n)%iend_donor(2) - 2
             else if(bc%connectinfo(n)%transmat(3,3).eq.1) then
-              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2 
+              bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) + 2
             else if(bc%connectinfo(n)%transmat(3,3).eq.-1) then
               bc%connectinfo(n)%iend_donor(3) = bc%connectinfo(n)%iend_donor(3) - 2
             end if
           else
             bc%connectinfo(n)%istart(3) = bc%connectinfo(n)%istart(3) - 2
             if(bc%connectinfo(n)%transmat(1,3).eq.1) then
-              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2 
+              bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(2,3).eq.1) then
@@ -460,12 +460,12 @@ module bc_module
           end if
         end if
       end do
-      
+
       allocate(bc%mpitemp(bc%ncon))
       do n=1,bc%ncon
         bc%mpitemp(n)%num = (abs(bc%connectinfo(n)%istart(1)-bc%connectinfo(n)%iend(1))+1) &
                            *(abs(bc%connectinfo(n)%istart(2)-bc%connectinfo(n)%iend(2))+1) &
-                           *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1) & 
+                           *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1) &
                            *(bc%npv+bc%ntv+bc%ndv)
         allocate(bc%mpitemp(n)%sendbuf(bc%mpitemp(n)%num),bc%mpitemp(n)%recvbuf(bc%mpitemp(n)%num))
       end do
@@ -491,7 +491,7 @@ module bc_module
       bc%edge(2)%neighbor1(1) = grid%getimax()+1  ; bc%edge(2)%neighbor2(1) = grid%getimax()
       bc%edge(2)%neighbor1(2) = 2                 ; bc%edge(2)%neighbor2(2) = 1
       bc%edge(2)%neighbor1(3) = 0                 ; bc%edge(2)%neighbor2(3) = 0
-      bc%edge(2)%neighbor3(1) = 0                 ; bc%edge(2)%origin(1) = grid%getimax() 
+      bc%edge(2)%neighbor3(1) = 0                 ; bc%edge(2)%origin(1) = grid%getimax()
       bc%edge(2)%neighbor3(2) = 0                 ; bc%edge(2)%origin(2) = 2
       bc%edge(2)%neighbor3(3) = 0                 ; bc%edge(2)%origin(3) = 0
 
@@ -514,7 +514,7 @@ module bc_module
       bc%edge(4)%neighbor3(1) = 0                 ; bc%edge(4)%origin(1) = grid%getimax()
       bc%edge(4)%neighbor3(2) = 0                 ; bc%edge(4)%origin(2) = grid%getjmax()
       bc%edge(4)%neighbor3(3) = 0                 ; bc%edge(4)%origin(3) = 0
-      
+
       bc%edge(5)%istart(1)  = -1                  ; bc%edge(5)%iend(1)  = 1
       bc%edge(5)%istart(2)  =  2                  ; bc%edge(5)%iend(2)  = grid%getjmax()
       bc%edge(5)%istart(3)  = -1                  ; bc%edge(5)%iend(3)  = 1
@@ -547,14 +547,14 @@ module bc_module
 
       bc%edge(8)%istart(1)  = grid%getimax()+1    ; bc%edge(8)%iend(1)  = grid%getimax()+3
       bc%edge(8)%istart(2)  = 2                   ; bc%edge(8)%iend(2)  = grid%getjmax()
-      bc%edge(8)%istart(3)  = grid%getkmax()+1    ; bc%edge(8)%iend(3)  = grid%getkmax()+3  
+      bc%edge(8)%istart(3)  = grid%getkmax()+1    ; bc%edge(8)%iend(3)  = grid%getkmax()+3
       bc%edge(8)%neighbor1(1) = grid%getimax()+1  ; bc%edge(8)%neighbor2(1) = 0
       bc%edge(8)%neighbor1(2) = 0                 ; bc%edge(8)%neighbor2(2) = 0
       bc%edge(8)%neighbor1(3) = grid%getkmax()    ; bc%edge(8)%neighbor2(3) = 0
       bc%edge(8)%neighbor3(1) = grid%getimax()    ; bc%edge(8)%origin(1) = grid%getimax()
       bc%edge(8)%neighbor3(2) = 0                 ; bc%edge(8)%origin(2) = 0
       bc%edge(8)%neighbor3(3) = grid%getkmax()+1  ; bc%edge(8)%origin(3) = grid%getkmax()
-      
+
       bc%edge(9)%istart(1)  =  2                  ; bc%edge(9)%iend(1)  = grid%getimax()
       bc%edge(9)%istart(2)  = -1                  ; bc%edge(9)%iend(2)  = 1
       bc%edge(9)%istart(3)  = -1                  ; bc%edge(9)%iend(3)  = 1
@@ -587,14 +587,14 @@ module bc_module
 
       bc%edge(12)%istart(1) = 2                   ; bc%edge(12)%iend(1) = grid%getimax()
       bc%edge(12)%istart(2) = grid%getjmax()+1    ; bc%edge(12)%iend(2) = grid%getjmax()+3
-      bc%edge(12)%istart(3) = grid%getkmax()+1    ; bc%edge(12)%iend(3) = grid%getkmax()+3      
+      bc%edge(12)%istart(3) = grid%getkmax()+1    ; bc%edge(12)%iend(3) = grid%getkmax()+3
       bc%edge(12)%neighbor1(1) = 0                ; bc%edge(12)%neighbor2(1) = 0
       bc%edge(12)%neighbor1(2) = 0                ; bc%edge(12)%neighbor2(2) = grid%getjmax()+1
       bc%edge(12)%neighbor1(3) = 0                ; bc%edge(12)%neighbor2(3) = grid%getkmax()
       bc%edge(12)%neighbor3(1) = 0                ; bc%edge(12)%origin(1) = 0
       bc%edge(12)%neighbor3(2) = grid%getjmax()   ; bc%edge(12)%origin(2) = grid%getjmax()
       bc%edge(12)%neighbor3(3) = grid%getkmax()+1 ; bc%edge(12)%origin(3) = grid%getkmax()
-      
+
       do m=1,12
         bc%edge(m)%npv = bc%npv
         bc%edge(m)%ndv = bc%ndv
@@ -644,7 +644,7 @@ module bc_module
         end do
       end do
       do m=5,8
-        do n=1,bc%nbc 
+        do n=1,bc%nbc
           if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(1).le.bc%edge(m)%neighbor1(1)).and. &
@@ -663,7 +663,7 @@ module bc_module
         end do
       end do
       do m=9,12
-        do n=1,bc%nbc 
+        do n=1,bc%nbc
           if((trim(bc%bcinfo(n)%bcname).eq.'BCWall').or. &
              (trim(bc%bcinfo(n)%bcname).eq.'BCSymmetryPlane')) then
             if((bc%bcinfo(n)%istart(2).le.bc%edge(m)%neighbor2(2)).and. &
@@ -729,11 +729,11 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
         else
-          bc%edge(m)%bctype => edgenowall        
+          bc%edge(m)%bctype => edgenowall
         end if
         bc%edge(m)%dir(3) = 1
       end do
-      
+
       do m=5,8
         if(isurf_edge(m).and.ksurf_edge(m)) then
           if(bc%iturb.eq.0) then
@@ -781,7 +781,7 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
         else
-          bc%edge(m)%bctype => edgenowall        
+          bc%edge(m)%bctype => edgenowall
         end if
         bc%edge(m)%dir(2) = 1
       end do
@@ -833,7 +833,7 @@ module bc_module
             bc%edge(m)%bctype => bcwallinviscid
           end select
         else
-          bc%edge(m)%bctype => edgenowall        
+          bc%edge(m)%bctype => edgenowall
         end if
         bc%edge(m)%dir(1) = 1
       end do
@@ -845,131 +845,131 @@ module bc_module
       bc%corner(1)%istart(1) = -1                   ; bc%corner(1)%iend(1) = 1
       bc%corner(1)%istart(2) = -1                   ; bc%corner(1)%iend(2) = 1
       bc%corner(1)%istart(3) = -1                   ; bc%corner(1)%iend(3) = 1
-      bc%corner(1)%neighbor1(1) = 1                 ; bc%corner(1)%neighbor2(1) = 2 
+      bc%corner(1)%neighbor1(1) = 1                 ; bc%corner(1)%neighbor2(1) = 2
       bc%corner(1)%neighbor1(2) = 2                 ; bc%corner(1)%neighbor2(2) = 1
       bc%corner(1)%neighbor1(3) = 2                 ; bc%corner(1)%neighbor2(3) = 2
       bc%corner(1)%neighbor3(1) = 2                 ; bc%corner(1)%origin(1) = 2
       bc%corner(1)%neighbor3(2) = 2                 ; bc%corner(1)%origin(2) = 2
       bc%corner(1)%neighbor3(3) = 1                 ; bc%corner(1)%origin(3) = 2
-      bc%corner(1)%neighbor4(1) = 2                 ; bc%corner(1)%neighbor5(1) = 1 
+      bc%corner(1)%neighbor4(1) = 2                 ; bc%corner(1)%neighbor5(1) = 1
       bc%corner(1)%neighbor4(2) = 1                 ; bc%corner(1)%neighbor5(2) = 2
       bc%corner(1)%neighbor4(3) = 1                 ; bc%corner(1)%neighbor5(3) = 1
-      bc%corner(1)%neighbor6(1) = 1                 
-      bc%corner(1)%neighbor6(2) = 1                 
-      bc%corner(1)%neighbor6(3) = 2                
+      bc%corner(1)%neighbor6(1) = 1
+      bc%corner(1)%neighbor6(2) = 1
+      bc%corner(1)%neighbor6(3) = 2
 
       bc%corner(2)%istart(1) = grid%getimax()+1     ; bc%corner(2)%iend(1) = grid%getimax()+3
       bc%corner(2)%istart(2) = -1                   ; bc%corner(2)%iend(2) = 1
       bc%corner(2)%istart(3) = -1                   ; bc%corner(2)%iend(3) = 1
-      bc%corner(2)%neighbor1(1) = grid%getimax()+1  ; bc%corner(2)%neighbor2(1) = grid%getimax() 
+      bc%corner(2)%neighbor1(1) = grid%getimax()+1  ; bc%corner(2)%neighbor2(1) = grid%getimax()
       bc%corner(2)%neighbor1(2) = 2                 ; bc%corner(2)%neighbor2(2) = 1
       bc%corner(2)%neighbor1(3) = 2                 ; bc%corner(2)%neighbor2(3) = 2
       bc%corner(2)%neighbor3(1) = grid%getimax()    ; bc%corner(2)%origin(1) = grid%getimax()
       bc%corner(2)%neighbor3(2) = 2                 ; bc%corner(2)%origin(2) = 2
       bc%corner(2)%neighbor3(3) = 1                 ; bc%corner(2)%origin(3) = 2
-      bc%corner(2)%neighbor4(1) = grid%getimax()    ; bc%corner(2)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(2)%neighbor4(1) = grid%getimax()    ; bc%corner(2)%neighbor5(1) = grid%getimax()+1
       bc%corner(2)%neighbor4(2) = 1                 ; bc%corner(2)%neighbor5(2) = 2
       bc%corner(2)%neighbor4(3) = 1                 ; bc%corner(2)%neighbor5(3) = 1
-      bc%corner(2)%neighbor6(1) = grid%getimax()+1    
-      bc%corner(2)%neighbor6(2) = 1              
-      bc%corner(2)%neighbor6(3) = 2            
-      
+      bc%corner(2)%neighbor6(1) = grid%getimax()+1
+      bc%corner(2)%neighbor6(2) = 1
+      bc%corner(2)%neighbor6(3) = 2
+
       bc%corner(3)%istart(1) = -1                   ; bc%corner(3)%iend(1) = 1
       bc%corner(3)%istart(2) = grid%getjmax()+1     ; bc%corner(3)%iend(2) = grid%getjmax()+3
       bc%corner(3)%istart(3) = -1                   ; bc%corner(3)%iend(3) = 1
-      bc%corner(3)%neighbor1(1) = 1                 ; bc%corner(3)%neighbor2(1) = 2 
+      bc%corner(3)%neighbor1(1) = 1                 ; bc%corner(3)%neighbor2(1) = 2
       bc%corner(3)%neighbor1(2) = grid%getjmax()    ; bc%corner(3)%neighbor2(2) = grid%getjmax()+1
       bc%corner(3)%neighbor1(3) = 2                 ; bc%corner(3)%neighbor2(3) = 2
       bc%corner(3)%neighbor3(1) = 2                 ; bc%corner(3)%origin(1) = 2
       bc%corner(3)%neighbor3(2) = grid%getjmax()    ; bc%corner(3)%origin(2) = grid%getjmax()
       bc%corner(3)%neighbor3(3) = 1                 ; bc%corner(3)%origin(3) = 2
-      bc%corner(3)%neighbor4(1) = 2                 ; bc%corner(3)%neighbor5(1) = 1 
+      bc%corner(3)%neighbor4(1) = 2                 ; bc%corner(3)%neighbor5(1) = 1
       bc%corner(3)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(3)%neighbor5(2) = grid%getjmax()
       bc%corner(3)%neighbor4(3) = 1                 ; bc%corner(3)%neighbor5(3) = 1
-      bc%corner(3)%neighbor6(1) = 1                
-      bc%corner(3)%neighbor6(2) = grid%getjmax()+1  
-      bc%corner(3)%neighbor6(3) = 2               
-      
+      bc%corner(3)%neighbor6(1) = 1
+      bc%corner(3)%neighbor6(2) = grid%getjmax()+1
+      bc%corner(3)%neighbor6(3) = 2
+
       bc%corner(4)%istart(1) = grid%getimax()+1     ; bc%corner(4)%iend(1) = grid%getimax()+3
       bc%corner(4)%istart(2) = grid%getjmax()+1     ; bc%corner(4)%iend(2) = grid%getjmax()+3
       bc%corner(4)%istart(3) = -1                   ; bc%corner(4)%iend(3) = 1
-      bc%corner(4)%neighbor1(1) = grid%getimax()+1  ; bc%corner(4)%neighbor2(1) = grid%getimax() 
+      bc%corner(4)%neighbor1(1) = grid%getimax()+1  ; bc%corner(4)%neighbor2(1) = grid%getimax()
       bc%corner(4)%neighbor1(2) = grid%getjmax()    ; bc%corner(4)%neighbor2(2) = grid%getjmax()+1
       bc%corner(4)%neighbor1(3) = 2                 ; bc%corner(4)%neighbor2(3) = 2
       bc%corner(4)%neighbor3(1) = grid%getimax()    ; bc%corner(4)%origin(1) = grid%getimax()
       bc%corner(4)%neighbor3(2) = grid%getjmax()    ; bc%corner(4)%origin(2) = grid%getjmax()
       bc%corner(4)%neighbor3(3) = 1                 ; bc%corner(4)%origin(3) = 2
-      bc%corner(4)%neighbor4(1) = grid%getimax()    ; bc%corner(4)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(4)%neighbor4(1) = grid%getimax()    ; bc%corner(4)%neighbor5(1) = grid%getimax()+1
       bc%corner(4)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(4)%neighbor5(2) = grid%getjmax()
       bc%corner(4)%neighbor4(3) = 1                 ; bc%corner(4)%neighbor5(3) = 1
-      bc%corner(4)%neighbor6(1) = grid%getimax()+1   
-      bc%corner(4)%neighbor6(2) = grid%getjmax()+1   
-      bc%corner(4)%neighbor6(3) = 2             
-      
+      bc%corner(4)%neighbor6(1) = grid%getimax()+1
+      bc%corner(4)%neighbor6(2) = grid%getjmax()+1
+      bc%corner(4)%neighbor6(3) = 2
+
       bc%corner(5)%istart(1) = -1                   ; bc%corner(5)%iend(1) = 1
       bc%corner(5)%istart(2) = -1                   ; bc%corner(5)%iend(2) = 1
       bc%corner(5)%istart(3) = grid%getkmax()+1     ; bc%corner(5)%iend(3) = grid%getkmax()+3
-      bc%corner(5)%neighbor1(1) = 1                 ; bc%corner(5)%neighbor2(1) = 2 
+      bc%corner(5)%neighbor1(1) = 1                 ; bc%corner(5)%neighbor2(1) = 2
       bc%corner(5)%neighbor1(2) = 2                 ; bc%corner(5)%neighbor2(2) = 1
       bc%corner(5)%neighbor1(3) = grid%getkmax()    ; bc%corner(5)%neighbor2(3) = grid%getkmax()
       bc%corner(5)%neighbor3(1) = 2                 ; bc%corner(5)%origin(1) = 2
       bc%corner(5)%neighbor3(2) = 2                 ; bc%corner(5)%origin(2) = 2
       bc%corner(5)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(5)%origin(3) = grid%getkmax()
-      bc%corner(5)%neighbor4(1) = 2                 ; bc%corner(5)%neighbor5(1) = 1 
+      bc%corner(5)%neighbor4(1) = 2                 ; bc%corner(5)%neighbor5(1) = 1
       bc%corner(5)%neighbor4(2) = 1                 ; bc%corner(5)%neighbor5(2) = 2
       bc%corner(5)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(5)%neighbor5(3) = grid%getkmax()+1
-      bc%corner(5)%neighbor6(1) = 1                
-      bc%corner(5)%neighbor6(2) = 1                
-      bc%corner(5)%neighbor6(3) = grid%getkmax() 
-      
+      bc%corner(5)%neighbor6(1) = 1
+      bc%corner(5)%neighbor6(2) = 1
+      bc%corner(5)%neighbor6(3) = grid%getkmax()
+
       bc%corner(6)%istart(1) = grid%getimax()+1     ; bc%corner(6)%iend(1) = grid%getimax()+3
       bc%corner(6)%istart(2) = -1                   ; bc%corner(6)%iend(2) = 1
       bc%corner(6)%istart(3) = grid%getkmax()+1     ; bc%corner(6)%iend(3) = grid%getkmax()+3
-      bc%corner(6)%neighbor1(1) = grid%getimax()+1  ; bc%corner(6)%neighbor2(1) = grid%getimax() 
+      bc%corner(6)%neighbor1(1) = grid%getimax()+1  ; bc%corner(6)%neighbor2(1) = grid%getimax()
       bc%corner(6)%neighbor1(2) = 2                 ; bc%corner(6)%neighbor2(2) = 1
       bc%corner(6)%neighbor1(3) = grid%getkmax()    ; bc%corner(6)%neighbor2(3) = grid%getkmax()
       bc%corner(6)%neighbor3(1) = grid%getimax()    ; bc%corner(6)%origin(1) = grid%getimax()
       bc%corner(6)%neighbor3(2) = 1                 ; bc%corner(6)%origin(2) = 2
       bc%corner(6)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(6)%origin(3) = grid%getkmax()
-      bc%corner(6)%neighbor4(1) = grid%getimax()    ; bc%corner(6)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(6)%neighbor4(1) = grid%getimax()    ; bc%corner(6)%neighbor5(1) = grid%getimax()+1
       bc%corner(6)%neighbor4(2) = 1                 ; bc%corner(6)%neighbor5(2) = 2
       bc%corner(6)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(6)%neighbor5(3) = grid%getkmax()+1
-      bc%corner(6)%neighbor6(1) = grid%getimax()+1   
-      bc%corner(6)%neighbor6(2) = 1                
-      bc%corner(6)%neighbor6(3) = grid%getkmax() 
-      
+      bc%corner(6)%neighbor6(1) = grid%getimax()+1
+      bc%corner(6)%neighbor6(2) = 1
+      bc%corner(6)%neighbor6(3) = grid%getkmax()
+
       bc%corner(7)%istart(1) = -1                   ; bc%corner(7)%iend(1) = 1
       bc%corner(7)%istart(2) = grid%getjmax()+1     ; bc%corner(7)%iend(2) = grid%getjmax()+3
       bc%corner(7)%istart(3) = grid%getkmax()+1     ; bc%corner(7)%iend(3) = grid%getkmax()+3
-      bc%corner(7)%neighbor1(1) = 1                 ; bc%corner(7)%neighbor2(1) = 2 
+      bc%corner(7)%neighbor1(1) = 1                 ; bc%corner(7)%neighbor2(1) = 2
       bc%corner(7)%neighbor1(2) = grid%getjmax()    ; bc%corner(7)%neighbor2(2) = grid%getjmax()+1
       bc%corner(7)%neighbor1(3) = grid%getkmax()    ; bc%corner(7)%neighbor2(3) = grid%getkmax()
       bc%corner(7)%neighbor3(1) = 2                 ; bc%corner(7)%origin(1) = 2
       bc%corner(7)%neighbor3(2) = grid%getjmax()    ; bc%corner(7)%origin(2) = grid%getjmax()
       bc%corner(7)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(7)%origin(3) = grid%getkmax()
-      bc%corner(7)%neighbor4(1) = 2                 ; bc%corner(7)%neighbor5(1) = 1 
+      bc%corner(7)%neighbor4(1) = 2                 ; bc%corner(7)%neighbor5(1) = 1
       bc%corner(7)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(7)%neighbor5(2) = grid%getjmax()
       bc%corner(7)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(7)%neighbor5(3) = grid%getkmax()+1
-      bc%corner(7)%neighbor6(1) = 1                
-      bc%corner(7)%neighbor6(2) = grid%getjmax()+1   
-      bc%corner(7)%neighbor6(3) = grid%getkmax() 
-      
+      bc%corner(7)%neighbor6(1) = 1
+      bc%corner(7)%neighbor6(2) = grid%getjmax()+1
+      bc%corner(7)%neighbor6(3) = grid%getkmax()
+
       bc%corner(8)%istart(1) = grid%getimax()+1     ; bc%corner(8)%iend(1) = grid%getimax()+3
       bc%corner(8)%istart(2) = grid%getjmax()+1     ; bc%corner(8)%iend(2) = grid%getjmax()+3
       bc%corner(8)%istart(3) = grid%getkmax()+1     ; bc%corner(8)%iend(3) = grid%getkmax()+3
-      bc%corner(8)%neighbor1(1) = grid%getimax()+1  ; bc%corner(8)%neighbor2(1) = grid%getimax() 
+      bc%corner(8)%neighbor1(1) = grid%getimax()+1  ; bc%corner(8)%neighbor2(1) = grid%getimax()
       bc%corner(8)%neighbor1(2) = grid%getjmax()    ; bc%corner(8)%neighbor2(2) = grid%getjmax()+1
       bc%corner(8)%neighbor1(3) = grid%getkmax()    ; bc%corner(8)%neighbor2(3) = grid%getkmax()
       bc%corner(8)%neighbor3(1) = grid%getimax()    ; bc%corner(8)%origin(1) = grid%getimax()
       bc%corner(8)%neighbor3(2) = grid%getjmax()    ; bc%corner(8)%origin(2) = grid%getjmax()
       bc%corner(8)%neighbor3(3) = grid%getkmax()+1  ; bc%corner(8)%origin(3) = grid%getkmax()
-      bc%corner(8)%neighbor4(1) = grid%getimax()    ; bc%corner(8)%neighbor5(1) = grid%getimax()+1 
+      bc%corner(8)%neighbor4(1) = grid%getimax()    ; bc%corner(8)%neighbor5(1) = grid%getimax()+1
       bc%corner(8)%neighbor4(2) = grid%getjmax()+1  ; bc%corner(8)%neighbor5(2) = grid%getjmax()
       bc%corner(8)%neighbor4(3) = grid%getkmax()+1  ; bc%corner(8)%neighbor5(3) = grid%getkmax()+1
-      bc%corner(8)%neighbor6(1) = grid%getimax()+1   
-      bc%corner(8)%neighbor6(2) = grid%getjmax()+1   
+      bc%corner(8)%neighbor6(1) = grid%getimax()+1
+      bc%corner(8)%neighbor6(2) = grid%getjmax()+1
       bc%corner(8)%neighbor6(3) = grid%getkmax()
-      
+
       do n=1,8
         bc%corner(n)%npv = bc%npv
         bc%corner(n)%ndv = bc%ndv
@@ -1029,7 +1029,7 @@ module bc_module
           end if
         end do
       end do
-      
+
 
       do m =1,8
         if(isurf_corner(m).and.jsurf_corner(m).and.ksurf_corner(m)) then
@@ -1154,7 +1154,7 @@ module bc_module
           end select
         else
           bc%corner(m)%bctype => cornernowall
-        end if 
+        end if
       end do
       !cccccccccccccccccc construct corner ccccccccccccccccccccccccccccc
 
@@ -1174,12 +1174,12 @@ module bc_module
         if(allocated(bc%bcinfo(n)%heatflux)) deallocate(bc%bcinfo(n)%heatflux)
         if(allocated(bc%bcinfo(n)%tdata)) deallocate(bc%bcinfo(n)%tdata)
       end do
-      
+
       do n=1,12
         if(associated(bc%edge(n)%bctype)) nullify(bc%edge(n)%bctype)
         deallocate(bc%edge(n)%pv,bc%edge(n)%dv,bc%edge(n)%tv)
       end do
-      
+
       do n=1,8
         if(associated(bc%corner(n)%bctype)) nullify(bc%corner(n)%bctype)
         deallocate(bc%corner(n)%pv,bc%corner(n)%dv,bc%corner(n)%tv)
@@ -1216,19 +1216,19 @@ module bc_module
       integer :: request_s(bc%ncon),request_r(bc%ncon),request_sa(bc%ncon),request_ra(bc%ncon)
       integer :: status(mpi_status_size)
       real(8) :: pv(bc%npv),dv(bc%ndv),tv(bc%ntv)
-      
+
       do n=1,bc%nbc
         bc%bcinfo(n)%time = time
         call bc%bcinfo(n)%bctype(grid,variable,eos,bc%prec)
       end do
- 
+
       do n=1,bc%ncon
-        if(bc%rank.ne.bc%connectinfo(n)%donor) then 
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
           call mpi_irecv(bc%mpitemp(n)%recvadress,21,mpi_integer,bc%connectinfo(n)%donor,bc%connectinfo(n)%donor+bc%size,mpi_comm_world,request_ra(n),ier)
           call mpi_irecv(bc%mpitemp(n)%recvbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,bc%connectinfo(n)%donor,mpi_comm_world,request_r(n),ier)
         end if
       end do
-     
+
       do n=1,bc%ncon
         l = 0
         do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
@@ -1248,12 +1248,12 @@ module bc_module
               do m=1,bc%ndv
                 l = l + 1
                 bc%mpitemp(n)%sendbuf(l) = dv(m)
-              end do            
+              end do
             end do
           end do
         end do
-          
-        if(bc%rank.ne.bc%connectinfo(n)%donor) then 
+
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
           bc%mpitemp(n)%sendadress = (/bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1), &
                                        bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2), &
                                        bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3), &
@@ -1262,7 +1262,7 @@ module bc_module
                                        bc%connectinfo(n)%istart_donor(2), &
                                        bc%connectinfo(n)%iend_donor(2),   &
                                        bc%connectinfo(n)%istart_donor(3), &
-                                       bc%connectinfo(n)%iend_donor(3),   &  
+                                       bc%connectinfo(n)%iend_donor(3),   &
                                        bc%connectinfo(n)%transmat(1,1),   &
                                        bc%connectinfo(n)%transmat(1,2),   &
                                        bc%connectinfo(n)%transmat(1,3),   &
@@ -1272,11 +1272,11 @@ module bc_module
                                        bc%connectinfo(n)%transmat(3,1),   &
                                        bc%connectinfo(n)%transmat(3,2),   &
                                        bc%connectinfo(n)%transmat(3,3)/)
-                     
+
 
           call mpi_isend(bc%mpitemp(n)%sendadress,21,mpi_integer,bc%connectinfo(n)%donor,bc%rank+bc%size,mpi_comm_world,request_sa(n),ier)
           call mpi_isend(bc%mpitemp(n)%sendbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,bc%rank,mpi_comm_world,request_s(n),ier)
-        else  
+        else
           l = 0
           do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
             do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
@@ -1310,7 +1310,7 @@ module bc_module
           end do
         end if
       end do
-      
+
       do n=1,bc%ncon
         if(bc%rank.ne.bc%connectinfo(n)%donor) then
           call mpi_wait(request_s(n),status,ier)
@@ -1321,7 +1321,7 @@ module bc_module
       end do
 
       do n=1,bc%ncon
-        if(bc%rank.ne.bc%connectinfo(n)%donor) then 
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
           l = 0
           do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
             do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
@@ -1355,7 +1355,7 @@ module bc_module
           end do
         end if
       end do
-      
+
       do n=1,12
         call bc%edge(n)%bctype(grid,variable,eos,bc%prec)
       end do
@@ -1363,7 +1363,7 @@ module bc_module
       do n=1,8
         call bc%corner(n)%bctype(grid,variable,eos,bc%prec)
       end do
-      
+
     end subroutine setbc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine edgewallwall(bcinfo,grid,variable,eos,prec)
@@ -1509,12 +1509,12 @@ module bc_module
             dv = variable%getdv(ii,jj,kk)
             tv = variable%gettv(ii,jj,kk)
             ppv = -variable%getpv(ii,jj,kk)
-            
+
             ii = bcinfo%neighbor1(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
             ppv = ppv -variable%getpv(ii,jj,kk)
-            
+
             ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
@@ -1522,7 +1522,7 @@ module bc_module
 
             ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
-            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k          
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
             ppv = ppv -variable%getpv(ii,jj,kk)
 
             ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
@@ -1588,7 +1588,7 @@ module bc_module
             jj = bcinfo%neighbor1(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor1(3)+bcinfo%dir(3)*k
             ppv = ppv -variable%getpv(ii,jj,kk)
-            
+
             ii = bcinfo%neighbor2(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor2(2)+bcinfo%dir(2)*j
             kk = bcinfo%neighbor2(3)+bcinfo%dir(3)*k
@@ -1596,7 +1596,7 @@ module bc_module
 
             ii = bcinfo%neighbor3(1)+bcinfo%dir(1)*i
             jj = bcinfo%neighbor3(2)+bcinfo%dir(2)*j
-            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k          
+            kk = bcinfo%neighbor3(3)+bcinfo%dir(3)*k
             ppv = ppv -variable%getpv(ii,jj,kk)
 
             ii = bcinfo%neighbor4(1)+bcinfo%dir(1)*i
@@ -1645,7 +1645,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
- 
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -1702,7 +1702,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
- 
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -1770,7 +1770,7 @@ module bc_module
       real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
       real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: nx(3),var
-  
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -1842,7 +1842,7 @@ module bc_module
           end do
         end do
       end do
-      
+
     end subroutine bcwallinviscid
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcwallviscous(bcinfo,grid,variable,eos,prec)
@@ -1881,7 +1881,7 @@ module bc_module
           end do
         end do
       end do
-   
+
     end subroutine bcwallviscous
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcwallviscouske(bcinfo,grid,variable,eos,prec)
@@ -2002,7 +2002,7 @@ module bc_module
             end do
           end do
         end do
-      end do     
+      end do
     end subroutine bcwallviscouskw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcinflow(bcinfo,grid,variable,eos,prec)
@@ -2013,15 +2013,15 @@ module bc_module
       class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k
-    
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            
+
           end do
         end do
       end do
-     
+
     end subroutine bcinflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcinflowsubsonic(bcinfo,grid,variable,eos,prec)
@@ -2188,7 +2188,7 @@ module bc_module
           end do
         end do
       end do
-     
+
       call mpi_reduce(pa,mpi_pa,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
       call mpi_reduce(mdot,mpi_mdot,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
       call mpi_reduce(area,mpi_area,1,mpi_real8,mpi_sum,0,bcinfo%bc_comm_world,ier)
@@ -2211,7 +2211,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
       integer :: i,j,k,ii,jj,kk,m
-      
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -2237,7 +2237,7 @@ module bc_module
           end do
         end do
       end do
-     
+
     end subroutine bcinflowsupersonic
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcoutflow(bcinfo,grid,variable,eos,prec)
@@ -2248,15 +2248,15 @@ module bc_module
       class(t_eos), intent(in) :: eos
       type(t_prec), intent(in) :: prec
       integer :: i,j,k
-      
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
-            
+
           end do
         end do
       end do
-      
+
     end subroutine bcoutflow
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcoutflowsubsonic(bcinfo,grid,variable,eos,prec)
@@ -2440,7 +2440,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,ii,jj,kk,m
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
-      
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -2534,7 +2534,7 @@ module bc_module
             a = prec%getsndp2(dv_b(6),vel**2)
             a = dsqrt(a)
             if(mach.ge.0.d0) then !out
-              if(mach.ge.1.d0) then !super                
+              if(mach.ge.1.d0) then !super
               else !sub
                 pv(1) = 2.d0*(bcinfo%pressure-bcinfo%pv(1))-pv(1)
                 pv(2) = 2.d0*( pv_b(2)+nx(1)*(pv_b(1)+bcinfo%pv(1)-bcinfo%pressure)/dv_b(1)/a*dl) - pv(2)
@@ -2572,7 +2572,7 @@ module bc_module
           end do
         end do
       end do
-    
+
     end subroutine bcfarfield
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcdegeneratepoint(bcinfo,grid,variable,eos,prec)
@@ -2606,7 +2606,7 @@ module bc_module
           end do
         end do
       end do
-    
+
     end subroutine bcdegeneratepoint
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine bcsymmetryplane(bcinfo,grid,variable,eos,prec)
@@ -2620,7 +2620,7 @@ module bc_module
       real(8) :: pv(bcinfo%npv),pv_s(bcinfo%npv)
       real(8) :: dv(bcinfo%ndv),tv(bcinfo%ntv)
       real(8) :: nx(3),var
-  
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -2703,7 +2703,7 @@ module bc_module
       type(t_prec), intent(in) :: prec
       integer :: i,j,k,m,ii,jj,kk
       real(8) :: pv(bcinfo%npv),dv(bcinfo%ndv),tv(bcinfo%ntv)
- 
+
       ! h=1/16
       select case(bcinfo%face)
       case('jmin')
@@ -2745,7 +2745,7 @@ module bc_module
 
       case('jmax')
         do k=bcinfo%istart(3),bcinfo%iend(3)
-          do j=bcinfo%istart(2),bcinfo%iend(2)        
+          do j=bcinfo%istart(2),bcinfo%iend(2)
             do i=bcinfo%istart(1)+16,bcinfo%iend(1)
               pv = variable%getpv(i-16,j-16,k)
               dv = variable%getdv(i-16,j-16,k)
@@ -2819,7 +2819,7 @@ module bc_module
 
       case('kmax')
         do k=bcinfo%istart(3),bcinfo%iend(3)
-          do j=bcinfo%istart(2),bcinfo%iend(2)        
+          do j=bcinfo%istart(2),bcinfo%iend(2)
             do i=bcinfo%istart(1)+16,bcinfo%iend(1)
               pv = variable%getpv(i-16,j,k-16)
               dv = variable%getdv(i-16,j,k-16)
@@ -3676,7 +3676,7 @@ module bc_module
         end if
       end do
       if(bcinfo%time.ge.bcinfo%tdata(bcinfo%ndata)) heatflux=bcinfo%heatflux(bcinfo%ndata)
- 
+
       do k=bcinfo%istart(3),bcinfo%iend(3)
         do j=bcinfo%istart(2),bcinfo%iend(2)
           do i=bcinfo%istart(1),bcinfo%iend(1)
@@ -3832,17 +3832,17 @@ module bc_module
             end do
           end do
         end do
-      end do     
-    end subroutine bcheatfluxwallviscouskw   
+      end do
+    end subroutine bcheatfluxwallviscouskw
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function no_prec(prec,snd2,uuu2) result(sndp2)
       implicit none
       class(t_prec), intent(in) :: prec
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = snd2
-      
+
     end function no_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function steady_prec(prec,snd2,uuu2) result(sndp2)
@@ -3850,9 +3850,9 @@ module bc_module
       class(t_prec), intent(in) :: prec
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2))
-      
+
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function unsteady_prec(prec,snd2,uuu2) result(sndp2)
@@ -3862,7 +3862,7 @@ module bc_module
       real(8) :: sndp2
 
       sndp2 = dmin1(snd2,dmax1(uuu2,prec%uref**2,prec%str**2))
-      
+
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine newt(eos,ndv,n,p_total,t_total,h_total,y1,y2,uvwa2,x,check)

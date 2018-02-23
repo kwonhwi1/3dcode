@@ -7,17 +7,17 @@ module postvariable_module
   implicit none
   private
   public :: t_variable
-  
+
   type t_zone
     real(8), dimension(:,:,:,:), allocatable :: pv,tv,dv
   end type t_zone
-  
+
   type t_solution
     integer :: size,nps,nts
     real(8) ::time
     type(t_zone), dimension(:), allocatable :: zone
   end type t_solution
-  
+
   type t_variable
     private
     integer :: npv,ntv,ndv,nqq,nsolution
@@ -63,7 +63,7 @@ module postvariable_module
       if(variable%nsolution.eq.1) then
         if(iend.eq.istart) then
           iter = 0
-        else 
+        else
           write(*,*) 'invalid nsolution'
         end if
       else if(mod((iend-istart)/config%getnexport(),variable%nsolution-1).ne.0) then
@@ -71,9 +71,9 @@ module postvariable_module
       else
         iter = (iend-istart)/config%getnexport()/(variable%nsolution-1)
       end if
-      
+
       allocate(variable%solution(variable%nsolution))
-      
+
       do l=1,variable%nsolution
         write(iter_tag,'(i8.8)') istart+iter*config%getnexport()*(l-1)
         allocate(variable%solution(l)%zone(grid%getnzone()))
@@ -144,7 +144,7 @@ module postvariable_module
         end do
         deallocate(variable%solution(l)%zone)
       end do
-      
+
       deallocate(variable%solution)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

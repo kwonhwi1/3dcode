@@ -82,14 +82,14 @@ module rotation_module
       corioli(1) = 2.d0*(rotation%omega(2)*rotation%pv(2,4)-rotation%omega(3)*rotation%pv(2,3))
       corioli(2) = 2.d0*(rotation%omega(3)*rotation%pv(2,2)-rotation%omega(1)*rotation%pv(2,4))
       corioli(3) = 2.d0*(rotation%omega(1)*rotation%pv(2,3)-rotation%omega(2)*rotation%pv(2,2))
-      
+
       centrifugal(1) = rotation%omega(1)*(rotation%omega(2)*rotation%grd(3)+rotation%omega(3)*rotation%grd(4)) &
                      - rotation%grd(2)*(rotation%omega(2)**2+rotation%omega(3)**2)
       centrifugal(2) = rotation%omega(2)*(rotation%omega(1)*rotation%grd(2)+rotation%omega(3)*rotation%grd(4)) &
                      - rotation%grd(3)*(rotation%omega(1)**2+rotation%omega(3)**2)
       centrifugal(3) = rotation%omega(3)*(rotation%omega(1)*rotation%grd(2)+rotation%omega(2)*rotation%grd(3)) &
                      - rotation%grd(4)*(rotation%omega(1)**2+rotation%omega(2)**2)
-      
+
       getrotationsource(2) = rotation%dv(1)*rotation%grd(1)*(corioli(1)+centrifugal(1))
       getrotationsource(3) = rotation%dv(1)*rotation%grd(1)*(corioli(2)+centrifugal(2))
       getrotationsource(4) = rotation%dv(1)*rotation%grd(1)*(corioli(3)+centrifugal(3))

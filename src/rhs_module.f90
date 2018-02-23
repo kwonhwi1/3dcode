@@ -4,7 +4,7 @@ module rhs_module
   use grid_module
   use eos_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-! subordinate to rhs module  
+! subordinate to rhs module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
   use flux_module
   use vsflux_module
@@ -14,11 +14,11 @@ module rhs_module
   use unsteady_module
   use gravity_module
   use rotation_module
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc  
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
   implicit none
   private
   public :: t_rhs
-  
+
   type t_rhs
     private
     integer :: stencil,npv,ndv,ntv,ngrd,imax,jmax,kmax
@@ -45,7 +45,7 @@ module rhs_module
       procedure :: getitt
       procedure :: getomega_cut
   end type t_rhs
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(rhs,config,grid)
@@ -53,7 +53,7 @@ module rhs_module
       class(t_rhs), intent(out) :: rhs
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      
+
       rhs%stencil = config%getstencil()
       rhs%npv = config%getnpv()
       rhs%ndv = config%getndv()
@@ -73,7 +73,7 @@ module rhs_module
         allocate(t_vsflux_turbulent::rhs%vsflux)
         allocate(t_kwsst::rhs%turbsource)
       end select
-      
+
       selectcase(config%getnscheme())
       case(1)
         allocate(t_roe::rhs%flux)
@@ -84,7 +84,7 @@ module rhs_module
       case(4)
         allocate(t_ausmpup::rhs%flux)
       end select
-            
+
       select case(config%getnmuscl())
       case(0)
       case(1)
@@ -92,7 +92,7 @@ module rhs_module
       case(2)
         allocate(t_mlp::rhs%muscl)
       end select
-                
+
       select case(config%getncav())
       case(0)
       case(1)
@@ -140,24 +140,24 @@ module rhs_module
       rhs%imax = grid%getimax()
       rhs%jmax = grid%getjmax()
       rhs%kmax = grid%getkmax()
-      
+
       if(allocated(rhs%flux)) then
         call rhs%flux%construct(config,grid)
         rhs%l_flux = .true.
         allocate(rhs%ea(rhs%npv,rhs%imax),rhs%fa(rhs%npv,rhs%jmax),rhs%ga(rhs%npv,rhs%kmax))
       end if
-      
+
       if(allocated(rhs%vsflux)) then
         call rhs%vsflux%construct(config,grid)
         rhs%l_vsflux = .true.
         allocate(rhs%eva(rhs%npv,rhs%imax),rhs%fva(rhs%npv,rhs%jmax),rhs%gva(rhs%npv,rhs%kmax))
       end if
-      
+
       if(allocated(rhs%muscl)) then
         call rhs%muscl%construct(config)
         rhs%l_muscl = .true.
       end if
-   
+
       if(allocated(rhs%cav)) then
         call rhs%cav%construct(config,grid)
         if(config%gettimemethod().eq.3) then
@@ -165,7 +165,7 @@ module rhs_module
         end if
         rhs%l_cav = .true.
       end if
-      
+
       if(allocated(rhs%turbsource)) then
         call rhs%turbsource%construct(config,grid)
         if(config%gettimemethod().eq.3) then
@@ -174,7 +174,7 @@ module rhs_module
         allocate(rhs%omega_cut(2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
         rhs%l_turbsource = .true.
       end if
-      
+
       if(allocated(rhs%unsteady)) then
         call rhs%unsteady%construct(config,grid)
         rhs%l_unsteady   = .true.
@@ -197,9 +197,9 @@ module rhs_module
     subroutine destruct(rhs)
       implicit none
       class(t_rhs), intent(inout) :: rhs
-      
+
       if(rhs%l_flux) then
-        call rhs%flux%destruct()  
+        call rhs%flux%destruct()
         deallocate(rhs%flux)
         deallocate(rhs%ea,rhs%fa,rhs%ga)
       end if
@@ -235,7 +235,7 @@ module rhs_module
         deallocate(rhs%rotation)
       end if
       deallocate(rhs%res)
-      
+
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calrhs(rhs,grid,variable,eos)
@@ -256,13 +256,13 @@ module rhs_module
       real(8) :: tvl(rhs%ntv),tvr(rhs%ntv)
       type(t_cav_result) :: cav_result
       type(t_turb_result) :: turb_result
-      
+
       do k=2,rhs%kmax
         do j=2,rhs%jmax
           do i=1,rhs%imax
-          
+
             nx = grid%getcx(i,j,k)
-            
+
             ll = 0
             do kk = -1,1
               do jj = -1,1
@@ -272,7 +272,7 @@ module rhs_module
                 end do
               end do
             end do
-            
+
             if(rhs%l_muscl) then
               do kk=-1,1
                 do jj= -1,1
@@ -288,7 +288,7 @@ module rhs_module
               end do
               x(ll+1,:) = variable%getpv(i-2,j,k)
               x(ll+2,:) = variable%getpv(i+3,j,k)
-              
+
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i+1,j,k)
 
@@ -298,12 +298,12 @@ module rhs_module
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
-              pvl = variable%getpv(i,j,k) 
+              pvl = variable%getpv(i,j,k)
               pvr = variable%getpv(i+1,j,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i+1,j,k)
             end if
-            
+
             grdl = grid%getgrd(i,j,k)
             grdr = grid%getgrd(i+1,j,k)
 
@@ -313,7 +313,7 @@ module rhs_module
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%ea(:,i))
-            
+
             if(rhs%l_vsflux) then
               ex1 = grid%getex(i,j-1,k)
               ex2 = grid%getex(i+1,j-1,k)
@@ -322,12 +322,12 @@ module rhs_module
               tx1 = grid%gettx(i,j,k-1)
               tx2 = grid%gettx(i+1,j,k-1)
               tx3 = grid%gettx(i,j,k)
-              tx4 = grid%gettx(i+1,j,k)              
+              tx4 = grid%gettx(i+1,j,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i+1,j,k)
               tvl = variable%gettv(i,j,k)
               tvr = variable%gettv(i+1,j,k)
-              
+
               call rhs%vsflux%setnorm(nx,ex1,ex2,ex3,ex4,tx1,tx2,tx3,tx4)
               call rhs%vsflux%setgrd(grdl,grdr)
               call rhs%vsflux%setpv(x)
@@ -342,13 +342,13 @@ module rhs_module
           end do
         end do
       end do
-      
+
       do i=2,rhs%imax
         do k=2,rhs%kmax
           do j=1,rhs%jmax
-            
+
             nx = grid%getex(i,j,k)
-            
+
             ll = 0
             do ii = -1,1
               do kk = -1,1
@@ -358,7 +358,7 @@ module rhs_module
                 end do
               end do
             end do
-            
+
             if(rhs%l_muscl) then
               do ii = -1,1
                 do kk = -1,1
@@ -374,7 +374,7 @@ module rhs_module
               end do
               x(ll+1,:) = variable%getpv(i,j-2,k)
               x(ll+2,:) = variable%getpv(i,j+3,k)
-              
+
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j+1,k)
 
@@ -384,12 +384,12 @@ module rhs_module
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
-              pvl = variable%getpv(i,j,k) 
+              pvl = variable%getpv(i,j,k)
               pvr = variable%getpv(i,j+1,k)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j+1,k)
             end if
-            
+
             grdl = grid%getgrd(i,j,k)
             grdr = grid%getgrd(i,j+1,k)
 
@@ -399,7 +399,7 @@ module rhs_module
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%fa(:,j))
-            
+
             if(rhs%l_vsflux) then
               ex1 = grid%gettx(i,j,k-1)
               ex2 = grid%gettx(i,j+1,k-1)
@@ -432,9 +432,9 @@ module rhs_module
       do j=2,rhs%jmax
         do i=2,rhs%imax
           do k=1,rhs%kmax
-          
+
             nx = grid%gettx(i,j,k)
-            
+
             ll = 0
             do jj = -1,1
               do ii = -1,1
@@ -444,7 +444,7 @@ module rhs_module
                 end do
               end do
             end do
-            
+
             if(rhs%l_muscl) then
               do jj = -1,1
                 do ii = -1,1
@@ -460,7 +460,7 @@ module rhs_module
               end do
               x(ll+1,:) = variable%getpv(i,j,k-2)
               x(ll+2,:) = variable%getpv(i,j,k+3)
-              
+
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j,k+1)
 
@@ -470,12 +470,12 @@ module rhs_module
               call eos%deteos_simple(pvl(1)+rhs%pref,pvl(5),pvl(6),pvl(7),dvl)
               call eos%deteos_simple(pvr(1)+rhs%pref,pvr(5),pvr(6),pvr(7),dvr)
             else
-              pvl = variable%getpv(i,j,k) 
+              pvl = variable%getpv(i,j,k)
               pvr = variable%getpv(i,j,k+1)
               dvl = variable%getdv(i,j,k)
               dvr = variable%getdv(i,j,k+1)
             end if
-            
+
             grdl = grid%getgrd(i,j,k)
             grdr = grid%getgrd(i,j,k+1)
 
@@ -485,7 +485,7 @@ module rhs_module
             call rhs%flux%setdv(dvl,dvr)
             call rhs%flux%setsdst(x(1:18,1))
             call rhs%flux%calflux(eos,rhs%ga(:,k))
-            
+
             if(rhs%l_vsflux) then
               ex1 = grid%getcx(i-1,j,k)
               ex2 = grid%getcx(i-1,j,k+1)
@@ -509,12 +509,12 @@ module rhs_module
             end if
           end do
           do k=2,rhs%kmax
-            rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - ( rhs%ga(:,k) - rhs%ga(:,k-1) ) 
+            rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - ( rhs%ga(:,k) - rhs%ga(:,k-1) )
             if(rhs%l_vsflux) rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + (rhs%gva(:,k) - rhs%gva(:,k-1) )
           end do
         end do
       end do
-      
+
       do k=2,rhs%kmax
         do j=2,rhs%jmax
           do i=2,rhs%imax
@@ -534,7 +534,7 @@ module rhs_module
             x(7,:) = variable%getpv(i,j,k+1)
             dvl = variable%getdv(i,j,k)
             tvl = variable%gettv(i,j,k)
-        
+
             if(rhs%l_cav) then
               call rhs%cav%setgrd(grdl)
               call rhs%cav%setpv(x)
@@ -543,19 +543,19 @@ module rhs_module
               rhs%res(6,i,j,k) = rhs%res(6,i,j,k) + cav_result%cavsource
               if(allocated(rhs%icav)) rhs%icav(:,i,j,k) = cav_result%icav(:)
             end if
-            
+
             if(rhs%l_turbsource) then
               call rhs%turbsource%setnorm(ex1,ex2,ex3,ex4,tx1,tx2)
               call rhs%turbsource%setgrd(grdl)
               call rhs%turbsource%setpv(x)
               call rhs%turbsource%setdv(dvl)
-              call rhs%turbsource%settv(tvl)            
+              call rhs%turbsource%settv(tvl)
               turb_result = rhs%turbsource%calturbsource()
               rhs%omega_cut(i,j,k) = turb_result%omega_cut
               rhs%res(8:9,i,j,k) = rhs%res(8:9,i,j,k) + turb_result%source(:)
               if(allocated(rhs%itt)) rhs%itt(:,i,j,k) = turb_result%itt(:)
             end if
-            
+
             if(rhs%l_unsteady) then
               pvl = variable%getqq(1,i,j,k)
               pvr = variable%getqq(2,i,j,k)
@@ -589,9 +589,9 @@ module rhs_module
       class(t_rhs), intent(in) :: rhs
       integer, intent(in) :: n,i,j,k
       real(8) :: getres
-      
+
       getres = rhs%res(n,i,j,k)
-      
+
     end function getres
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function geticav(rhs,i,j,k)
@@ -599,9 +599,9 @@ module rhs_module
       class(t_rhs), intent(in) :: rhs
       integer, intent(in) :: i,j,k
       real(8) :: geticav(4)
-      
+
       geticav = rhs%icav(:,i,j,k)
-      
+
     end function geticav
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getitt(rhs,i,j,k)
@@ -609,9 +609,9 @@ module rhs_module
       class(t_rhs), intent(in) :: rhs
       integer, intent(in) :: i,j,k
       real(8) :: getitt(4)
-      
+
       getitt= rhs%itt(:,i,j,k)
-      
+
     end function getitt
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getomega_cut(rhs,i,j,k)
@@ -619,9 +619,9 @@ module rhs_module
       class(t_rhs), intent(in) :: rhs
       integer, intent(in) :: i,j,k
       real(8) :: getomega_cut
-      
+
       getomega_cut= rhs%omega_cut(i,j,k)
-      
+
     end function getomega_cut
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module rhs_module

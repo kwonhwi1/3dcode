@@ -4,7 +4,7 @@ module lhs_module
   implicit none
   private
   public :: t_lhs,t_lhs_flowonly,t_lhs_flowturball,t_lhs_flowonly_ex,t_lhs_flowturball_ex
-  
+
   type, abstract :: t_lhs
     private
     integer :: npv,ndv,ntv,ngrd,nsteady
@@ -31,12 +31,12 @@ module lhs_module
       procedure(p_getx), deferred :: getx
       procedure, private :: eigen
   end type t_lhs
-  
+
   type, extends(t_lhs) :: t_lhs_flowonly
     contains
       procedure :: getx => flowonly
   end type t_lhs_flowonly
-  
+
   type, extends(t_lhs) :: t_lhs_flowturball
     contains
       procedure :: getx => flowturball
@@ -46,7 +46,7 @@ module lhs_module
     contains
       procedure :: getx => flowonly_ex
   end type t_lhs_flowonly_ex
-  
+
   type, extends(t_lhs) :: t_lhs_flowturball_ex
     contains
       procedure :: getx => flowturball_ex
@@ -70,7 +70,7 @@ module lhs_module
       real(8), intent(in) :: uuu2
       real(8) :: sndp2
     end function p_getsndp2
-    
+
     function p_geteigenvis(lhs) result(eigenvis)
       import t_lhs
       implicit none
@@ -85,7 +85,7 @@ module lhs_module
       real(8) :: p_getenthalpy
     end function p_getenthalpy
   end interface
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(lhs,config,grid)
@@ -93,7 +93,7 @@ module lhs_module
       class(t_lhs), intent(out) :: lhs
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      
+
       lhs%ngrd = grid%getngrd()
       lhs%npv = config%getnpv()
       lhs%ndv = config%getndv()
@@ -104,7 +104,7 @@ module lhs_module
       lhs%dt_phy = config%getdt_phy()
       lhs%nsteady = config%getnsteady()
       lhs%omega = config%getomega()
-      
+
       select case(config%getprec())
       case(0)
         lhs%getsndp2 => no_prec
@@ -143,20 +143,20 @@ module lhs_module
       implicit none
       class(t_lhs), intent(inout) :: lhs
 
-      if(associated(lhs%cx1))         nullify(lhs%cx1)          
-      if(associated(lhs%cx2))         nullify(lhs%cx2)          
-      if(associated(lhs%ex1))         nullify(lhs%ex1)          
+      if(associated(lhs%cx1))         nullify(lhs%cx1)
+      if(associated(lhs%cx2))         nullify(lhs%cx2)
+      if(associated(lhs%ex1))         nullify(lhs%ex1)
       if(associated(lhs%ex2))         nullify(lhs%ex2)
-      if(associated(lhs%tx1))         nullify(lhs%tx1)          
-      if(associated(lhs%tx2))         nullify(lhs%tx2)  
-      if(associated(lhs%grd))         nullify(lhs%grd)          
-      if(associated(lhs%pv))          nullify(lhs%pv)           
-      if(associated(lhs%dv))          nullify(lhs%dv)           
-      if(associated(lhs%tv))          nullify(lhs%tv)           
-      if(associated(lhs%dt))          nullify(lhs%dt)           
-      if(associated(lhs%c))           nullify(lhs%c)            
-      if(associated(lhs%t))           nullify(lhs%t)            
-      if(associated(lhs%getsndp2))    nullify(lhs%getsndp2)     
+      if(associated(lhs%tx1))         nullify(lhs%tx1)
+      if(associated(lhs%tx2))         nullify(lhs%tx2)
+      if(associated(lhs%grd))         nullify(lhs%grd)
+      if(associated(lhs%pv))          nullify(lhs%pv)
+      if(associated(lhs%dv))          nullify(lhs%dv)
+      if(associated(lhs%tv))          nullify(lhs%tv)
+      if(associated(lhs%dt))          nullify(lhs%dt)
+      if(associated(lhs%c))           nullify(lhs%c)
+      if(associated(lhs%t))           nullify(lhs%t)
+      if(associated(lhs%getsndp2))    nullify(lhs%getsndp2)
       if(associated(lhs%geteigenvis)) nullify(lhs%geteigenvis)
       if(associated(lhs%getenthalpy)) nullify(lhs%getenthalpy)
       deallocate(lhs%c0,lhs%t0)
@@ -166,77 +166,77 @@ module lhs_module
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
-      
+
       lhs%cx1 => cx1
       lhs%cx2 => cx2
       lhs%ex1 => ex1
       lhs%ex2 => ex2
       lhs%tx1 => tx1
       lhs%tx2 => tx2
-      
+
     end subroutine setnorm
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setgrd(lhs,grd)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: grd(lhs%ngrd)
-      
+
       lhs%grd => grd
-      
+
     end subroutine setgrd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setpv(lhs,pv)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: pv(lhs%npv)
-      
+
       lhs%pv => pv
-      
+
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setdv(lhs,dv)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: dv(lhs%ndv)
-      
+
       lhs%dv => dv
-      
+
     end subroutine setdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine settv(lhs,tv)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: tv(lhs%ntv)
-      
+
       lhs%tv => tv
-      
+
     end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setdt(lhs,dt)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: dt
-      
+
       lhs%dt => dt
-      
+
     end subroutine setdt
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setc(lhs,c)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: c(4)
-      
+
       lhs%c => c
-      
+
     end subroutine setc
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine sett(lhs,t)
       implicit none
       class(t_lhs), intent(inout) :: lhs
       real(8), intent(in), target :: t(4)
-      
+
       lhs%t => t
-      
+
     end subroutine sett
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function flowonly_ex(lhs,res) result(x)
@@ -250,7 +250,7 @@ module lhs_module
 
       a = lhs%dt/lhs%grd(1)
       b = dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy*a
-      
+
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
@@ -298,7 +298,7 @@ module lhs_module
 
       a = lhs%dt/lhs%grd(1)
       b = dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy*a
-      
+
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
@@ -348,9 +348,9 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm
 
       a = 1.d0/(lhs%grd(1)/lhs%dt + lhs%eigen())
-      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a      
+      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
       c = lhs%c*lhs%grd(1)*a
-      
+
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
@@ -402,10 +402,10 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm,tt
 
       a = 1.d0/(lhs%grd(1)/lhs%dt + lhs%eigen())
-      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a      
+      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
       c = lhs%c*lhs%grd(1)*a
       t = lhs%t*lhs%grd(1)*a
-      
+
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
@@ -457,10 +457,10 @@ module lhs_module
       real(8) :: lamda
       real(8) :: uv2,sndp2,ox,oy,oz,ds,u,up,d
       real(8), parameter :: cappa = 1.05d0
-      
+
       uv2 = lhs%pv(2)**2+lhs%pv(3)**2+lhs%pv(4)**2
       sndp2 = lhs%getsndp2(uv2)
-      
+
       ox = 0.5d0*(lhs%cx1(1)+lhs%cx2(1))
       oy = 0.5d0*(lhs%cx1(2)+lhs%cx2(2))
       oz = 0.5d0*(lhs%cx1(3)+lhs%cx2(3))
@@ -478,7 +478,7 @@ module lhs_module
       up = 0.5d0*(1.d0+sndp2/lhs%dv(6))*u
       d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
       lamda = lamda+cappa*(dabs(up)+d)
-      
+
       ox = 0.5d0*(lhs%tx1(1)+lhs%tx2(1))
       oy = 0.5d0*(lhs%tx1(2)+lhs%tx2(2))
       oz = 0.5d0*(lhs%tx1(3)+lhs%tx2(3))
@@ -487,16 +487,16 @@ module lhs_module
       up = 0.5d0*(1.d0+sndp2/lhs%dv(6))*u
       d  = 0.5d0*dsqrt(u**2*(1.d0-sndp2/lhs%dv(6))**2+4.d0*sndp2*ds)
       lamda = lamda+cappa*(dabs(up)+d)
-      
+
     end function eigen
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function euler(lhs) result(eigenvis)
       implicit none
       class(t_lhs), intent(in) :: lhs
       real(8) :: eigenvis
-      
+
       eigenvis = 0.d0
-      
+
     end function euler
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function laminar(lhs) result(eigenvis)
@@ -518,7 +518,7 @@ module lhs_module
       class(t_lhs), intent(in) :: lhs
       real(8) :: eigenvis
       real(8), parameter :: pr_t = 0.9d0
-   
+
       eigenvis = dmax1(lhs%dv(7)*(lhs%tv(2)+lhs%dv(12)*lhs%tv(3)/pr_t) &
                       /(lhs%dv(8)+lhs%dv(12)*lhs%dv(7)*lhs%dv(1)       &
                        -lhs%dv(11)*lhs%dv(8)*lhs%dv(1)),               &
@@ -533,29 +533,29 @@ module lhs_module
       class(t_lhs), intent(in) :: lhs
       real(8), intent(in) :: uuu2
       real(8) :: sndp2
-      
+
       sndp2 = lhs%dv(6)
-      
+
     end function no_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function steady_prec(lhs,uuu2) result(sndp2)
       implicit none
       class(t_lhs), intent(in) :: lhs
       real(8), intent(in) :: uuu2
-      real(8) :: sndp2  
-      
+      real(8) :: sndp2
+
       sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,lhs%uref**2))
-      
+
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function unsteady_prec(lhs,uuu2) result(sndp2)
       implicit none
       class(t_lhs), intent(in) :: lhs
       real(8), intent(in) :: uuu2
-      real(8) :: sndp2  
-      
+      real(8) :: sndp2
+
       sndp2 = dmin1(lhs%dv(6),dmax1(uuu2,lhs%uref**2,lhs%str**2))
-      
+
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function enthalpy(lhs)

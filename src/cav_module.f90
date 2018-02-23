@@ -5,11 +5,11 @@ module cav_module
   implicit none
   private
   public :: t_cav,t_merkle,t_kunz,t_singhal,t_schnerr_sauer,t_lee,t_cav_result
-  
+
   type t_cav_result
     real(8) :: cavsource,icav(4)
   end type
-  
+
   type, abstract :: t_cav
     private
     integer :: stencil,npv,ndv,ngrd,fluid
@@ -24,17 +24,17 @@ module cav_module
       procedure :: setdv        ! (dv)  rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
       procedure(p_cavsource), deferred :: cavsource
   end type t_cav
-  
+
   type, extends(t_cav) :: t_merkle
     contains
       procedure :: cavsource => merkle
   end type t_merkle
-  
+
   type, extends(t_cav) :: t_kunz
     contains
       procedure :: cavsource => kunz
   end type t_kunz
-  
+
   type, extends(t_cav) :: t_singhal
     contains
       procedure :: cavsource => singhal
@@ -49,7 +49,7 @@ module cav_module
     contains
       procedure :: cavsource => lee
   end type t_lee
- 
+
   abstract interface
     function p_cavsource(cav,eos) result(cav_result)
       import t_cav_result
@@ -61,7 +61,7 @@ module cav_module
       type(t_cav_result) :: cav_result
     end function p_cavsource
   end interface
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(cav,config,grid)
@@ -69,7 +69,7 @@ module cav_module
       class(t_cav), intent(out) :: cav
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
-      
+
       cav%stencil      = config%getstencil()
       cav%npv          = config%getnpv()
       cav%ndv          = config%getndv()
@@ -80,7 +80,7 @@ module cav_module
       cav%fluid        = config%getfluid()
       cav%dp_ref = 2.d0/(config%getrhoref()*cav%uref**2)
       cav%t_ref = cav%uref/config%getl_chord()
-      
+
       cav%ngrd = grid%getngrd()
 
       select case(cav%fluid)
@@ -99,9 +99,9 @@ module cav_module
     subroutine destruct(cav)
       implicit none
       class(t_cav), intent(inout) :: cav
-      
-      if(associated(cav%grd))  nullify(cav%grd) 
-      if(associated(cav%pv))   nullify(cav%pv) 
+
+      if(associated(cav%grd))  nullify(cav%grd)
+      if(associated(cav%pv))   nullify(cav%pv)
       if(associated(cav%dv))   nullify(cav%dv)
 
     end subroutine destruct
@@ -110,16 +110,16 @@ module cav_module
       implicit none
       class(t_cav), intent(inout) :: cav
       real(8), intent(in), target :: grd(cav%ngrd)
-      
+
       cav%grd => grd
-      
+
     end subroutine setgrd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setpv(cav,pv)
       implicit none
       class(t_cav), intent(inout) :: cav
       real(8), intent(in), target :: pv(cav%stencil,cav%npv)
-      
+
       cav%pv => pv
 
     end subroutine setpv
@@ -128,10 +128,10 @@ module cav_module
       implicit none
       class(t_cav), intent(inout) :: cav
       real(8), intent(in), target :: dv(cav%ndv)
-      
+
       cav%dv  => dv
-    
-    end subroutine setdv 
+
+    end subroutine setdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function merkle(cav,eos) result(cav_result)
       implicit none
@@ -140,17 +140,17 @@ module cav_module
       type(t_cav_result) :: cav_result
       real(8) :: r_c,r_v,pww,lam,rho1
       real(8), parameter :: phi = 1.d0
-      
+
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
-      
+
       r_c = cav%c_c*cav%dv(1)*cav%pv(2,6)*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*cav%dp_ref*cav%t_ref
       r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
-           
+
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
-      
+
       if(r_c.ne.0.d0) then
         cav_result%icav(1) = - r_c*cav%dv(7)*rho1 - cav%c_c*cav%dv(1)*cav%pv(2,6)*cav%dp_ref*cav%t_ref
         cav_result%icav(2) = - r_c*cav%dv(8)*rho1
@@ -179,7 +179,7 @@ module cav_module
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
-      
+
       av = cav%dv(1)*cav%pv(2,6)/cav%dv(4)
       ag = cav%dv(1)*cav%pv(2,7)/cav%dv(5)
       al = 1.d0 - av - ag
@@ -188,7 +188,7 @@ module cav_module
       r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
-      
+
       av1 = 1.d0-4.d0*av+3.d0*av**2
       cav_result%icav(1) = - cav%c_c*cav%t_ref*(cav%dv(7)*cav%pv(2,6)*av1+2.d0*av**2*cav%dv(15)*(al+ag))
       cav_result%icav(2) = - cav%c_c*cav%t_ref*(cav%dv(8)*cav%pv(2,6)*av1+2.d0*av**2*cav%dv(16)*(al+ag))
@@ -202,7 +202,7 @@ module cav_module
       end if
       lam = dsign(1.d0,cav_result%icav(3))
       cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
-    end function kunz  
+    end function kunz
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function singhal(cav,eos) result(cav_result)
       implicit none
@@ -211,21 +211,21 @@ module cav_module
       type(t_cav_result) :: cav_result
       real(8) :: r_c,r_v,pww,sigma,lam,rho1,rho2
       real(8), parameter :: phi = 1.d0
-      
+
       cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       sigma = eos%get_sigma(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(3)
       rho2 = 1.d0/cav%dv(4)
-      
+
       r_c = cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
           *dsqrt(2.d0/3.d0*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*rho1)*cav%pv(2,6)
       r_v = cav%c_v*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
           *dsqrt(2.d0/3.d0*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*rho1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
-      
+
       if(r_c.ne.0.d0 ) then
         cav_result%icav(1) = - r_c*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1)-0.5d0*cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
           *dsqrt(2.d0/3.d0*rho1)*cav%pv(2,6)*(cav%pv(2,1)+cav%pref-pww)**(-0.5d0)
@@ -340,4 +340,4 @@ module cav_module
       cav_result%icav(:) = cav_result%icav(:)*(phi*(1.d0-0.5d0*(1.d0-lam))-0.5d0*(1.d0-lam))
     end function lee
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-end module cav_module 
+end module cav_module

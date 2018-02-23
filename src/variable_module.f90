@@ -5,7 +5,7 @@ module variable_module
   implicit none
   private
   public :: t_variable
-  
+
   type t_variable
     private
     integer :: npv,ndv,ntv,nqq
@@ -29,7 +29,7 @@ module variable_module
       procedure :: setqq
       procedure :: export_variable
   end type t_variable
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(variable,config,grid)
@@ -74,12 +74,12 @@ module variable_module
     subroutine destruct(variable)
       implicit none
       class(t_variable), intent(inout) :: variable
-          
+
       if(allocated(variable%pv)) deallocate(variable%pv)
       if(allocated(variable%dv)) deallocate(variable%dv)
       if(allocated(variable%tv)) deallocate(variable%tv)
       if(allocated(variable%qq)) deallocate(variable%qq)
-      
+
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine export_variable(variable,nt_phy,nt,time)
@@ -136,9 +136,9 @@ module variable_module
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: i,j,k
       real(8) :: getpv(variable%npv)
-      
+
       getpv = variable%pv(:,i,j,k)
-      
+
     end function getpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getdv(variable,i,j,k)
@@ -146,9 +146,9 @@ module variable_module
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: i,j,k
       real(8) :: getdv(variable%ndv)
-      
+
       getdv = variable%dv(:,i,j,k)
-      
+
     end function getdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function gettv(variable,i,j,k)
@@ -156,9 +156,9 @@ module variable_module
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: i,j,k
       real(8) :: gettv(variable%ntv)
-      
+
       gettv = variable%tv(:,i,j,k)
-      
+
     end function gettv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function getqq(variable,n,i,j,k)
@@ -166,9 +166,9 @@ module variable_module
       class(t_variable), intent(in) :: variable
       integer, intent(in) :: i,j,k,n
       real(8) :: getqq(variable%npv)
-      
+
       getqq = variable%qq(:,n,i,j,k)
-      
+
     end function getqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setpv(variable,n,i,j,k,var)
@@ -176,9 +176,9 @@ module variable_module
       class(t_variable), intent(inout) :: variable
       integer, intent(in) :: n,i,j,k
       real(8), intent(in) :: var
-      
+
       variable%pv(n,i,j,k) = var
-      
+
     end subroutine setpv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setdv(variable,n,i,j,k,var)
@@ -186,9 +186,9 @@ module variable_module
       class(t_variable), intent(inout) :: variable
       integer, intent(in) :: n,i,j,k
       real(8), intent(in) :: var
-      
+
       variable%dv(n,i,j,k) = var
-      
+
     end subroutine setdv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine settv(variable,n,i,j,k,var)
@@ -196,9 +196,9 @@ module variable_module
       class(t_variable), intent(inout) :: variable
       integer, intent(in) :: n,i,j,k
       real(8), intent(in) :: var
-      
+
       variable%tv(n,i,j,k) = var
-      
+
     end subroutine settv
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setqq(variable,n,i,j,k,var)
@@ -206,9 +206,9 @@ module variable_module
       class(t_variable), intent(inout) :: variable
       integer, intent(in) :: n,i,j,k
       real(8), intent(in) :: var(variable%npv)
-      
+
       variable%qq(:,n,i,j,k) = var
-      
+
     end subroutine setqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module variable_module

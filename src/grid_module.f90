@@ -10,12 +10,12 @@ module grid_module
     integer :: istart(3),iend(3)
     character(32) :: bcname,famname
   end type t_bcinfo
-  
+
   type t_connectinfo
     integer :: donor,transmat(3,3)
     integer :: istart(3),iend(3),istart_donor(3),iend_donor(3)
   end type t_connectinfo
-  
+
   type t_mpitemp
     integer :: num
     integer :: sendadress(21),recvadress(21)
@@ -83,234 +83,231 @@ module grid_module
       integer :: nzone,nfam
       integer(cgsize_t) :: nmax(3),nstart(3)
       integer(cgsize_t) :: isize(9),ipnts(6),ipntsdonor(6)
-      integer :: transvec(3) 
+      integer :: transvec(3)
       integer :: nfambc,ngeo,ibctype
       integer :: normallist
       integer, parameter :: dim = 3
       real(8), dimension(:,:,:), allocatable :: xx,yy,zz
-      
+
       grid%rank = config%getrank()
       grid%size = config%getsize()
-      do n = 0,grid%size-1
-        if(n.eq.grid%rank) then
 
-          call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
-          if(ier.ne.cg_ok) call cg_error_exit_f
-          
-          call cg_nzones_f(ifile,1,nzone,ier)
-          if(nzone.ne.config%getsize()) write(*,*) 'invalid size of domain! check cpu number'
-          
-          allocate(zonename(nzone),grid%zoneinfo(0:nzone-1))
+      n = grid%rank
 
-          do j= 0,nzone-1
-            call cg_zone_read_f(ifile,1,j+1,zonename(j+1),isize,ier)
-            grid%zoneinfo(j)%imax = int(isize(1),4)
-            grid%zoneinfo(j)%jmax = int(isize(2),4)
-            grid%zoneinfo(j)%kmax = int(isize(3),4)
-            if(j.eq.n) then
-              grid%zonename = zonename(j+1)
-              grid%imax = int(isize(1),4)
-              grid%jmax = int(isize(2),4)
-              grid%kmax = int(isize(3),4)
-            end if
-          end do
-          
-          allocate(grid%x(dim,2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1))
-          allocate(xx(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1),yy(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1),zz(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1))
-          
-          nmax(1) = grid%imax; nmax(2) = grid%jmax; nmax(3) = grid%kmax
-          nstart  = 1
-          
-          call cg_coord_read_f(ifile,1,n+1,'CoordinateX',realdouble,nstart,nmax,xx,ier)
-          call cg_coord_read_f(ifile,1,n+1,'CoordinateY',realdouble,nstart,nmax,yy,ier)
-          call cg_coord_read_f(ifile,1,n+1,'CoordinateZ',realdouble,nstart,nmax,zz,ier)
-          
-          grid%x(1,:,:,:) = xx*config%getscale()
-          grid%x(2,:,:,:) = yy*config%getscale()
-          grid%x(3,:,:,:) = zz*config%getscale()
-          
-          call cg_nfamilies_f(ifile,1,nfam,ier)
-          
-          allocate(famname(nfam),fambcname(nfam))
-          
-          do i=1,nfam
-            call cg_family_read_f(ifile,1,i,famname(i),nfambc,ngeo,ier)
-            call cg_fambc_read_f(ifile,1,i,1,nodename,ibctype,ier)
-            if(trim(nodename)=='FamBC') then
-              fambcname(i) = bctypename(ibctype)
-            else
-              fambcname(i) = '....'
-            end if 
-          end do     
-          
-          call cg_nbocos_f(ifile,1,n+1,grid%nbc,ier)
-          allocate(grid%bcinfo(grid%nbc))
-          
-          do i=1,grid%nbc
-            call cg_goto_f(ifile,1,ier,'Zone_t',n+1,'ZoneBC_t',1,'BC_t',i,'end')
-            call cg_famname_read_f(nodename,ier)
-            call cg_boco_read_f(ifile,1,n+1,i,ipnts,normallist,ier)
-            
-            do j=1,dim
-              if(ipnts(j).eq.ipnts(dim+j)) then
-                if(ipnts(j).eq.1) then
-                  select case(j)
-                  case(1)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
-                  case(2)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
-                  case(3)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
-                  end select
-                else
-                  select case(j)
-                  case(1)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)+1
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
-                  case(2)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)+1
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
-                  case(3)
-                    grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
-                    grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
-                    grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
-                    grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
-                    grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
-                    grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)+1
-                  end select
-                end if
-              end if
-            end do
-         
-            do j=1,nfam
-              if(trim(nodename).eq.trim(famname(j))) then
-                grid%bcinfo(i)%bcname = fambcname(j)
-                if(trim(grid%bcinfo(i)%bcname).eq.'UserDefined') then
-                  grid%bcinfo(i)%bcname = famname(j)
-                end if
-                grid%bcinfo(i)%famname = famname(j)
-              end if
-            end do
-          end do
+      call cg_open_f('./'//trim(config%getname())//'.cgns',cg_mode_read,ifile,ier)
+      if(ier.ne.cg_ok) call cg_error_exit_f
 
-          call cg_n1to1_f(ifile,1,n+1,grid%ncon,ier)
-          allocate(grid%connectinfo(grid%ncon))
-          
-          do j=1,grid%ncon
-            call cg_1to1_read_f(ifile,1,n+1,j,connectname,donorname,ipnts,ipntsdonor,transvec,ier)
-            
-            grid%connectinfo(j)%transmat = 0
-            grid%connectinfo(j)%transmat(abs(transvec(1)),1)=transvec(1)/abs(transvec(1))
-            grid%connectinfo(j)%transmat(abs(transvec(2)),2)=transvec(2)/abs(transvec(2))
-            grid%connectinfo(j)%transmat(abs(transvec(3)),3)=transvec(3)/abs(transvec(3))
-            
-            do m=1,dim
-              if(ipnts(m).eq.ipnts(dim+m)) then
-                if(ipnts(m).eq.1) then
-                  select case(m)
-                  case(1)
-                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)+1
-                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
-                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
-                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)+1
-                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
-                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
-                  case(2)
-                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
-                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)+1
-                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
-                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
-                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)+1
-                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
-                  case(3)
-                    grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
-                    grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
-                    grid%connectinfo(j)%istart(3) = int(ipnts(3),4)+1
-                    grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
-                    grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
-                    grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)+1
-                  end select
-                else
-                  grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
-                  grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
-                  grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
-                  grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
-                  grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
-                  grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
-                end if
-              end if
-              
-              if(ipntsdonor(m).eq.ipntsdonor(dim+m)) then
-                if(ipntsdonor(m).eq.1) then
-                  grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
-                  grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
-                  grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
-                  grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
-                  grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
-                  grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
-                else
-                  select case(m)
-                  case(1)
-                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)+1
-                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
-                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
-                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)+1
-                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
-                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
-                  case(2)
-                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
-                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)+1
-                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
-                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
-                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)+1
-                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
-                  case(3)
-                    grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
-                    grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
-                    grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)+1
-                    grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
-                    grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
-                    grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)+1
-                  end select
-                end if
-              end if
-            end do
+      call cg_nzones_f(ifile,1,nzone,ier)
+      if(nzone.ne.config%getsize()) write(*,*) 'invalid size of domain! check cpu number'
 
-            do i=1,nzone
-              if(trim(donorname).eq.trim(zonename(i))) then
-                grid%connectinfo(j)%donor = i-1
-              end if
-            end do
-          end do  
-          
-          call cg_close_f(ifile,ier)
+      allocate(zonename(nzone),grid%zoneinfo(0:nzone-1))
+
+      do j= 0,nzone-1
+        call cg_zone_read_f(ifile,1,j+1,zonename(j+1),isize,ier)
+        grid%zoneinfo(j)%imax = int(isize(1),4)
+        grid%zoneinfo(j)%jmax = int(isize(2),4)
+        grid%zoneinfo(j)%kmax = int(isize(3),4)
+        if(j.eq.n) then
+          grid%zonename = zonename(j+1)
+          grid%imax = int(isize(1),4)
+          grid%jmax = int(isize(2),4)
+          grid%kmax = int(isize(3),4)
         end if
-        call mpi_barrier(mpi_comm_world,ier)
       end do
-            
+
+      allocate(grid%x(dim,2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1))
+      allocate(xx(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1),yy(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1),zz(2:grid%imax+1,2:grid%jmax+1,2:grid%kmax+1))
+
+      nmax(1) = grid%imax; nmax(2) = grid%jmax; nmax(3) = grid%kmax
+      nstart  = 1
+
+      call cg_coord_read_f(ifile,1,n+1,'CoordinateX',realdouble,nstart,nmax,xx,ier)
+      call cg_coord_read_f(ifile,1,n+1,'CoordinateY',realdouble,nstart,nmax,yy,ier)
+      call cg_coord_read_f(ifile,1,n+1,'CoordinateZ',realdouble,nstart,nmax,zz,ier)
+
+      grid%x(1,:,:,:) = xx*config%getscale()
+      grid%x(2,:,:,:) = yy*config%getscale()
+      grid%x(3,:,:,:) = zz*config%getscale()
+
+      call cg_nfamilies_f(ifile,1,nfam,ier)
+
+      allocate(famname(nfam),fambcname(nfam))
+
+      do i=1,nfam
+        call cg_family_read_f(ifile,1,i,famname(i),nfambc,ngeo,ier)
+        call cg_fambc_read_f(ifile,1,i,1,nodename,ibctype,ier)
+        if(trim(nodename)=='FamBC') then
+          fambcname(i) = bctypename(ibctype)
+        else
+          fambcname(i) = '....'
+        end if
+      end do
+
+      call cg_nbocos_f(ifile,1,n+1,grid%nbc,ier)
+      allocate(grid%bcinfo(grid%nbc))
+
+      do i=1,grid%nbc
+        call cg_goto_f(ifile,1,ier,'Zone_t',n+1,'ZoneBC_t',1,'BC_t',i,'end')
+        call cg_famname_read_f(nodename,ier)
+        call cg_boco_read_f(ifile,1,n+1,i,ipnts,normallist,ier)
+
+        do j=1,dim
+          if(ipnts(j).eq.ipnts(dim+j)) then
+            if(ipnts(j).eq.1) then
+              select case(j)
+              case(1)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
+              case(2)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
+              case(3)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
+              end select
+            else
+              select case(j)
+              case(1)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)+1
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
+              case(2)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)+1
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)
+              case(3)
+                grid%bcinfo(i)%istart(1) = int(ipnts(1),4)+1
+                grid%bcinfo(i)%istart(2) = int(ipnts(2),4)+1
+                grid%bcinfo(i)%istart(3) = int(ipnts(3),4)+1
+                grid%bcinfo(i)%iend(1)   = int(ipnts(4),4)
+                grid%bcinfo(i)%iend(2)   = int(ipnts(5),4)
+                grid%bcinfo(i)%iend(3)   = int(ipnts(6),4)+1
+              end select
+            end if
+          end if
+        end do
+
+        do j=1,nfam
+          if(trim(nodename).eq.trim(famname(j))) then
+            grid%bcinfo(i)%bcname = fambcname(j)
+            if(trim(grid%bcinfo(i)%bcname).eq.'UserDefined') then
+              grid%bcinfo(i)%bcname = famname(j)
+            end if
+            grid%bcinfo(i)%famname = famname(j)
+          end if
+        end do
+      end do
+
+      call cg_n1to1_f(ifile,1,n+1,grid%ncon,ier)
+      allocate(grid%connectinfo(grid%ncon))
+
+      do j=1,grid%ncon
+        call cg_1to1_read_f(ifile,1,n+1,j,connectname,donorname,ipnts,ipntsdonor,transvec,ier)
+
+        grid%connectinfo(j)%transmat = 0
+        grid%connectinfo(j)%transmat(abs(transvec(1)),1)=transvec(1)/abs(transvec(1))
+        grid%connectinfo(j)%transmat(abs(transvec(2)),2)=transvec(2)/abs(transvec(2))
+        grid%connectinfo(j)%transmat(abs(transvec(3)),3)=transvec(3)/abs(transvec(3))
+
+        do m=1,dim
+          if(ipnts(m).eq.ipnts(dim+m)) then
+            if(ipnts(m).eq.1) then
+              select case(m)
+              case(1)
+                grid%connectinfo(j)%istart(1) = int(ipnts(1),4)+1
+                grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+                grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+                grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)+1
+                grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+                grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
+              case(2)
+                grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+                grid%connectinfo(j)%istart(2) = int(ipnts(2),4)+1
+                grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+                grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+                grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)+1
+                grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
+              case(3)
+                grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+                grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+                grid%connectinfo(j)%istart(3) = int(ipnts(3),4)+1
+                grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+                grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+                grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)+1
+              end select
+            else
+              grid%connectinfo(j)%istart(1) = int(ipnts(1),4)
+              grid%connectinfo(j)%istart(2) = int(ipnts(2),4)
+              grid%connectinfo(j)%istart(3) = int(ipnts(3),4)
+              grid%connectinfo(j)%iend(1)   = int(ipnts(4),4)
+              grid%connectinfo(j)%iend(2)   = int(ipnts(5),4)
+              grid%connectinfo(j)%iend(3)   = int(ipnts(6),4)
+            end if
+          end if
+
+          if(ipntsdonor(m).eq.ipntsdonor(dim+m)) then
+            if(ipntsdonor(m).eq.1) then
+              grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+              grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+              grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+              grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+              grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+              grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
+            else
+              select case(m)
+              case(1)
+                grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)+1
+                grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+                grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+                grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)+1
+                grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+                grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
+              case(2)
+                grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+                grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)+1
+                grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)
+                grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+                grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)+1
+                grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)
+              case(3)
+                grid%connectinfo(j)%istart_donor(1) = int(ipntsdonor(1),4)
+                grid%connectinfo(j)%istart_donor(2) = int(ipntsdonor(2),4)
+                grid%connectinfo(j)%istart_donor(3) = int(ipntsdonor(3),4)+1
+                grid%connectinfo(j)%iend_donor(1)   = int(ipntsdonor(4),4)
+                grid%connectinfo(j)%iend_donor(2)   = int(ipntsdonor(5),4)
+                grid%connectinfo(j)%iend_donor(3)   = int(ipntsdonor(6),4)+1
+              end select
+            end if
+          end if
+        end do
+
+        do i=1,nzone
+          if(trim(donorname).eq.trim(zonename(i))) then
+            grid%connectinfo(j)%donor = i-1
+          end if
+        end do
+      end do
+
+      call cg_close_f(ifile,ier)
+
       if(allocated(zonename)) deallocate(zonename)
       if(allocated(famname)) deallocate(famname)
       if(allocated(fambcname)) deallocate(fambcname)
@@ -318,20 +315,20 @@ module grid_module
       if(allocated(yy)) deallocate(yy)
       if(allocated(zz)) deallocate(zz)
 
-      
+
       select case(config%getiturb())
       case(-3,-2)
         grid%ngrd = 4
       case(-1,0)
         grid%ngrd = 5
       end select
-      
+
       allocate(grid%grd(grid%ngrd,grid%imax+1,grid%jmax+1,grid%kmax+1))
-      
+
       call grid%calnormal() !! must be called before calvolume !!
-      call grid%calvolume() 
+      call grid%calvolume()
       if(config%getiturb().gt.-2) call grid%calydns() ! in case of turbulent, ydns must be calculated !!
-      
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(grid)
@@ -346,8 +343,8 @@ module grid_module
       if(allocated(grid%grd))         deallocate(grid%grd)
       if(allocated(grid%bcinfo))      deallocate(grid%bcinfo)
       if(allocated(grid%connectinfo)) deallocate(grid%connectinfo)
-      
-      
+
+
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calydns(grid)
@@ -363,9 +360,9 @@ module grid_module
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
       integer :: request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%ncon)
       real(8) :: xc,yc,zc,ymin,ytemp
-     
+
       sendnum = 0
-     
+
       do n = 1,grid%nbc
         if(trim(grid%bcinfo(n)%bcname).eq.'BCWall') then
           if(grid%bcinfo(n)%istart(1).eq.grid%bcinfo(n)%iend(1)) then
@@ -379,7 +376,7 @@ module grid_module
           end if
         end if
       end do
-      
+
       allocate(sendxb(sendnum),sendyb(sendnum),sendzb(sendnum))
       m=0
       do n = 1,grid%nbc
@@ -402,7 +399,7 @@ module grid_module
                   sendyb(m) = 0.25d0*(grid%x(2,grid%imax+1,j,k)+grid%x(2,grid%imax+1,j+1,k)+grid%x(2,grid%imax+1,j,k+1)+grid%x(2,grid%imax+1,j+1,k+1))
                   sendzb(m) = 0.25d0*(grid%x(3,grid%imax+1,j,k)+grid%x(3,grid%imax+1,j+1,k)+grid%x(3,grid%imax+1,j,k+1)+grid%x(3,grid%imax+1,j+1,k+1))
                 end do
-              end do           
+              end do
             end if
           end if
           if(grid%bcinfo(n)%istart(2).eq.grid%bcinfo(n)%iend(2)) then
@@ -414,7 +411,7 @@ module grid_module
                   sendyb(m) = 0.25d0*(grid%x(2,i,2,k)+grid%x(2,i+1,2,k)+grid%x(2,i,2,k+1)+grid%x(2,i+1,2,k+1))
                   sendzb(m) = 0.25d0*(grid%x(3,i,2,k)+grid%x(3,i+1,2,k)+grid%x(3,i,2,k+1)+grid%x(3,i+1,2,k+1))
                 end do
-              end do            
+              end do
             else
               do k = grid%bcinfo(n)%istart(3),grid%bcinfo(n)%iend(3)
                 do i = grid%bcinfo(n)%istart(1),grid%bcinfo(n)%iend(1)
@@ -423,7 +420,7 @@ module grid_module
                   sendyb(m) = 0.25d0*(grid%x(2,i,grid%jmax+1,k)+grid%x(2,i+1,grid%jmax+1,k)+grid%x(2,i,grid%jmax+1,k+1)+grid%x(2,i+1,grid%jmax+1,k+1))
                   sendzb(m) = 0.25d0*(grid%x(3,i,grid%jmax+1,k)+grid%x(3,i+1,grid%jmax+1,k)+grid%x(3,i,grid%jmax+1,k+1)+grid%x(3,i+1,grid%jmax+1,k+1))
                 end do
-              end do          
+              end do
             end if
           end if
           if(grid%bcinfo(n)%istart(3).eq.grid%bcinfo(n)%iend(3)) then
@@ -435,7 +432,7 @@ module grid_module
                   sendyb(m) = 0.25d0*(grid%x(2,i,j,2)+grid%x(2,i+1,j,2)+grid%x(2,i,j+1,2)+grid%x(2,i+1,j+1,2))
                   sendzb(m) = 0.25d0*(grid%x(3,i,j,2)+grid%x(3,i+1,j,2)+grid%x(3,i,j+1,2)+grid%x(3,i+1,j+1,2))
                 end do
-              end do            
+              end do
             else
               do j = grid%bcinfo(n)%istart(2),grid%bcinfo(n)%iend(2)
                 do i = grid%bcinfo(n)%istart(1),grid%bcinfo(n)%iend(1)
@@ -444,30 +441,30 @@ module grid_module
                   sendyb(m) = 0.25d0*(grid%x(2,i,j,grid%kmax+1)+grid%x(2,i+1,j,grid%kmax+1)+grid%x(2,i,j+1,grid%kmax+1)+grid%x(2,i+1,j+1,grid%kmax+1))
                   sendzb(m) = 0.25d0*(grid%x(3,i,j,grid%kmax+1)+grid%x(3,i+1,j,grid%kmax+1)+grid%x(3,i,j+1,grid%kmax+1)+grid%x(3,i+1,j+1,grid%kmax+1))
                 end do
-              end do          
+              end do
             end if
-          end if      
+          end if
         end if
       end do
-      
+
       call mpi_allgather(sendnum,1,mpi_integer4,recvcount,1,mpi_integer4,mpi_comm_world,ier)
-      
+
       disp(0) = 0
       do m=1,grid%size-1
         disp(m) = disp(m-1) + recvcount(m-1)
       end do
-      
+
       recvnum = 0
       do m=0,grid%size-1
         recvnum = recvnum + recvcount(m)
       end do
-      
+
       allocate(recvxb(recvnum),recvyb(recvnum),recvzb(recvnum))
 
       call mpi_allgatherv(sendxb,sendnum,mpi_real8,recvxb,recvcount,disp,mpi_real8,mpi_comm_world,ier)
       call mpi_allgatherv(sendyb,sendnum,mpi_real8,recvyb,recvcount,disp,mpi_real8,mpi_comm_world,ier)
       call mpi_allgatherv(sendzb,sendnum,mpi_real8,recvzb,recvcount,disp,mpi_real8,mpi_comm_world,ier)
-      
+
       do k=2,grid%kmax
         do j=2,grid%jmax
           do i=2,grid%imax
@@ -485,16 +482,16 @@ module grid_module
           end do
         end do
       end do
-      
+
       deallocate(sendxb,sendyb,sendzb,recvxb,recvyb,recvzb)
-      
+
       do k=2,grid%kmax
         do i=2,grid%imax
           grid%grd(5,i,1,k)      = grid%grd(5,i,2,k)
           grid%grd(5,i,grid%jmax+1,k) = grid%grd(5,i,grid%jmax,k)
         end do
       end do
-      
+
       do k=2,grid%kmax
         do j=1,grid%jmax+1
           grid%grd(5,1,j,k)      = grid%grd(5,2,j,k)
@@ -508,7 +505,7 @@ module grid_module
           grid%grd(5,i,j,grid%kmax+1) = grid%grd(5,i,j,grid%kmax)
         end do
       end do
-      
+
       allocate(mpitemp(grid%ncon))
 
       do n=1,grid%ncon
@@ -517,7 +514,7 @@ module grid_module
                         *(abs(grid%connectinfo(n)%istart(1)-grid%connectinfo(n)%iend(1))+1)
         allocate(mpitemp(n)%sendbuf(mpitemp(n)%num),mpitemp(n)%recvbuf(mpitemp(n)%num))
       end do
-      
+
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then
           call mpi_irecv(mpitemp(n)%recvadress,21,mpi_integer,grid%connectinfo(n)%donor,grid%connectinfo(n)%donor+grid%size,mpi_comm_world,request_ra(n),ier)
@@ -535,18 +532,18 @@ module grid_module
             end do
           end do
         end do
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
 
           mpitemp(n)%sendadress = (/grid%connectinfo(n)%istart(1),grid%connectinfo(n)%iend(1), &
                                     grid%connectinfo(n)%istart(2),grid%connectinfo(n)%iend(2), &
                                     grid%connectinfo(n)%istart(3),grid%connectinfo(n)%iend(3), &
                                     grid%connectinfo(n)%istart_donor(1),grid%connectinfo(n)%iend_donor(1), &
                                     grid%connectinfo(n)%istart_donor(2),grid%connectinfo(n)%iend_donor(2), &
-                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &  
+                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &
                                     grid%connectinfo(n)%transmat(1,1),grid%connectinfo(n)%transmat(1,2),grid%connectinfo(n)%transmat(1,3), &
                                     grid%connectinfo(n)%transmat(2,1),grid%connectinfo(n)%transmat(2,2),grid%connectinfo(n)%transmat(2,3), &
                                     grid%connectinfo(n)%transmat(3,1),grid%connectinfo(n)%transmat(3,2),grid%connectinfo(n)%transmat(3,3)/)
-                     
+
           call mpi_isend(mpitemp(n)%sendadress,21,mpi_integer,grid%connectinfo(n)%donor,grid%rank+grid%size,mpi_comm_world,request_sa(n),ier)
           call mpi_isend(mpitemp(n)%sendbuf,mpitemp(n)%num,mpi_real8,grid%connectinfo(n)%donor,grid%rank,mpi_comm_world,request_s(n),ier)
         else ! no mpi boundary
@@ -568,9 +565,9 @@ module grid_module
               end do
             end do
           end do
-        end if    
+        end if
       end do
-      
+
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then
           call mpi_wait(request_s(n),status,ier)
@@ -581,7 +578,7 @@ module grid_module
       end do
 
       do n=1,grid%ncon
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
           l = 0
           do k=mpitemp(n)%recvadress(5),mpitemp(n)%recvadress(6)
             do j=mpitemp(n)%recvadress(3),mpitemp(n)%recvadress(4)
@@ -602,7 +599,7 @@ module grid_module
           end do
         end if
       end do
-      
+
       do n=1,grid%ncon
         deallocate(mpitemp(n)%sendbuf,mpitemp(n)%recvbuf)
       end do
@@ -617,13 +614,13 @@ module grid_module
       integer :: ier,request_s(grid%ncon),request_r(grid%ncon),request_sa(grid%ncon),request_ra(grid%ncon)
       integer :: status(mpi_status_size)
       type(t_mpitemp), dimension(:), allocatable :: mpitemp
-      real(8) :: xc,yc,zc,xe,ye,ze,xs,ys,zs 
+      real(8) :: xc,yc,zc,xe,ye,ze,xs,ys,zs
       integer, parameter :: dim = 3
-      
+
       allocate(grid%cx(3,1:grid%imax,1:grid%jmax+1,1:grid%kmax+1))
       allocate(grid%ex(3,1:grid%imax+1,1:grid%jmax,1:grid%kmax+1))
       allocate(grid%tx(3,1:grid%imax+1,1:grid%jmax+1,1:grid%kmax))
-      
+
       do k=2,grid%kmax
         do j=2,grid%jmax
           do i=1,grid%imax
@@ -645,13 +642,13 @@ module grid_module
           do j=1,grid%jmax
             xc = grid%x(1,i,j+1,k)   - grid%x(1,i+1,j+1,k+1)
             yc = grid%x(2,i,j+1,k)   - grid%x(2,i+1,j+1,k+1)
-            zc = grid%x(3,i,j+1,k)   - grid%x(3,i+1,j+1,k+1)    
+            zc = grid%x(3,i,j+1,k)   - grid%x(3,i+1,j+1,k+1)
             xs = grid%x(1,i,j+1,k+1) - grid%x(1,i+1,j+1,k)
             ys = grid%x(2,i,j+1,k+1) - grid%x(2,i+1,j+1,k)
             zs = grid%x(3,i,j+1,k+1) - grid%x(3,i+1,j+1,k)
             grid%ex(1,i,j,k) = 0.5d0*(yc*zs - ys*zc)
             grid%ex(2,i,j,k) = 0.5d0*(xs*zc - xc*zs)
-            grid%ex(3,i,j,k) = 0.5d0*(xc*ys - xs*yc)   
+            grid%ex(3,i,j,k) = 0.5d0*(xc*ys - xs*yc)
           end do
         end do
       end do
@@ -667,11 +664,11 @@ module grid_module
             ze = grid%x(3,i+1,j+1,k+1) - grid%x(3,i,j,k+1)
             grid%tx(1,i,j,k) = 0.5d0*(yc*ze - ye*zc)
             grid%tx(2,i,j,k) = 0.5d0*(xe*zc - xc*ze)
-            grid%tx(3,i,j,k) = 0.5d0*(xc*ye - xe*yc) 
+            grid%tx(3,i,j,k) = 0.5d0*(xc*ye - xe*yc)
           end do
         end do
       end do
- 
+
       do n = 1,grid%nbc
         if((trim(grid%bcinfo(n)%bcname).eq.'BCDegeneratePoint').or.(trim(grid%bcinfo(n)%bcname).eq.'BCDegenerateLine')) then
           if(grid%bcinfo(n)%istart(1).eq.grid%bcinfo(n)%iend(1)) then
@@ -706,34 +703,34 @@ module grid_module
               grid%tx(2,:,:,grid%kmax) = 0.d0
               grid%tx(3,:,:,grid%kmax) = 0.d0
             end if
-          end if 
+          end if
         end if
       end do
-      
+
       grid%cx(:,:,1,:) = grid%cx(:,:,2,:)
       grid%cx(:,:,grid%jmax+1,:) = grid%cx(:,:,grid%jmax,:)
       grid%cx(:,:,:,1) = grid%cx(:,:,:,2)
       grid%cx(:,:,:,grid%kmax+1) = grid%cx(:,:,:,grid%kmax)
-      
+
       grid%ex(:,1,:,:) = grid%ex(:,2,:,:)
       grid%ex(:,grid%imax+1,:,:) = grid%ex(:,grid%imax,:,:)
       grid%ex(:,:,:,1) = grid%ex(:,:,:,2)
       grid%ex(:,:,:,grid%kmax+1) = grid%ex(:,:,:,grid%kmax)
-      
+
       grid%tx(:,1,:,:) = grid%tx(:,2,:,:)
       grid%tx(:,grid%imax+1,:,:) = grid%tx(:,grid%imax,:,:)
       grid%tx(:,:,1,:) = grid%tx(:,:,2,:)
       grid%tx(:,:,grid%jmax+1,:) = grid%tx(:,:,grid%jmax,:)
-      
+
       allocate(mpitemp(grid%ncon))
-      
+
       do n=1,grid%ncon
         mpitemp(n)%num = 2*dim*(abs(grid%connectinfo(n)%istart(3)-grid%connectinfo(n)%iend(3))+1) &
                               *(abs(grid%connectinfo(n)%istart(2)-grid%connectinfo(n)%iend(2))+1) &
                               *(abs(grid%connectinfo(n)%istart(1)-grid%connectinfo(n)%iend(1))+1)
         allocate(mpitemp(n)%sendbuf(mpitemp(n)%num),mpitemp(n)%recvbuf(mpitemp(n)%num))
       end do
-      
+
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then
           call mpi_irecv(mpitemp(n)%recvadress,21,mpi_integer,grid%connectinfo(n)%donor,grid%connectinfo(n)%donor+grid%size,mpi_comm_world,request_ra(n),ier)
@@ -741,7 +738,7 @@ module grid_module
         end if
       end do
 
-      do n=1,grid%ncon  
+      do n=1,grid%ncon
         l = 0
         do k=grid%connectinfo(n)%istart(3),grid%connectinfo(n)%iend(3)
           do j=grid%connectinfo(n)%istart(2),grid%connectinfo(n)%iend(2)
@@ -767,36 +764,36 @@ module grid_module
             end do
           end do
         end do
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
 
           mpitemp(n)%sendadress = (/grid%connectinfo(n)%istart(1),grid%connectinfo(n)%iend(1), &
                                     grid%connectinfo(n)%istart(2),grid%connectinfo(n)%iend(2), &
                                     grid%connectinfo(n)%istart(3),grid%connectinfo(n)%iend(3), &
                                     grid%connectinfo(n)%istart_donor(1),grid%connectinfo(n)%iend_donor(1), &
                                     grid%connectinfo(n)%istart_donor(2),grid%connectinfo(n)%iend_donor(2), &
-                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &  
+                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &
                                     grid%connectinfo(n)%transmat(1,1),grid%connectinfo(n)%transmat(1,2),grid%connectinfo(n)%transmat(1,3), &
                                     grid%connectinfo(n)%transmat(2,1),grid%connectinfo(n)%transmat(2,2),grid%connectinfo(n)%transmat(2,3), &
                                     grid%connectinfo(n)%transmat(3,1),grid%connectinfo(n)%transmat(3,2),grid%connectinfo(n)%transmat(3,3)/)
-                     
+
           call mpi_isend(mpitemp(n)%sendadress,21,mpi_integer,grid%connectinfo(n)%donor,grid%rank+grid%size,mpi_comm_world,request_sa(n),ier)
           call mpi_isend(mpitemp(n)%sendbuf,mpitemp(n)%num,mpi_real8,grid%connectinfo(n)%donor,grid%rank,mpi_comm_world,request_s(n),ier)
         else ! no mpi boundary
-          
+
           sign1 = 1
           sign2 = 1
-          
+
           if(grid%connectinfo(n)%istart_donor(1).eq.grid%connectinfo(n)%iend_donor(1)) then
             if(grid%connectinfo(n)%istart_donor(2).gt.grid%connectinfo(n)%iend_donor(2)) then
               sign1 = -1*sign1
-            end if          
+            end if
             if(grid%connectinfo(n)%istart_donor(3).gt.grid%connectinfo(n)%iend_donor(3)) then
               sign2 = -1*sign2
-            end if  
+            end if
           else if(grid%connectinfo(n)%istart_donor(2).eq.grid%connectinfo(n)%iend_donor(2)) then
             if(grid%connectinfo(n)%istart_donor(3).gt.grid%connectinfo(n)%iend_donor(3)) then
               sign1 = -1*sign1
-            end if 
+            end if
             if(grid%connectinfo(n)%istart_donor(1).gt.grid%connectinfo(n)%iend_donor(1)) then
               sign2 = -1*sign2
             end if
@@ -808,7 +805,7 @@ module grid_module
               sign2 = -1*sign2
             end if
           end if
-          
+
           l = 0
           do k=grid%connectinfo(n)%istart(3),grid%connectinfo(n)%iend(3)
             do j=grid%connectinfo(n)%istart(2),grid%connectinfo(n)%iend(2)
@@ -843,7 +840,7 @@ module grid_module
               end do
             end do
           end do
-        end if    
+        end if
       end do
 
       do n=1,grid%ncon
@@ -856,21 +853,21 @@ module grid_module
       end do
 
       do n=1,grid%ncon
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
           sign1 = 1
           sign2 = 1
-          
+
           if(mpitemp(n)%recvadress(7).eq.mpitemp(n)%recvadress(8)) then
             if(mpitemp(n)%recvadress(9).gt.mpitemp(n)%recvadress(10)) then
               sign1 = -1*sign1
-            end if          
+            end if
             if(mpitemp(n)%recvadress(11).gt.mpitemp(n)%recvadress(12)) then
               sign2 = -1*sign2
-            end if  
+            end if
           else if(mpitemp(n)%recvadress(9).eq.mpitemp(n)%recvadress(10)) then
             if(mpitemp(n)%recvadress(11).gt.mpitemp(n)%recvadress(12)) then
               sign1 = -1*sign1
-            end if 
+            end if
             if(mpitemp(n)%recvadress(7).gt.mpitemp(n)%recvadress(8)) then
               sign2 = -1*sign2
             end if
@@ -882,7 +879,7 @@ module grid_module
               sign2 = -1*sign2
             end if
           end if
-          
+
           l = 0
           do k=mpitemp(n)%recvadress(5),mpitemp(n)%recvadress(6)
             do j=mpitemp(n)%recvadress(3),mpitemp(n)%recvadress(4)
@@ -919,7 +916,7 @@ module grid_module
           end do
         end if
       end do
-      
+
       do n=1,grid%ncon
         deallocate(mpitemp(n)%sendbuf,mpitemp(n)%recvbuf)
       end do
@@ -929,19 +926,19 @@ module grid_module
       do n=1,grid%ncon
         do m=1,dim
           if(grid%connectinfo(n)%istart(m).ne.grid%connectinfo(n)%iend(m) ) then
-            grid%connectinfo(n)%istart(m) = grid%connectinfo(n)%istart(m) + 1            
+            grid%connectinfo(n)%istart(m) = grid%connectinfo(n)%istart(m) + 1
           end if
 
           if(grid%connectinfo(n)%istart_donor(m).ne.grid%connectinfo(n)%iend_donor(m) ) then
             if(grid%connectinfo(n)%istart_donor(m).lt.grid%connectinfo(n)%iend_donor(m) ) then
               grid%connectinfo(n)%istart_donor(m) = grid%connectinfo(n)%istart_donor(m) + 1
             else if(grid%connectinfo(n)%istart_donor(m).gt.grid%connectinfo(n)%iend_donor(m) ) then
-              grid%connectinfo(n)%iend_donor(m) = grid%connectinfo(n)%iend_donor(m) + 1            
+              grid%connectinfo(n)%iend_donor(m) = grid%connectinfo(n)%iend_donor(m) + 1
             end if
           end if
         end do
       end do
-      
+
     end subroutine calnormal
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine calvolume(grid)
@@ -963,8 +960,8 @@ module grid_module
                               + grid%x(2,i+1,j+1,k)+grid%x(2,i,j+1,k+1)+grid%x(2,i+1,j,k+1)+grid%x(2,i+1,j+1,k+1))
             grid%grd(4,i,j,k) = 0.125d0*(grid%x(3,i,j,k)+grid%x(3,i+1,j,k)+grid%x(3,i,j+1,k)+grid%x(3,i,j,k+1) &
                               + grid%x(3,i+1,j+1,k)+grid%x(3,i,j+1,k+1)+grid%x(3,i+1,j,k+1)+grid%x(3,i+1,j+1,k+1))
-                              
-            pa(1) = grid%x(1,i,j,k) 
+
+            pa(1) = grid%x(1,i,j,k)
             pb(1) = grid%x(1,i+1,j,k)
             pc(1) = grid%x(1,i+1,j+1,k)
             pd(1) = grid%x(1,i,j+1,k)
@@ -978,10 +975,10 @@ module grid_module
             pb(3) = grid%x(3,i+1,j,k)
             pc(3) = grid%x(3,i+1,j+1,k)
             pd(3) = grid%x(3,i,j+1,k)
-            
+
             volp1 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
-            pa(1) = grid%x(1,i,j,k+1) 
+
+            pa(1) = grid%x(1,i,j,k+1)
             pb(1) = grid%x(1,i+1,j,k+1)
             pc(1) = grid%x(1,i+1,j+1,k+1)
             pd(1) = grid%x(1,i,j+1,k+1)
@@ -995,10 +992,10 @@ module grid_module
             pb(3) = grid%x(3,i+1,j,k+1)
             pc(3) = grid%x(3,i+1,j+1,k+1)
             pd(3) = grid%x(3,i,j+1,k+1)
-            
+
             volp2 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
-            pa(1) = grid%x(1,i,j,k) 
+
+            pa(1) = grid%x(1,i,j,k)
             pb(1) = grid%x(1,i+1,j,k)
             pc(1) = grid%x(1,i+1,j,k+1)
             pd(1) = grid%x(1,i,j,k+1)
@@ -1012,10 +1009,10 @@ module grid_module
             pb(3) = grid%x(3,i+1,j,k)
             pc(3) = grid%x(3,i+1,j,k+1)
             pd(3) = grid%x(3,i,j,k+1)
-            
+
             volp3 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
-            pa(1) = grid%x(1,i,j+1,k) 
+
+            pa(1) = grid%x(1,i,j+1,k)
             pb(1) = grid%x(1,i+1,j+1,k)
             pc(1) = grid%x(1,i+1,j+1,k+1)
             pd(1) = grid%x(1,i,j+1,k+1)
@@ -1029,10 +1026,10 @@ module grid_module
             pb(3) = grid%x(3,i+1,j+1,k)
             pc(3) = grid%x(3,i+1,j+1,k+1)
             pd(3) = grid%x(3,i,j+1,k+1)
-            
+
             volp4 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
-            pa(1) = grid%x(1,i,j,k) 
+
+            pa(1) = grid%x(1,i,j,k)
             pb(1) = grid%x(1,i,j+1,k)
             pc(1) = grid%x(1,i,j+1,k+1)
             pd(1) = grid%x(1,i,j,k+1)
@@ -1046,10 +1043,10 @@ module grid_module
             pb(3) = grid%x(3,i,j+1,k)
             pc(3) = grid%x(3,i,j+1,k+1)
             pd(3) = grid%x(3,i,j,k+1)
-            
+
             volp5 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
-            pa(1) = grid%x(1,i+1,j,k) 
+
+            pa(1) = grid%x(1,i+1,j,k)
             pb(1) = grid%x(1,i+1,j+1,k)
             pc(1) = grid%x(1,i+1,j+1,k+1)
             pd(1) = grid%x(1,i+1,j,k+1)
@@ -1063,9 +1060,9 @@ module grid_module
             pb(3) = grid%x(3,i+1,j+1,k)
             pc(3) = grid%x(3,i+1,j+1,k+1)
             pd(3) = grid%x(3,i+1,j,k+1)
-            
+
             volp6 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
-            
+
             grid%grd(1,i,j,k) = (volp1+volp2+volp3+volp4+volp5+volp6)/6.d0
             if(grid%grd(1,i,j,k).lt.0.d0) write(*,*) 'negative volian',i,j,k,grid%grd(1,i,j,k)
 
@@ -1079,21 +1076,21 @@ module grid_module
           grid%grd(2,i,1,k) = 2.d0*grid%grd(2,i,2,k) - grid%grd(2,i,3,k)
           grid%grd(3,i,1,k) = 2.d0*grid%grd(3,i,2,k) - grid%grd(3,i,3,k)
           grid%grd(4,i,1,k) = 2.d0*grid%grd(4,i,2,k) - grid%grd(4,i,3,k)
-          
+
           grid%grd(1,i,grid%jmax+1,k) = grid%grd(1,i,grid%jmax,k)
           grid%grd(2,i,grid%jmax+1,k) = 2.d0*grid%grd(2,i,grid%jmax,k) - grid%grd(2,i,grid%jmax-1,k)
           grid%grd(3,i,grid%jmax+1,k) = 2.d0*grid%grd(3,i,grid%jmax,k) - grid%grd(3,i,grid%jmax-1,k)
           grid%grd(4,i,grid%jmax+1,k) = 2.d0*grid%grd(4,i,grid%jmax,k) - grid%grd(4,i,grid%jmax-1,k)
         end do
       end do
-        
+
       do k=2,grid%kmax
         do j=1,grid%jmax+1
           grid%grd(1,1,j,k) = grid%grd(1,2,j,k)
           grid%grd(2,1,j,k) = 2.d0*grid%grd(2,2,j,k) - grid%grd(2,3,j,k)
           grid%grd(3,1,j,k) = 2.d0*grid%grd(3,2,j,k) - grid%grd(3,3,j,k)
           grid%grd(4,1,j,k) = 2.d0*grid%grd(4,2,j,k) - grid%grd(4,3,j,k)
-          
+
           grid%grd(1,grid%imax+1,j,k) = grid%grd(1,grid%imax,j,k)
           grid%grd(2,grid%imax+1,j,k) = 2.d0*grid%grd(2,grid%imax,j,k) - grid%grd(2,grid%imax-1,j,k)
           grid%grd(3,grid%imax+1,j,k) = 2.d0*grid%grd(3,grid%imax,j,k) - grid%grd(3,grid%imax-1,j,k)
@@ -1107,16 +1104,16 @@ module grid_module
           grid%grd(2,i,j,1) = 2.d0*grid%grd(2,i,j,2) - grid%grd(2,3,j,3)
           grid%grd(3,i,j,1) = 2.d0*grid%grd(3,i,j,2) - grid%grd(3,3,j,3)
           grid%grd(4,i,j,1) = 2.d0*grid%grd(4,i,j,2) - grid%grd(4,3,j,3)
-          
+
           grid%grd(1,i,j,grid%kmax+1) = grid%grd(1,i,j,grid%kmax)
           grid%grd(2,i,j,grid%kmax+1) = 2.d0*grid%grd(2,i,j,grid%kmax) - grid%grd(2,i,j,grid%kmax-1)
           grid%grd(3,i,j,grid%kmax+1) = 2.d0*grid%grd(3,i,j,grid%kmax) - grid%grd(3,i,j,grid%kmax-1)
           grid%grd(4,i,j,grid%kmax+1) = 2.d0*grid%grd(4,i,j,grid%kmax) - grid%grd(4,i,j,grid%kmax-1)
         end do
       end do
-      
+
       allocate(mpitemp(grid%ncon))
-      
+
       do n=1,grid%ncon
         mpitemp(n)%num = (abs(grid%connectinfo(n)%istart(3)-grid%connectinfo(n)%iend(3))+1) &
                         *(abs(grid%connectinfo(n)%istart(2)-grid%connectinfo(n)%iend(2))+1) &
@@ -1141,18 +1138,18 @@ module grid_module
             end do
           end do
         end do
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
 
           mpitemp(n)%sendadress = (/grid%connectinfo(n)%istart(1),grid%connectinfo(n)%iend(1), &
                                     grid%connectinfo(n)%istart(2),grid%connectinfo(n)%iend(2), &
                                     grid%connectinfo(n)%istart(3),grid%connectinfo(n)%iend(3), &
                                     grid%connectinfo(n)%istart_donor(1),grid%connectinfo(n)%iend_donor(1), &
                                     grid%connectinfo(n)%istart_donor(2),grid%connectinfo(n)%iend_donor(2), &
-                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &  
+                                    grid%connectinfo(n)%istart_donor(3),grid%connectinfo(n)%iend_donor(3), &
                                     grid%connectinfo(n)%transmat(1,1),grid%connectinfo(n)%transmat(1,2),grid%connectinfo(n)%transmat(1,3), &
                                     grid%connectinfo(n)%transmat(2,1),grid%connectinfo(n)%transmat(2,2),grid%connectinfo(n)%transmat(2,3), &
                                     grid%connectinfo(n)%transmat(3,1),grid%connectinfo(n)%transmat(3,2),grid%connectinfo(n)%transmat(3,3)/)
-                     
+
           call mpi_isend(mpitemp(n)%sendadress,21,mpi_integer,grid%connectinfo(n)%donor,grid%rank+grid%size,mpi_comm_world,request_sa(n),ier)
           call mpi_isend(mpitemp(n)%sendbuf,mpitemp(n)%num,mpi_real8,grid%connectinfo(n)%donor,grid%rank,mpi_comm_world,request_s(n),ier)
         else ! no mpi boundary
@@ -1174,9 +1171,9 @@ module grid_module
               end do
             end do
           end do
-        end if    
+        end if
       end do
-      
+
       do n=1,grid%ncon
         if(grid%rank.ne.grid%connectinfo(n)%donor) then
           call mpi_wait(request_s(n),status,ier)
@@ -1187,7 +1184,7 @@ module grid_module
       end do
 
       do n=1,grid%ncon
-        if(grid%rank.ne.grid%connectinfo(n)%donor) then 
+        if(grid%rank.ne.grid%connectinfo(n)%donor) then
           l = 0
           do k=mpitemp(n)%recvadress(5),mpitemp(n)%recvadress(6)
             do j=mpitemp(n)%recvadress(3),mpitemp(n)%recvadress(4)
@@ -1208,7 +1205,7 @@ module grid_module
           end do
         end if
       end do
-      
+
       do n=1,grid%ncon
         deallocate(mpitemp(n)%sendbuf,mpitemp(n)%recvbuf)
       end do
@@ -1218,27 +1215,27 @@ module grid_module
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function pyramid(pa,pb,pc,pd,xc,yc,zc)
       implicit none
-      real(8), intent(in) :: pa(3) ,pb(3) ,pc(3) ,pd(3) 
+      real(8), intent(in) :: pa(3) ,pb(3) ,pc(3) ,pd(3)
       real(8), intent(in) :: xc,yc,zc
       real(8) :: pyramid
       real(8) :: csx,csy,csz,vax,vay,vaz,vbx,vby,vbz,volpx,volpy,volpz
-      
+
       csx = 0.25d0*( pa(1)+pb(1)+pc(1)+pd(1) )
       csy = 0.25d0*( pa(2)+pb(2)+pc(2)+pd(2) )
       csz = 0.25d0*( pa(3)+pb(3)+pc(3)+pd(3) )
-      
+
       vax = pc(1) - pa(1)
       vay = pc(2) - pa(2)
       vaz = pc(3) - pa(3)
-      
+
       vbx = pd(1) - pb(1)
       vby = pd(2) - pb(2)
       vbz = pd(3) - pb(3)
-      
+
       volpx = (xc - csx)*(vay*vbz - vaz*vby)
       volpy = (yc - csy)*(vaz*vbx - vax*vbz)
       volpz = (zc - csz)*(vax*vby - vay*vbx)
-      
+
       !  make right hand rule unnecessary by take absolute value
       pyramid = dabs( volpx + volpy + volpz )
     end function pyramid
@@ -1255,7 +1252,7 @@ module grid_module
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getimax
-      
+
       getimax = grid%imax
     end function getimax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1263,7 +1260,7 @@ module grid_module
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getjmax
-      
+
       getjmax = grid%jmax
     end function getjmax
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1271,10 +1268,10 @@ module grid_module
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getkmax
-      
+
       getkmax = grid%kmax
     end function getkmax
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getimax_zone(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
@@ -1309,12 +1306,12 @@ module grid_module
 
       getnbc = grid%nbc
     end function getnbc
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc     
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getncon(grid)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getncon
-      
+
       getncon = grid%ncon
     end function getncon
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1323,7 +1320,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       real(8) :: getx(3)
       integer, intent(in) :: i,j,k
-      
+
       getx = grid%x(:,i,j,k)
     end function getx
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1332,7 +1329,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       real(8) :: getcx(3)
       integer, intent(in) :: i,j,k
-      
+
       getcx = grid%cx(:,i,j,k)
     end function getcx
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1341,7 +1338,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       real(8) :: getex(3)
       integer, intent(in) :: i,j,k
-      
+
       getex = grid%ex(:,i,j,k)
     end function getex
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1350,7 +1347,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       real(8) :: gettx(3)
       integer, intent(in) :: i,j,k
-      
+
       gettx = grid%tx(:,i,j,k)
     end function gettx
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1358,7 +1355,7 @@ module grid_module
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getngrd
-      
+
       getngrd = grid%ngrd
     end function getngrd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1367,7 +1364,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       real(8) :: getgrd(grid%ngrd)
       integer, intent(in) :: i,j,k
-      
+
       getgrd = grid%grd(:,i,j,k)
     end function getgrd
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1376,7 +1373,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
       character(32) :: getbcname
-      
+
       getbcname = grid%bcinfo(i)%bcname
     end function getbcname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1385,7 +1382,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i
       character(32) :: getfamname
-      
+
       getfamname = grid%bcinfo(i)%famname
     end function getfamname
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1394,7 +1391,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getbcistart
-      
+
       getbcistart = grid%bcinfo(i)%istart(j)
     end function getbcistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1403,16 +1400,16 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getbciend
-      
+
       getbciend = grid%bcinfo(i)%iend(j)
     end function getbciend
-    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc 
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getconnectdonor(grid,i)
       implicit none
       class(t_grid), intent(in) :: grid
       integer :: getconnectdonor
       integer, intent(in) :: i
-      
+
       getconnectdonor = grid%connectinfo(i)%donor
     end function getconnectdonor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1421,7 +1418,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer :: getconnecttransmat
       integer, intent(in) :: i,j,k
-      
+
       getconnecttransmat = grid%connectinfo(i)%transmat(j,k)
     end function getconnecttransmat
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1430,7 +1427,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getconnectistart
-      
+
       getconnectistart = grid%connectinfo(i)%istart(j)
     end function getconnectistart
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1439,7 +1436,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getconnectiend
-      
+
       getconnectiend = grid%connectinfo(i)%iend(j)
     end function getconnectiend
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1448,7 +1445,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getconnectistart_donor
-      
+
       getconnectistart_donor = grid%connectinfo(i)%istart_donor(j)
     end function getconnectistart_donor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -1457,7 +1454,7 @@ module grid_module
       class(t_grid), intent(in) :: grid
       integer, intent(in) :: i,j
       integer :: getconnectiend_donor
-      
+
       getconnectiend_donor = grid%connectinfo(i)%iend_donor(j)
     end function getconnectiend_donor
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

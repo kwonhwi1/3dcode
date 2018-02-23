@@ -36,22 +36,22 @@ module timestep_module
       real(8), intent(in) :: timeprev
     end subroutine p_caltimestep
   end interface
-  
+
   type, extends(t_timestep) :: t_localtime
     contains
       procedure :: caltimestep => localtime
   end type t_localtime
-  
+
   type, extends(t_timestep) :: t_mintime
     contains
       procedure :: caltimestep => mintime
   end type t_mintime
-  
+
   type, extends(t_timestep) :: t_fixedtime
     contains
       procedure :: caltimestep => fixedtime
   end type t_fixedtime
-  
+
   interface
     function p_getsndp2(timestep,snd2,uuu2) result(sndp2)
       import t_timestep
@@ -68,7 +68,7 @@ module timestep_module
       real(8) :: eigenvis
     end function p_geteigenvis
   end interface
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(timestep,config,grid)
@@ -85,7 +85,7 @@ module timestep_module
       timestep%cfl  = config%getcfl()
       timestep%uref = config%geturef()
       timestep%str  =  config%getstr()
-      
+
       select case(config%getiturb())
       case(-1,0)
         timestep%geteigenvis => turbulent
@@ -108,18 +108,18 @@ module timestep_module
       timestep%imax = grid%getimax()
       timestep%jmax = grid%getjmax()
       timestep%kmax = grid%getkmax()
-      
+
       allocate(timestep%dt(2:timestep%imax,2:timestep%jmax,2:timestep%kmax))
-      
+
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine destruct(timestep)
       implicit none
       class(t_timestep), intent(inout) :: timestep
-      
+
       if(associated(timestep%getsndp2))     nullify(timestep%getsndp2)
       if(associated(timestep%geteigenvis))  nullify(timestep%geteigenvis)
-      
+
       deallocate(timestep%dt)
 
     end subroutine destruct
@@ -131,7 +131,7 @@ module timestep_module
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
       real(8), intent(in) :: timeprev
-      integer :: i,j,k    
+      integer :: i,j,k
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)
       real(8) :: tv(timestep%ntv)
@@ -145,10 +145,10 @@ module timestep_module
       integer :: ierr
 
       dtmin = 1.d10
-      
+
       do k = 2,timestep%kmax
-        do j = 2,timestep%jmax 
-          do i = 2,timestep%imax            
+        do j = 2,timestep%jmax
+          do i = 2,timestep%imax
             pv = variable%getpv(i,j,k)
             tv = variable%gettv(i,j,k)
             dv = variable%getdv(i,j,k)
@@ -159,7 +159,7 @@ module timestep_module
             ex2 = grid%getex(i,j,k)
             tx1 = grid%gettx(i,j,k-1)
             tx2 = grid%gettx(i,j,k)
-        
+
             c1 = 0.5d0*(cx1(1)+cx2(1))
             c2 = 0.5d0*(cx1(2)+cx2(2))
             c3 = 0.5d0*(cx1(3)+cx2(3))
@@ -169,18 +169,18 @@ module timestep_module
             t1 = 0.5d0*(tx1(1)+tx2(1))
             t2 = 0.5d0*(tx1(2)+tx2(2))
             t3 = 0.5d0*(tx1(3)+tx2(3))
-            
+
             uc = dabs(c1*pv(2)+c2*pv(3)+c3*pv(4))
             vc = dabs(e1*pv(2)+e2*pv(3)+e3*pv(4))
             wc = dabs(t1*pv(2)+t2*pv(3)+t3*pv(4))
-            
+
             s1 = c1**2+c2**2+c3**2
             s2 = e1**2+e2**2+e3**2
             s3 = t1**2+t2**2+t3**2
-            
+
             uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             sndp2 = timestep%getsndp2(dv(6),uv2)
-            
+
             up = uc*(1.d0+sndp2/dv(6))
             d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
             eigenx = 0.5d0*(up+d)
@@ -192,18 +192,18 @@ module timestep_module
             up = wc*(1.d0+sndp2/dv(6))
             d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
             eigenz = 0.5d0*(up+d)
-            
+
             eigenvis = timestep%geteigenvis(dv,tv)*(s1+s2+s3)/grd(1)
-            
+
             timestep%dt(i,j,k) = timestep%cfl*grd(1)/(eigenx + eigeny + eigenz + 4.d0*eigenvis)
-            
+
             if(dtmin.ge.timestep%dt(i,j,k)) then
               dtmin = timestep%dt(i,j,k)
             end if
           end do
         end do
       end do
-      
+
       call mpi_reduce(dtmin,mpi_dtmin,1,mpi_real8,mpi_min,0,mpi_comm_world,ierr)
       call mpi_bcast(mpi_dtmin,1,mpi_real8,0,mpi_comm_world,ierr)
       time = time + mpi_dtmin
@@ -218,7 +218,7 @@ module timestep_module
       type(t_variable), intent(in) :: variable
       integer, intent(in) :: nt_phy,nt
       real(8), intent(in) :: timeprev
-      integer :: i,j,k    
+      integer :: i,j,k
       real(8) :: cx1(3),cx2(3),ex1(3),ex2(3),tx1(3),tx2(3)
       real(8) :: pv(timestep%npv)
       real(8) :: tv(timestep%ntv)
@@ -230,12 +230,12 @@ module timestep_module
       real(8) :: dtmin,mpi_dtmin
       real(8), save :: time = 0.d0
       integer :: ierr
-      
+
       dtmin = 1.d10
-      
+
       do k = 2,timestep%kmax
-        do j = 2,timestep%jmax 
-          do i = 2,timestep%imax            
+        do j = 2,timestep%jmax
+          do i = 2,timestep%imax
             pv = variable%getpv(i,j,k)
             tv = variable%gettv(i,j,k)
             dv = variable%getdv(i,j,k)
@@ -246,7 +246,7 @@ module timestep_module
             ex2 = grid%getex(i,j,k)
             tx1 = grid%gettx(i,j,k-1)
             tx2 = grid%gettx(i,j,k)
-        
+
             c1 = 0.5d0*(cx1(1)+cx2(1))
             c2 = 0.5d0*(cx1(2)+cx2(2))
             c3 = 0.5d0*(cx1(3)+cx2(3))
@@ -256,18 +256,18 @@ module timestep_module
             t1 = 0.5d0*(tx1(1)+tx2(1))
             t2 = 0.5d0*(tx1(2)+tx2(2))
             t3 = 0.5d0*(tx1(3)+tx2(3))
-            
+
             uc = dabs(c1*pv(2)+c2*pv(3)+c3*pv(4))
             vc = dabs(e1*pv(2)+e2*pv(3)+e3*pv(4))
             wc = dabs(t1*pv(2)+t2*pv(3)+t3*pv(4))
-            
+
             s1 = c1**2+c2**2+c3**2
             s2 = e1**2+e2**2+e3**2
             s3 = t1**2+t2**2+t3**2
-            
+
             uv2 = pv(2)**2+pv(3)**2+pv(4)**2
             sndp2 = timestep%getsndp2(dv(6),uv2)
-            
+
             up = uc*(1.d0+sndp2/dv(6))
             d = dsqrt(uc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s1)
             eigenx = 0.5d0*(up+d)
@@ -279,9 +279,9 @@ module timestep_module
             up = wc*(1.d0+sndp2/dv(6))
             d = dsqrt(wc**2*(1.d0-sndp2/dv(6))**2+4.d0*sndp2*s3)
             eigenz = 0.5d0*(up+d)
-            
+
             eigenvis = timestep%geteigenvis(dv,tv)*(s1+s2+s3)/grd(1)
-            
+
             timestep%dt(i,j,k) = timestep%cfl*grd(1)/(eigenx + eigeny + eigenz + 4.d0*eigenvis)
 
             if(dtmin.ge.timestep%dt(i,j,k)) then
@@ -320,9 +320,9 @@ module timestep_module
       class(t_timestep), intent(in) :: timestep
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = snd2
-      
+
     end function no_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function steady_prec(timestep,snd2,uuu2) result(sndp2)
@@ -330,9 +330,9 @@ module timestep_module
       class(t_timestep), intent(in) :: timestep
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2))
-      
+
     end function steady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function unsteady_prec(timestep,snd2,uuu2) result(sndp2)
@@ -340,9 +340,9 @@ module timestep_module
       class(t_timestep), intent(in) :: timestep
       real(8), intent(in) :: snd2,uuu2
       real(8) :: sndp2
-      
+
       sndp2 = dmin1(snd2,dmax1(uuu2,timestep%uref**2,timestep%str**2))
-      
+
     end function unsteady_prec
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function euler(timestep,dv,tv) result(eigenvis)
@@ -350,9 +350,9 @@ module timestep_module
       class(t_timestep), intent(in) :: timestep
       real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
       real(8) :: eigenvis
-      
+
       eigenvis = 0.d0
-      
+
     end function euler
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function laminar(timestep,dv,tv) result(eigenvis)
@@ -362,7 +362,7 @@ module timestep_module
       real(8) :: eigenvis
 
       eigenvis = dmax1(dv(7)*tv(2)/(dv(8)+dv(12)*dv(7)*dv(1)-dv(11)*dv(8)*dv(1)),  &
-                       4.d0/3.d0*tv(1)/dv(1)) 
+                       4.d0/3.d0*tv(1)/dv(1))
     end function laminar
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function turbulent(timestep,dv,tv) result(eigenvis)
@@ -371,7 +371,7 @@ module timestep_module
       real(8), intent(in) :: dv(timestep%ndv),tv(timestep%ntv)
       real(8) :: eigenvis
       real(8), parameter :: pr_t = 0.9d0
-   
+
       eigenvis = dmax1(dv(7)*(tv(2)+dv(12)*tv(3)/pr_t)/(dv(8)+dv(12)*dv(7)*dv(1)    &
                        -dv(11)*dv(8)*dv(1)),4.d0/3.d0*(tv(1)+tv(3))/dv(1))
     end function turbulent
@@ -381,9 +381,9 @@ module timestep_module
       class(t_timestep), intent(in) :: timestep
       integer, intent(in) :: i,j,k
       real(8) :: getdt
-      
+
       getdt = timestep%dt(i,j,k)
-      
+
     end function getdt
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function gettime(timestep)

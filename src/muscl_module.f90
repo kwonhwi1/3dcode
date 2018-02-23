@@ -45,14 +45,14 @@ module muscl_module
       real(8)  :: phi
     end function p_limiter
   end interface
-  
+
   contains
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine construct(muscl,config)
       implicit none
       class(t_muscl), intent(out) :: muscl
       type(t_config), intent(in) :: config
-      
+
       select case(config%getnlim())
       case(0)
         muscl%limiter => no_limiter
@@ -77,7 +77,7 @@ module muscl_module
       case(10)
         muscl%limiter => i_5th_no
       end select
-      
+
       muscl%stencil = config%getstencil()
       muscl%npv  = config%getnpv()
       muscl%pref = config%getpref()
@@ -87,7 +87,7 @@ module muscl_module
     subroutine destruct(muscl)
       implicit none
       class(t_muscl), intent(inout) :: muscl
-      
+
       if(associated(muscl%x))       nullify(muscl%x)
       if(associated(muscl%limiter)) nullify(muscl%limiter)
 
@@ -109,7 +109,7 @@ module muscl_module
       real(8) :: dq,dqm,dqp,dqm1,dqp1,dqmm,dqpp
       real(8), parameter :: eps = 1.d-30
 
-      do k = 1, muscl%npv    
+      do k = 1, muscl%npv
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
         dqm  = muscl%x(9,k)  - muscl%x(23,k) !i-1/2
         dqm1 = muscl%x(23,k) - muscl%x(37,k) !i-3/2
@@ -120,15 +120,15 @@ module muscl_module
         muscl%r(1) = dq*dqmm
         muscl%r1(1) = dqm1*dqmm
         muscl%r2(1) = dqp*dqmm
-        
+
         dqpp = 1.d0/(dqp+eps)
         muscl%r(2) = dq*dqpp
         muscl%r1(2) = dqp1*dqpp
         muscl%r2(2) = dqm*dqpp
-              
+
         muscl%alp(1) = 2.d0
         muscl%alp(2) = 2.d0
-      
+
         xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
         xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
       end do
@@ -168,7 +168,7 @@ module muscl_module
       real(8) :: rxy_l,rxy_r,rxz_l,rxz_r,qml,qmr,qmin,qmax
       real(8), parameter :: eps = 1.d-30, eps2 = 1.d-3
 
-      do k = 1, muscl%npv    
+      do k = 1, muscl%npv
         dq   = muscl%x(10,k) - muscl%x(9,k)  !i+1/2
         dqm  = muscl%x(9,k)  - muscl%x(23,k) !i-1/2
         dqm1 = muscl%x(23,k) - muscl%x(37,k) !i-3/2
@@ -179,7 +179,7 @@ module muscl_module
         muscl%r(1) = dq*dqmm
         muscl%r1(1) = dqm1*dqmm
         muscl%r2(1) = dqp*dqmm
-        
+
         dqpp = 1.d0/(dqp+eps)
         muscl%r(2) = dq*dqpp
         muscl%r1(2) = dqp1*dqpp
@@ -187,10 +187,10 @@ module muscl_module
 
         rxy_l = dabs((muscl%x(11,k)-muscl%x(7,k))/(muscl%x(10,k)-muscl%x(23,k)+eps))
         rxz_l = dabs((muscl%x(15,k)-muscl%x(3,k))/(muscl%x(10,k)-muscl%x(23,k)+eps))
-             
+
         rxy_r = dabs((muscl%x(12,k)-muscl%x(8,k))/(muscl%x(32,k)-muscl%x(9,k)+eps))
         rxz_r = dabs((muscl%x(16,k)-muscl%x(4,k))/(muscl%x(32,k)-muscl%x(9,k)+eps))
-        
+
         if((rxy_l.lt.eps2).and.(rxz_l.lt.eps2)) then
           qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
                        muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
@@ -212,20 +212,20 @@ module muscl_module
           end if
         end if
         qml = dmin1(dabs(qmax-muscl%x(9,k)),dabs(qmin-muscl%x(9,k)))
-        
+
         if((rxy_r.lt.eps2).and.(rxz_r.lt.eps2)) then
           qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
                        muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
                        muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
           qmax = dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
                        muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k), &
-                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )  
+                       muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
         else
           if((muscl%x(32,k)-muscl%x(9,k)).gt.0.d0) then
             qmax = dmax1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
                          muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
             qmin = dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )                
+                         muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )
           else
             qmin = dmin1(muscl%x(10,k),muscl%x(2,k),muscl%x(12,k),muscl%x(4,k),muscl%x(14,k),muscl%x(6,k),muscl%x(16,k),muscl%x(8,k),muscl%x(18,k),     &
                          muscl%x(28,k),muscl%x(29,k),muscl%x(30,k),muscl%x(31,k),muscl%x(32,k),muscl%x(33,k),muscl%x(34,k),muscl%x(35,k),muscl%x(36,k) )
@@ -234,12 +234,12 @@ module muscl_module
           end if
         end if
         qmr = dmin1(dabs(qmax-muscl%x(10,k)),dabs(qmin-muscl%x(10,k)))
-        
+
         !if(dq.gt.0.d0) then
         !  qml = dabs(dmax1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
         !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k))
         !  qmr = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
-        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))        
+        !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(10,k))
         !else
         !  qml = dabs(dmin1(muscl%x(1,k),muscl%x(2,k),muscl%x(3,k),muscl%x(4,k),muscl%x(5,k),muscl%x(6,k),muscl%x(7,k),muscl%x(8,k),muscl%x(9,k),          &
         !              muscl%x(10,k),muscl%x(11,k),muscl%x(12,k),muscl%x(13,k),muscl%x(14,k),muscl%x(15,k),muscl%x(16,k),muscl%x(17,k),muscl%x(18,k) )-muscl%x(9,k))
@@ -254,11 +254,11 @@ module muscl_module
           muscl%alp(1) = 2.d0*dmax1(1.d0,muscl%r(1))/(dabs(dq)+eps)/(1.d0+rxy_l+rxz_l)*qml
           muscl%alp(2) = 2.d0*dmax1(1.d0,1.d0/muscl%r(2))*dabs(dqpp)/(1.d0+rxy_r+rxz_r)*qmr
         end if
-          
+
 
         muscl%alp(1) = dmax1(1.d0,dmin1(2.d0,muscl%alp(1)))
         muscl%alp(2) = dmax1(1.d0,dmin1(2.d0,muscl%alp(2)))
-      
+
         xl(k) = muscl%x(9,k)  + 0.5d0*muscl%limiter(1)*dqm
         xr(k) = muscl%x(10,k) - 0.5d0*muscl%limiter(2)*dqp
       end do
@@ -294,7 +294,7 @@ module muscl_module
       class(t_muscl), intent(in) :: muscl
       integer, intent(in) :: n
       real(8)  :: phi
-      
+
       phi = 1.d0
 
     end function
@@ -315,7 +315,7 @@ module muscl_module
       integer, intent(in) :: n
       real(8)  :: phi
 
-      phi = dmax1(0.d0,dmin1(1.d0,muscl%alp(n)*muscl%r(n)),dmin1(muscl%alp(n),muscl%r(n))) 
+      phi = dmax1(0.d0,dmin1(1.d0,muscl%alp(n)*muscl%r(n)),dmin1(muscl%alp(n),muscl%r(n)))
 
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -340,7 +340,7 @@ module muscl_module
 
       c = (1.d0+muscl%r(n))/2.d0
       phi = dmax1(0.d0,dmin1(muscl%alp(n),muscl%alp(n)*muscl%r(n),c))
-        
+
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function vanalbada(muscl,n) result(phi)
@@ -352,7 +352,7 @@ module muscl_module
 
       c =(muscl%r(n)**2+muscl%r(n))/(1.d0+muscl%r(n)**2)
       phi = dmax1(0.d0,dmin1(c*muscl%r(n),1.d0),dmin1(muscl%r(n),c))
-        
+
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function beta(muscl,n) result(phi)
@@ -364,7 +364,7 @@ module muscl_module
 
       c = dmin1(1.5d0,muscl%alp(n))
       phi = dmax1(0.d0,dmin1(c*muscl%r(n),1.d0),dmin1(muscl%r(n),c))
-    
+
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function i_3rd(muscl,n) result(phi)
@@ -385,10 +385,10 @@ module muscl_module
       integer, intent(in) :: n
       real(8)  :: phi
       real(8) :: c
-      
+
       c = (-2.d0*muscl%r1(n)+11.d0+24.d0*muscl%r(n)-3.d0*muscl%r2(n))/30.d0
       phi = dmax1(0.d0,dmin1(muscl%alp(n),muscl%alp(n)*muscl%r(n),c))
-        
+
     end function
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     function i_3rd_no(muscl,n) result(phi)
@@ -407,7 +407,7 @@ module muscl_module
       class(t_muscl), intent(in) :: muscl
       integer, intent(in) :: n
       real(8)  :: phi
-      
+
       phi = (-2.d0*muscl%r1(n)+11.d0+24.d0*muscl%r(n)-3.d0*muscl%r2(n))/30.d0
 
     end function
