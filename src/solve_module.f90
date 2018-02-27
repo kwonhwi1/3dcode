@@ -121,7 +121,7 @@ module solve_module
       class(t_solve), intent(inout) :: solve
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer :: nt_phy,nt,nps,nts
       real(8) :: timeprev, time
 
