@@ -149,7 +149,7 @@ module cav_module
       r_c = cav%c_c*cav%dv(1)*cav%pv(2,6)*dmax1(cav%pv(2,1)+cav%pref-pww,0.d0)*cav%dp_ref*cav%t_ref
       r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
-      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6))
+      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
 
@@ -189,7 +189,7 @@ module cav_module
       r_c = cav%c_c*cav%dv(4)*av*(al+ag)**2*cav%t_ref
       r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*cav%dp_ref*cav%t_ref
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
-      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6))
+      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
 
@@ -228,7 +228,7 @@ module cav_module
       r_v = cav%c_v*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
           *dsqrt(2.d0/3.d0*dmax1(pww-cav%pv(2,1)-cav%pref,0.d0)*rho1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
-      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6))
+      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
 
@@ -290,7 +290,7 @@ module cav_module
             *(cav%pv(2,6)+cav%pv(2,7))**(2.d0/3.d0)*(1.d0-cav%pv(2,6)-cav%pv(2,7))**(4.d0/3.d0)   &
             *dsqrt(dmax1(pww-cav%pv(2,1)-cav%pref,0.d0))
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
-      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6))
+      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
 
       if(r_c.ne.0.d0) then
@@ -329,7 +329,7 @@ module cav_module
       r_c = cav%c_c*cav%dv(1)*cav%pv(2,6)*dmax1(tww-cav%pv(2,5),0.d0)/tww
       r_v = cav%c_v*cav%dv(1)*(1.d0-cav%pv(2,6)-cav%pv(2,7))*dmax1(cav%pv(2,5)-tww,0.d0)/tww
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
-      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6))
+      r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
       cav_result%cavsource = (r_v - r_c)*cav%grd(1)
 
