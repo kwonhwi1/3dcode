@@ -327,7 +327,7 @@ module grid_module
 
       call grid%calnormal() !! must be called before calvolume !!
       call grid%calvolume()
-      if(config%getiturb().gt.-2) call grid%calydns() ! in case of turbulent, ydns must be calculated !!
+      if(config%getiturb().ge.-2) call grid%calydns() ! in case of turbulent, ydns must be calculated !!
 
     end subroutine construct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
