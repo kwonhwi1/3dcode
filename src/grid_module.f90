@@ -1064,7 +1064,7 @@ module grid_module
             volp6 = pyramid(pa,pb,pc,pd,grid%grd(2,i,j,k),grid%grd(3,i,j,k),grid%grd(4,i,j,k))
 
             grid%grd(1,i,j,k) = (volp1+volp2+volp3+volp4+volp5+volp6)/6.d0
-            if(grid%grd(1,i,j,k).lt.0.d0) write(*,*) 'negative volian',i,j,k,grid%grd(1,i,j,k)
+            if(grid%grd(1,i,j,k).le.0.d0) write(*,*) 'zero/negative volian',i,j,k,grid%grd(1,i,j,k)
 
           end do
         end do
