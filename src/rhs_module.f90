@@ -109,7 +109,7 @@ module rhs_module
 
       select case(config%getnsteady())
       case(0)
-      case(1)
+      case(1:)
         allocate(t_unsteady::rhs%unsteady)
       end select
 

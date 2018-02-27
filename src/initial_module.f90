@@ -357,7 +357,7 @@ module initial_module
               call variable%settv(n,i,j,k,tv(n))
             end do
 
-            if(ini%nsteady.eq.1) then
+            if(ini%nsteady.ge.1) then
               qq(1) = dv(1)
               qq(2) = dv(1)*pv(2)
               qq(3) = dv(1)*pv(3)
@@ -578,7 +578,7 @@ module initial_module
               call variable%settv(n,i,j,k,tv(n))
             end do
 
-            if(ini%nsteady.eq.1) then
+            if(ini%nsteady.ge.1) then
               qq(1) = dv(1)
               qq(2) = dv(1)*pv(2)
               qq(3) = dv(1)*pv(3)

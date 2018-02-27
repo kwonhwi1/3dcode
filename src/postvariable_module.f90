@@ -164,7 +164,7 @@ module postvariable_module
       allocate(solname(variable%nsolution),time(variable%nsolution))
 
       if(nsolname.eq.1) then
-        if(config%getnsteady().eq.1) then
+        if(config%getnsteady().ge.1) then
           do n=1,variable%nsolution
             write(solname(n),'(i12.12)') variable%solution(n)%nps
             time(n) = dble(variable%solution(n)%nps)

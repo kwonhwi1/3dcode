@@ -7,8 +7,8 @@ module unsteady_module
 
   type t_unsteady
     private
-    integer :: stencil,ngrd,npv,ndv
-    real(8) :: pref,dt_phy
+    integer :: stencil,ngrd,npv,ndv,nsteady
+    real(8) :: pref,dt_phy,b
     real(8), pointer :: pv(:,:),dv(:),grd(:),qq1(:),qq2(:)
     contains
       procedure :: construct
@@ -33,6 +33,12 @@ module unsteady_module
       unsteady%ndv = config%getndv()
       unsteady%pref = config%getpref()
       unsteady%dt_phy = config%getdt_phy()
+      unsteady%nsteady = config%getnsteady()
+      if(unsteady%nsteady.eq.1) then
+        unsteady%b = 1.d0
+      else if(unsteady%nsteady.eq.2) then
+        unsteady%b = 1.5d0*0.5d0
+      end if
 
       unsteady%ngrd = grid%getngrd()
 
@@ -102,7 +108,8 @@ module unsteady_module
         fx(n) = unsteady%dv(1)*unsteady%pv(2,n)
       end do
 
-      fx = (1.5d0*fx - 2.d0*unsteady%qq1 + 0.5d0*unsteady%qq2)*unsteady%grd(1)/unsteady%dt_phy
+      fx = dble(unsteady%nsteady)*(unsteady%b*fx - unsteady%qq1) + 0.5d0*(dble(unsteady%nsteady)-1.d0)*unsteady%qq2
+      fx = fx*unsteady%grd(1)/unsteady%dt_phy
 
     end function unsteadysource
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

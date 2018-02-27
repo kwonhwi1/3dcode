@@ -8,7 +8,7 @@ module lhs_module
   type, abstract :: t_lhs
     private
     integer :: npv,ndv,ntv,ngrd,nsteady
-    real(8) :: uref,str,dt_phy
+    real(8) :: uref,str,dt_phy,b
     real(8) :: omega(3)
     real(8), pointer :: cx1(:),cx2(:),ex1(:),ex2(:),tx1(:),tx2(:)
     real(8), pointer :: pv(:),tv(:),dv(:),grd(:),dt
@@ -104,6 +104,11 @@ module lhs_module
       lhs%dt_phy = config%getdt_phy()
       lhs%nsteady = config%getnsteady()
       lhs%omega = config%getomega()
+      if(lhs%nsteady.eq.1) then
+        lhs%b = 1.d0
+      else if(lhs%nsteady.eq.2) then
+        lhs%b = 1.5d0*0.5d0
+      end if
 
       select case(config%getprec())
       case(0)
@@ -249,7 +254,7 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm
 
       a = lhs%dt/lhs%grd(1)
-      b = dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy*a
+      b = dble(lhs%nsteady)*lhs%b*lhs%grd(1)/lhs%dt_phy*a
 
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
@@ -297,7 +302,7 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm
 
       a = lhs%dt/lhs%grd(1)
-      b = dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy*a
+      b = dble(lhs%nsteady)*lhs%b*lhs%grd(1)/lhs%dt_phy*a
 
       b1 = 1.d0+b
       i_b1 = 1.d0/(b1*lhs%dv(1))
@@ -348,7 +353,7 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm
 
       a = 1.d0/(lhs%grd(1)/lhs%dt + lhs%eigen())
-      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
+      b = (dble(lhs%nsteady)*lhs%b*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
       c = lhs%c*lhs%grd(1)*a
 
       b1 = 1.d0+b
@@ -402,7 +407,7 @@ module lhs_module
       real(8) :: ssy1,ssy2,ssh,aaa1,aaa2,uuu,coeff1,coeff2,coeff3,mm,tt
 
       a = 1.d0/(lhs%grd(1)/lhs%dt + lhs%eigen())
-      b = (dble(lhs%nsteady)*1.5d0*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
+      b = (dble(lhs%nsteady)*lhs%b*lhs%grd(1)/lhs%dt_phy + 2.d0*lhs%geteigenvis()/lhs%grd(1))*a
       c = lhs%c*lhs%grd(1)*a
       t = lhs%t*lhs%grd(1)*a
 

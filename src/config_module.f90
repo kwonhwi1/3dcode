@@ -155,7 +155,7 @@ module config_module
       select case(config%getnsteady())
       case(0)
         config%nqq = 0
-      case(1)
+      case(1:)
         config%nqq = 2
       end select
 

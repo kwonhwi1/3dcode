@@ -74,7 +74,7 @@ module solve_module
       select case(config%getnsteady())
       case(0)
         solve%l_nsteady = .false.
-      case(1)
+      case(1:)
         solve%l_nsteady = .true.
       end select
 
