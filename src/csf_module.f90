@@ -102,7 +102,7 @@ module csf_module
       real(8) :: csfsource(csf%npv)
       real(8) :: delta,kappa
       real(8) :: sigma(7)
-      real(8) :: normvfg(7,2),vfgf(6,2),normvfgf(6,2)
+      real(8) :: normvfg(7,3),vfgf(6,3),normvfgf(6,3)
       integer :: l,m
       real(8) :: dl
       real(8) :: dsdx,dsdy,dsdz
@@ -111,11 +111,11 @@ module csf_module
       kappa = 0.d0
 
       delta = dsqrt(csf%vfg(7,1)**2+csf%vfg(7,2)**2+csf%vfg(7,3)**2)
-      if(delta.le.2.041) return  !! could be too restrictive !!
+      if(delta.le.0.04d0) return  !! could be too restrictive !!
 
       do l=1,7
 !        sigma(l) = eos%get_sigma(csf%pv(l,5))
-        sigma = 0.071684196047d0
+        sigma(l) = 0.071684196047d0
         dl = csf%vfg(l,1)**2+csf%vfg(l,2)**2+csf%vfg(l,3)**2
         if(dl.gt.0.d0) then
           normvfg(l,1) = csf%vfg(l,1)/dsqrt(dl)
@@ -138,7 +138,7 @@ module csf_module
       kappa = normvfgf(1,1)*csf%cx1(1) + normvfgf(1,2)*csf%cx1(2) + normvfgf(1,3)*csf%cx1(3) &
             + normvfgf(2,1)*csf%cx2(1) + normvfgf(2,2)*csf%cx2(2) + normvfgf(2,3)*csf%cx2(3) &
             + normvfgf(3,1)*csf%ex1(1) + normvfgf(3,2)*csf%ex1(2) + normvfgf(3,3)*csf%ex1(3) &
-            + normvfgf(4,1)*csf%ex2(1) + normvfgf(4,2)*csf%ex2(2) + normvfgf(4,3)*csf%ex2(3) & 
+            + normvfgf(4,1)*csf%ex2(1) + normvfgf(4,2)*csf%ex2(2) + normvfgf(4,3)*csf%ex2(3) &
             + normvfgf(5,1)*csf%tx1(1) + normvfgf(5,2)*csf%tx1(2) + normvfgf(5,3)*csf%tx1(3) &
             + normvfgf(6,1)*csf%tx2(1) + normvfgf(6,2)*csf%tx2(2) + normvfgf(6,3)*csf%tx2(3)
       kappa = -kappa/csf%grd(1)

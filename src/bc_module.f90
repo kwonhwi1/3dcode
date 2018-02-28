@@ -1413,7 +1413,7 @@ module bc_module
         if(bc%rank.ne.bc%connectinfo(n)%donor) then
           call mpi_irecv(bc%mpitemp_vfg(n)%recvadress,19,mpi_integer,bc%connectinfo(n)%donor,&
                          bc%connectinfo(n)%donor+bc%size,mpi_comm_world,request_ra(n),ier)
-          call mpi_irecv(bc%mpitemp_vfg(n)%recvbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,&
+          call mpi_irecv(bc%mpitemp_vfg(n)%recvbuf,bc%mpitemp_vfg(n)%num,mpi_real8,bc%connectinfo(n)%donor,&
                          bc%connectinfo(n)%donor,mpi_comm_world,request_r(n),ier)
         end if
       end do
@@ -1502,7 +1502,7 @@ module bc_module
 
 
           call mpi_isend(bc%mpitemp_vfg(n)%sendadress,19,mpi_integer,bc%connectinfo(n)%donor,bc%rank+bc%size,mpi_comm_world,request_sa(n),ier)
-          call mpi_isend(bc%mpitemp_vfg(n)%sendbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,bc%rank,mpi_comm_world,request_s(n),ier)
+          call mpi_isend(bc%mpitemp_vfg(n)%sendbuf,bc%mpitemp_vfg(n)%num,mpi_real8,bc%connectinfo(n)%donor,bc%rank,mpi_comm_world,request_s(n),ier)
         else ! no mpi boundary
           l = 0
           if(bc%connectinfo(n)%face.eq.1) then
@@ -1660,21 +1660,21 @@ module bc_module
         if(bc%rank.ne.bc%connectinfo(n)%donor) then
           l = 0
           if(bc%mpitemp_vfg(n)%recvadress(19).eq.1) then
-            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
-              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
-                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(1)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(5),bc%mpitemp_vfg(n)%recvadress(6)
+              do j=bc%mpitemp_vfg(n)%recvadress(3),bc%mpitemp_vfg(n)%recvadress(4)
+                do i=bc%mpitemp_vfg(n)%recvadress(1),bc%mpitemp_vfg(n)%recvadress(1)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
@@ -1683,21 +1683,21 @@ module bc_module
               end do
             end do
           else if(bc%mpitemp_vfg(n)%recvadress(19).eq.2) then
-            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
-              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
-                do i=bc%mpitemp(n)%recvadress(2),bc%mpitemp(n)%recvadress(2)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(5),bc%mpitemp_vfg(n)%recvadress(6)
+              do j=bc%mpitemp_vfg(n)%recvadress(3),bc%mpitemp_vfg(n)%recvadress(4)
+                do i=bc%mpitemp_vfg(n)%recvadress(2),bc%mpitemp_vfg(n)%recvadress(2)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
@@ -1706,21 +1706,21 @@ module bc_module
               end do
             end do
           else if(bc%mpitemp_vfg(n)%recvadress(19).eq.3) then
-            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
-              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(3)
-                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(5),bc%mpitemp_vfg(n)%recvadress(6)
+              do j=bc%mpitemp_vfg(n)%recvadress(3),bc%mpitemp_vfg(n)%recvadress(3)
+                do i=bc%mpitemp_vfg(n)%recvadress(1),bc%mpitemp_vfg(n)%recvadress(2)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
@@ -1729,21 +1729,21 @@ module bc_module
               end do
             end do
           else if(bc%mpitemp_vfg(n)%recvadress(19).eq.4) then
-            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
-              do j=bc%mpitemp(n)%recvadress(4),bc%mpitemp(n)%recvadress(4)
-                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(5),bc%mpitemp_vfg(n)%recvadress(6)
+              do j=bc%mpitemp_vfg(n)%recvadress(4),bc%mpitemp_vfg(n)%recvadress(4)
+                do i=bc%mpitemp_vfg(n)%recvadress(1),bc%mpitemp_vfg(n)%recvadress(2)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
@@ -1752,21 +1752,21 @@ module bc_module
               end do
             end do
           else if(bc%mpitemp_vfg(n)%recvadress(19).eq.5) then
-            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(5)
-              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
-                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(5),bc%mpitemp_vfg(n)%recvadress(5)
+              do j=bc%mpitemp_vfg(n)%recvadress(3),bc%mpitemp_vfg(n)%recvadress(4)
+                do i=bc%mpitemp_vfg(n)%recvadress(1),bc%mpitemp_vfg(n)%recvadress(2)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
@@ -1775,21 +1775,21 @@ module bc_module
               end do
             end do
           else if(bc%mpitemp_vfg(n)%recvadress(19).eq.6) then
-            do k=bc%mpitemp(n)%recvadress(6),bc%mpitemp(n)%recvadress(6)
-              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
-                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
-                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(7)
-                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(8)
-                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
-                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
-                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
-                     + bc%mpitemp(n)%recvadress(9)
+            do k=bc%mpitemp_vfg(n)%recvadress(6),bc%mpitemp_vfg(n)%recvadress(6)
+              do j=bc%mpitemp_vfg(n)%recvadress(3),bc%mpitemp_vfg(n)%recvadress(4)
+                do i=bc%mpitemp_vfg(n)%recvadress(1),bc%mpitemp_vfg(n)%recvadress(2)
+                  ii = bc%mpitemp_vfg(n)%recvadress(10)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(11)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(12)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(7)
+                  jj = bc%mpitemp_vfg(n)%recvadress(13)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(14)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(15)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(8)
+                  kk = bc%mpitemp_vfg(n)%recvadress(16)*(i-bc%mpitemp_vfg(n)%recvadress(1)) &
+                     + bc%mpitemp_vfg(n)%recvadress(17)*(j-bc%mpitemp_vfg(n)%recvadress(3)) &
+                     + bc%mpitemp_vfg(n)%recvadress(18)*(k-bc%mpitemp_vfg(n)%recvadress(5)) &
+                     + bc%mpitemp_vfg(n)%recvadress(9)
                   do m=1,3
                     l = l + 1
                     call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
