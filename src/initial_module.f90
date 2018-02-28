@@ -390,16 +390,14 @@ module initial_module
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
-      real(8) :: pv(ini%npv),dv(ini%ndv)
-      real(8) :: tv(ini%ntv),qq(ini%npv)
-      real(8) :: x(5)
+      real(8) :: grd(grid%getngrd())
 
       do k=2,ini%kmax
         do j=2,ini%jmax
           do i=2,ini%imax
-            x = grid%getgrd(i,j,k)
+            grd = grid%getgrd(i,j,k)
 
-            if(x(2)-x(3)-x(4).lt.5.d0) then !left
+            if(grd(2)-grd(3)-grd(4).lt.5.d0) then !left
               call variable%setpv(1,i,j,k,3.528d0-ini%pref)
               call variable%setpv(2,i,j,k,0.698d0)
               call variable%setpv(3,i,j,k,0.d0)
@@ -434,8 +432,6 @@ module initial_module
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
-      real(8) :: pv(ini%npv),dv(ini%ndv)
-      real(8) :: tv(ini%ntv),qq(ini%npv)
       real(8) :: grd(grid%getngrd())
 
       do k=2,ini%kmax
@@ -477,7 +473,6 @@ module initial_module
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k
-      real(8) :: pv(ini%npv)
       real(8) :: grd(grid%getngrd())
 
     ! tank geometry : sivb tank
@@ -516,6 +511,75 @@ module initial_module
 
     end subroutine initial
 
+#elif drop3d
+    subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
+      implicit none
+      class(t_ini_initial), intent(inout) :: ini
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      integer, intent(out) :: nps,nts
+      real(8), intent(out) :: timeprev
+      integer :: i,j,k,n
+      real(8) :: grd(grid%getngrd())
+      real(8) :: r,t,basis,alpha,dxmin
+      real(8) :: rhog,rhol,rhom
+      integer :: num
+      real(8),dimension(:),allocatable :: conp
+
+      ! number of cell subject to y2 smoothing = num*2+1
+      num = 2
+      dxmin = 0.5d0
+
+      allocate(conp(-num:num))
+      do n=-num,num
+        if(n.gt.0) then
+          conp(n) = 1.d0
+        else
+          conp(n) = 0.d0
+        end if
+      end do
+
+      do k=2,ini%kmax
+        do j=2,ini%jmax
+          do i=2,ini%imax
+            grd = grid%getgrd(i,j,k)
+            r = dsqrt(grd(2)**2+grd(3)**2+grd(4)**2)
+
+            if(r.le.4.d0) then
+              call variable%setpv(7,i,j,k,0.d0)
+            else
+              call variable%setpv(7,i,j,k,1.d0)
+            end if
+
+            ! phase interface smoothing using bezier curve
+            if (dabs(r-4.d0).le.dble(num)*dxmin) then
+              t = ((r-4.d0)+dxmin*dble(num))/(dxmin*dble(2*num))  ! 0 <= t <= 1
+              alpha = 0.d0
+              do n=0,2*num
+                basis = fac(2*num)/(fac(n)*fac(2*num-n))*(t**n)*((1.d0-t)**(2*num-n))
+                alpha = alpha + basis*conp(n-num)
+              end do
+              rhog = ini%pref/(287.04d0*ini%tref)
+              rhol = (ini%pref+8.5d8)/(2691.d0*ini%tref)
+              rhom = rhog*alpha + rhol*(1.d0-alpha)
+              call variable%setpv(7,i,j,k,rhog*alpha/rhom)
+            end if
+            ! end of smoothing
+
+            call variable%setpv(1,i,j,k,0.d0)
+            call variable%setpv(2,i,j,k,0.d0)
+            call variable%setpv(3,i,j,k,0.d0)
+            call variable%setpv(4,i,j,k,0.d0)
+            call variable%setpv(5,i,j,k,ini%tref)
+            call variable%setpv(6,i,j,k,0.d0)
+          end do
+        end do
+      end do
+
+      call set_others(ini,variable,eos,nps,nts,timeprev)
+
+    end subroutine initial
 #else
     subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
       implicit none
@@ -526,8 +590,6 @@ module initial_module
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
-      real(8) :: pv(ini%npv),dv(ini%ndv)
-      real(8) :: tv(ini%ntv),qq(ini%npv)
 
       do k=2,ini%kmax
         do j=2,ini%jmax
@@ -599,5 +661,20 @@ module initial_module
       timeprev = 0.d0
     end subroutine set_others
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    function fac(n)
+      implicit none
+      real(8) :: fac
+      integer, intent(in) :: n
+      integer :: i
 
+      fac = 1.d0
+      if(n.le.1) return
+
+      do i=2,n
+        fac = fac*dble(i)
+      end do
+
+      return
+    end function fac
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 end module initial_module
