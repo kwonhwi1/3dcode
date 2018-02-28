@@ -9,7 +9,8 @@ module postvariable_module
   public :: t_variable
 
   type t_zone
-    real(8), dimension(:,:,:,:), allocatable :: pv,tv,dv
+    real(8), dimension(:,:,:), allocatable :: emut
+    real(8), dimension(:,:,:,:), allocatable :: pv,tv,dv,rcav,csf
   end type t_zone
 
   type t_solution
@@ -21,6 +22,7 @@ module postvariable_module
   type t_variable
     private
     integer :: npv,ntv,ndv,nqq,nsolution
+    logical :: l_turb,l_cav,l_csf
     type(t_solution), dimension(:), allocatable :: solution
     contains
       procedure :: construct
@@ -58,6 +60,10 @@ module postvariable_module
       variable%ntv = config%getntv()
       variable%nqq = config%getnqq()
 
+      variable%l_turb = .false.; if(config%getiturb().ge.-1) variable%l_turb = .true.
+      variable%l_cav = .false.; if(config%getncav().ne.0) variable%l_cav = .true.
+      variable%l_csf = .false.; if(config%getcsf().ne.0) variable%l_csf = .true.
+
       variable%nsolution = nsolution
 
       if(variable%nsolution.eq.1) then
@@ -81,6 +87,9 @@ module postvariable_module
           allocate(variable%solution(l)%zone(m)%pv(variable%npv,-1:grid%getimax(m)+3,-1:grid%getjmax(m)+3,-1:grid%getkmax(m)+3))
           allocate(variable%solution(l)%zone(m)%dv(variable%ndv,-1:grid%getimax(m)+3,-1:grid%getjmax(m)+3,-1:grid%getkmax(m)+3))
           allocate(variable%solution(l)%zone(m)%tv(variable%ntv,-1:grid%getimax(m)+3,-1:grid%getjmax(m)+3,-1:grid%getkmax(m)+3))
+          allocate(variable%solution(l)%zone(m)%rcav(2,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m)))
+          allocate(variable%solution(l)%zone(m)%csf(3,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m)))
+          allocate(variable%solution(l)%zone(m)%emut(-1:grid%getimax(m)+3,-1:grid%getjmax(m)+3,-1:grid%getkmax(m)+3))
         end do
 
         call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
@@ -104,12 +113,31 @@ module postvariable_module
           call mpi_file_read_all(io,variable%solution(l)%zone(m)%pv,num,mpi_real8,mpi_status_ignore,ier)
           disp = disp + realsize*num
 
-          call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-          num = variable%ntv*(grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
-          call mpi_file_read_all(io,variable%solution(l)%zone(m)%tv,num,mpi_real8,mpi_status_ignore,ier)
-          disp = disp + realsize*num
+          if(variable%l_turb) then
+            call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+            num = (grid%getimax(m)+5)*(grid%getjmax(m)+5)*(grid%getkmax(m)+5)
+            call mpi_file_read_all(io,variable%solution(l)%zone(m)%emut,num,mpi_real8,mpi_status_ignore,ier)
+            disp = disp + realsize*num
+          end if
+
           num = variable%nqq*variable%npv*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
-          disp = disp + realsize*num + 2*intsize + realsize
+          disp = disp + realsize*num
+
+          if(variable%l_cav) then
+            call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+            num = 2*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
+            call mpi_file_read_all(io,variable%solution(l)%zone(m)%rcav,num,mpi_real8,mpi_status_ignore,ier)
+            disp = disp + realsize*num
+          end if
+
+          if(variable%l_csf) then
+            call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+            num = 3*(grid%getimax(m)-1)*(grid%getjmax(m)-1)*(grid%getkmax(m)-1)
+            call mpi_file_read_all(io,variable%solution(l)%zone(m)%csf,num,mpi_real8,mpi_status_ignore,ier)
+            disp = disp + realsize*num
+          end if
+
+          disp = disp + 2*intsize + realsize
         end do
 
         call mpi_file_close(io,ier)
@@ -119,13 +147,25 @@ module postvariable_module
             do j=2,grid%getjmax(m)
               do i=2,grid%getimax(m)
                 variable%solution(l)%zone(m)%pv(1,i,j,k) = variable%solution(l)%zone(m)%pv(1,i,j,k)+config%getpref()
-                call eos%deteos_simple(variable%solution(l)%zone(m)%pv(1,i,j,k),variable%solution(l)%zone(m)%pv(5,i,j,k) &
+                call eos%deteos(variable%solution(l)%zone(m)%pv(1,i,j,k),variable%solution(l)%zone(m)%pv(5,i,j,k) &
                                ,variable%solution(l)%zone(m)%pv(6,i,j,k),variable%solution(l)%zone(m)%pv(7,i,j,k) &
-                               ,variable%solution(l)%zone(m)%dv(:,i,j,k))
+                               ,variable%solution(l)%zone(m)%dv(:,i,j,k),variable%solution(l)%zone(m)%tv(:,i,j,k))
               end do
             end do
           end do
         end do
+
+        if(variable%l_turb) then
+          do m=1,grid%getnzone()
+            do k=2,grid%getkmax(m)
+              do j=2,grid%getjmax(m)
+                do i=2,grid%getimax(m)
+                  variable%solution(l)%zone(m)%tv(3,i,j,k) = variable%solution(l)%zone(m)%emut(i,j,k)
+                end do
+              end do
+            end do
+          end do
+        end if
       end do
 
     end subroutine construct
@@ -141,6 +181,9 @@ module postvariable_module
           deallocate(variable%solution(l)%zone(m)%pv)
           deallocate(variable%solution(l)%zone(m)%dv)
           deallocate(variable%solution(l)%zone(m)%tv)
+          deallocate(variable%solution(l)%zone(m)%rcav)
+          deallocate(variable%solution(l)%zone(m)%csf)
+          deallocate(variable%solution(l)%zone(m)%emut)
         end do
         deallocate(variable%solution(l)%zone)
       end do
@@ -148,14 +191,15 @@ module postvariable_module
       deallocate(variable%solution)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-    subroutine cgnswriting(variable,config,grid,nsolname)
+    subroutine cgnswriting(variable,config,grid,nsolname,extravar)
       implicit none
       class(t_variable), intent(in) :: variable
       type(t_config), intent(in) :: config
       type(t_grid), intent(in) :: grid
       integer, intent(in) :: nsolname
+      character(len=:),allocatable :: extravar
       integer :: ifile,ier,index_flow,index_field
-      integer :: n,m
+      integer :: n,m,l,i,j,k
       integer(cgsize_t) :: dimensionvector
       real(8), dimension(:), allocatable :: time
       real(8), dimension(:,:,:), allocatable :: temp
@@ -195,6 +239,7 @@ module postvariable_module
         do m=1,grid%getnzone()
           write(*,*) 'writing variables to domain',m
           allocate(temp(grid%getimax(m)-1,grid%getjmax(m)-1,grid%getkmax(m)-1))
+          ! post basic variables
           call cg_sol_write_f(ifile,1,m,solname(n),cellcenter,index_flow,ier)
           temp = variable%solution(n)%zone(m)%pv(1,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
           call cg_field_write_f(ifile,1,m,index_flow,realdouble,'pressure',temp,index_field,ier)
@@ -212,7 +257,7 @@ module postvariable_module
           call cg_field_write_f(ifile,1,m,index_flow,realdouble,'y2',temp,index_field,ier)
           temp = variable%solution(n)%zone(m)%dv(1,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
           call cg_field_write_f(ifile,1,m,index_flow,realdouble,'density',temp,index_field,ier)
-          if(config%getiturb().ge.-1) then
+          if(variable%l_turb) then
             temp = variable%solution(n)%zone(m)%pv(8,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
             call cg_field_write_f(ifile,1,m,index_flow,realdouble,'k',temp,index_field,ier)
             temp = variable%solution(n)%zone(m)%pv(9,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
@@ -220,6 +265,51 @@ module postvariable_module
             temp = variable%solution(n)%zone(m)%tv(3,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
             call cg_field_write_f(ifile,1,m,index_flow,realdouble,'emut',temp,index_field,ier)
           end if
+          ! post extra variables
+          do l=1,len(extravar)
+            case_extravar:select case(extravar(l:l))
+            case('1')
+              do k=2,grid%getkmax(m)
+              do j=2,grid%getjmax(m)
+              do i=2,grid%getimax(m)
+                temp(i-1,j-1,k-1) = dsqrt( (variable%solution(n)%zone(m)%pv(2,i,j,k)**2  &
+                                           +variable%solution(n)%zone(m)%pv(3,i,j,k)**2  &
+                                           +variable%solution(n)%zone(m)%pv(4,i,j,k)**2) &
+                                          /variable%solution(n)%zone(m)%dv(6,i,j,k) )
+              end do; end do; end do
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'Mach',temp,index_field,ier)
+            case('2')
+              do k=2,grid%getkmax(m)
+              do j=2,grid%getjmax(m)
+              do i=2,grid%getimax(m)
+                temp(i-1,j-1,k-1) = variable%solution(n)%zone(m)%dv(1,i,j,k)*variable%solution(n)%zone(m)%pv(6,i,j,k) &
+                                   /variable%solution(n)%zone(m)%dv(4,i,j,k)
+              end do; end do; end do
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'vof_y1',temp,index_field,ier)
+              do k=2,grid%getkmax(m)
+              do j=2,grid%getjmax(m)
+              do i=2,grid%getimax(m)
+                temp(i-1,j-1,k-1) = variable%solution(n)%zone(m)%dv(1,i,j,k)*variable%solution(n)%zone(m)%pv(7,i,j,k) &
+                                   /variable%solution(n)%zone(m)%dv(5,i,j,k)
+              end do; end do; end do
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'vof_y2',temp,index_field,ier)
+            case('3')
+              if(.not.variable%l_cav) exit case_extravar
+              temp = variable%solution(n)%zone(m)%rcav(1,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'r_c',temp,index_field,ier)
+              temp = variable%solution(n)%zone(m)%rcav(2,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'r_v',temp,index_field,ier)
+            case('4')
+              if(.not.variable%l_csf) exit case_extravar
+              temp = variable%solution(n)%zone(m)%csf(1,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'csf_x',temp,index_field,ier)
+              temp = variable%solution(n)%zone(m)%csf(2,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'csf_y',temp,index_field,ier)
+              temp = variable%solution(n)%zone(m)%csf(3,2:grid%getimax(m),2:grid%getjmax(m),2:grid%getkmax(m))
+              call cg_field_write_f(ifile,1,m,index_flow,realdouble,'csf_z',temp,index_field,ier)
+            case default
+            end select case_extravar
+          end do
           deallocate(temp)
         end do
         write(*,*) '-----------------------------------------------------------'

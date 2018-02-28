@@ -10,10 +10,10 @@ module initial_module
 
   type, abstract :: t_ini
     private
-    logical :: l_ini
+    logical :: l_ini,l_turb,l_cav,l_csf
     integer :: npv,ndv,ntv,nqq
     integer :: size,rank,imax,jmax,kmax
-    integer :: iturb,nsteady,rstnum
+    integer :: nsteady,rstnum
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref,kref,oref,emutref,omega(3)
     contains
       procedure :: construct
@@ -46,7 +46,7 @@ module initial_module
       class(t_ini), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
     end subroutine p_initialize
@@ -71,20 +71,23 @@ module initial_module
       ini%tref = config%gettref()
       ini%y1ref = config%gety1ref()
       ini%y2ref = config%gety2ref()
-      ini%iturb = config%getiturb()
       ini%nsteady = config%getnsteady()
       ini%rstnum = config%getrstnum()
       ini%size = config%getsize()
       ini%rank = config%getrank()
-      if(config%getiturb().ge.-1) then
-        ini%kref = config%getkref()
-        ini%oref = config%getoref()
-        ini%emutref = config%getemutref()
-      end if
       ini%omega = config%getomega()
       ini%imax = grid%getimax()
       ini%jmax = grid%getjmax()
       ini%kmax = grid%getkmax()
+
+      ini%l_turb = .false.; if(config%getiturb().ge.-1) ini%l_turb=.true.
+      if(ini%l_turb) then
+        ini%kref = config%getkref()
+        ini%oref = config%getoref()
+        ini%emutref = config%getemutref()
+      end if
+      ini%l_cav = .false.; if(config%getncav().ne.0) ini%l_cav=.true.
+      ini%l_csf = .false.; if(config%getcsf().ne.0) ini%l_csf=.true.
 
       ini%l_ini = .true.
 
@@ -103,15 +106,18 @@ module initial_module
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
-      real(8) :: dv(ini%ndv),qq_temp(ini%npv)
-      real(8), dimension(:,:,:,:), allocatable :: pv,tv
+      real(8) :: dv(ini%ndv),tv(ini%ntv),qq_temp(ini%npv)
+      real(8), dimension(:,:,:), allocatable :: emut
+      real(8), dimension(:,:,:,:), allocatable :: pv,rcav,csf
       character(8) :: iter_tag
+
+      write(*,*) 'restart steadyini'
 
       call mpi_type_size(mpi_integer,intsize,ier)
       call mpi_type_size(mpi_real8,realsize,ier)
@@ -124,10 +130,17 @@ module initial_module
         disp = 0
         do i=0,ini%rank-1
           disp = disp + intsize*2 + realsize &
-               + realsize*ini%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
-               + realsize*ini%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+               + realsize*ini%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+          if(ini%l_turb) disp = disp + realsize*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+          if(ini%l_cav) disp = disp + realsize*2*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+          if(ini%l_csf) disp = disp + realsize*3*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
         end do
       end if
+
+      allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(rcav(2,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(csf(3,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(emut(-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
 
       call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
 
@@ -143,18 +156,32 @@ module initial_module
       call mpi_file_read_all(io,timeprev,1,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize
 
-      allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
-      allocate(tv(ini%ntv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = ini%npv*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
       call mpi_file_read_all(io,pv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize*num
 
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = ini%ntv*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
-      call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
-      disp = disp + realsize*num
+      if(ini%l_turb) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = (ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+        call mpi_file_read_all(io,emut,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
+
+      if(ini%l_cav) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 2*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+        call mpi_file_read_all(io,rcav,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
+
+      if(ini%l_csf) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 3*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+        call mpi_file_read_all(io,csf,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
 
       call mpi_file_close(io,ier)
 
@@ -165,14 +192,15 @@ module initial_module
               call variable%setpv(n,i,j,k,pv(n,i,j,k))
             end do
 
-            do n=1,ini%ntv
-              call variable%settv(n,i,j,k,tv(n,i,j,k))
-            end do
-
-            call eos%deteos_simple(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv,tv)
 
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
+            end do
+
+            if(ini%l_turb) tv(3) = emut(i,j,k)
+            do n=1,ini%ntv
+              call variable%settv(n,i,j,k,tv(n))
             end do
 
             qq_temp(1) = dv(1)
@@ -183,16 +211,29 @@ module initial_module
             do n=6,ini%npv
               qq_temp(n) = dv(1)*pv(n,i,j,k)
             end do
-
             call variable%setqq(1,i,j,k,qq_temp)
             call variable%setqq(2,i,j,k,qq_temp)
+
+            if(ini%l_cav) then
+              do n=1,2
+                call variable%setrcav(n,i,j,k,rcav(n,i,j,k))
+              end do
+            end if
+
+            if(ini%l_csf) then
+              do n=1,3
+                call variable%setcsf(n,i,j,k,csf(n,i,j,k))
+              end do
+            end if
 
           end do
         end do
       end do
 
-      if(allocated(pv)) deallocate(pv)
-      if(allocated(tv)) deallocate(tv)
+      if(allocated(pv))   deallocate(pv)
+      if(allocated(rcav)) deallocate(rcav)
+      if(allocated(csf))  deallocate(csf)
+      if(allocated(emut)) deallocate(emut)
 
       nts = 1
       nps = 1
@@ -206,14 +247,15 @@ module initial_module
       class(t_ini_restart), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n,io,ier,num
       integer :: intsize,realsize
       integer(kind=mpi_offset_kind) :: disp
-      real(8) :: dv(ini%ndv),qq_temp(ini%npv)
-      real(8), dimension(:,:,:,:), allocatable :: pv,tv
+      real(8) :: dv(ini%ndv),tv(ini%ntv),qq_temp(ini%npv)
+      real(8), dimension(:,:,:), allocatable :: emut
+      real(8), dimension(:,:,:,:), allocatable :: pv,rcav,csf
       real(8), dimension(:,:,:,:,:), allocatable :: qq
       character(8) :: iter_tag
 
@@ -229,10 +271,19 @@ module initial_module
         do i=0,ini%rank-1
           disp = disp + intsize*2 + realsize &
                + realsize*ini%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
-               + realsize*ini%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                + realsize*ini%nqq*ini%npv*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+          ! disp doesn't need to know the order of variable
+          if(ini%l_turb) disp = disp + realsize*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+          if(ini%l_cav) disp = disp + realsize*2*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+          if(ini%l_csf) disp = disp + realsize*3*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
         end do
       end if
+
+      allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
+      allocate(qq(ini%npv,ini%nqq,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(rcav(2,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(csf(3,2:ini%imax,2:ini%jmax,2:ini%kmax))
+      allocate(emut(-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
 
       call mpi_file_open(mpi_comm_world,"./out_"//trim(iter_tag)//".dat",mpi_mode_rdonly,mpi_info_null,io,ier)
 
@@ -248,23 +299,36 @@ module initial_module
       call mpi_file_read_all(io,timeprev,1,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize
 
-      allocate(pv(ini%npv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
-      allocate(tv(ini%ntv,-1:ini%imax+3,-1:ini%jmax+3,-1:ini%kmax+3))
-      allocate(qq(ini%npv,ini%nqq,2:ini%imax,2:ini%jmax,2:ini%kmax))
-
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = ini%npv*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
       call mpi_file_read_all(io,pv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + realsize*num
 
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = ini%ntv*(ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
-      call mpi_file_read_all(io,tv,num,mpi_real8,mpi_status_ignore,ier)
-      disp = disp + realsize*num
+      if(ini%l_turb) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = (ini%imax+5)*(ini%jmax+5)*(ini%kmax+5)
+        call mpi_file_read_all(io,emut,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = ini%nqq*ini%npv*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
       call mpi_file_read_all(io,qq,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + realsize*num
+
+      if(ini%l_cav) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 2*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+        call mpi_file_read_all(io,rcav,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
+
+      if(ini%l_csf) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 3*(ini%imax-1)*(ini%jmax-1)*(ini%kmax-1)
+        call mpi_file_read_all(io,csf,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + realsize*num
+      end if
 
       call mpi_file_close(io,ier)
 
@@ -275,27 +339,43 @@ module initial_module
               call variable%setpv(n,i,j,k,pv(n,i,j,k))
             end do
 
-            do n=1,ini%ntv
-              call variable%settv(n,i,j,k,tv(n,i,j,k))
-            end do
-
-            call eos%deteos_simple(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv)
+            call eos%deteos(pv(1,i,j,k)+ini%pref,pv(5,i,j,k),pv(6,i,j,k),pv(7,i,j,k),dv,tv)
 
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
+            end do
+
+            if(ini%l_turb) tv(3) = emut(i,j,k)
+            do n=1,ini%ntv
+              call variable%settv(n,i,j,k,tv(n))
             end do
 
             do n=1,ini%nqq
               qq_temp = qq(:,n,i,j,k)
               call variable%setqq(n,i,j,k,qq_temp)
             end do
+
+            if(ini%l_cav) then
+              do n=1,2
+                call variable%setrcav(n,i,j,k,rcav(n,i,j,k))
+              end do
+            end if
+
+            if(ini%l_csf) then
+              do n=1,3
+                call variable%setcsf(n,i,j,k,csf(n,i,j,k))
+              end do
+            end if
+
           end do
         end do
       end do
 
-      if(allocated(pv)) deallocate(pv)
-      if(allocated(tv)) deallocate(tv)
-      if(allocated(qq)) deallocate(qq)
+      if(allocated(pv))   deallocate(pv)
+      if(allocated(qq))   deallocate(qq)
+      if(allocated(rcav)) deallocate(rcav)
+      if(allocated(csf))  deallocate(csf)
+      if(allocated(emut)) deallocate(emut)
 
       nts = nts + 1
       nps = nps + 1
@@ -314,7 +394,7 @@ module initial_module
       class(t_ini_initial_rot), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
@@ -347,7 +427,7 @@ module initial_module
               call variable%setdv(n,i,j,k,dv(n))
             end do
 
-            if(ini%iturb.ge.-1) then
+            if(ini%l_turb) then
               tv(3) = ini%emutref
               call variable%setpv(8,i,j,k,ini%kref)
               call variable%setpv(9,i,j,k,ini%oref)
@@ -366,11 +446,23 @@ module initial_module
               do n=6,ini%npv
                 qq(n) = dv(1)*pv(n)
               end do
-
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
-          end do
+
+            if(ini%l_cav) then
+              do n=1,2
+                call variable%setrcav(n,i,j,k,0.d0)
+              end do
+            end if
+
+            if(ini%l_csf) then
+              do n=1,3
+                call variable%setcsf(n,i,j,k,0.d0)
+              end do
+            end if
+
+         end do
         end do
       end do
       nps = 1
@@ -386,7 +478,7 @@ module initial_module
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
@@ -428,7 +520,7 @@ module initial_module
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
@@ -469,7 +561,7 @@ module initial_module
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k
@@ -517,7 +609,7 @@ module initial_module
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
@@ -579,6 +671,8 @@ module initial_module
 
       call set_others(ini,variable,eos,nps,nts,timeprev)
 
+      deallocate(conp)
+
     end subroutine initial
 #else
     subroutine initial(ini,grid,variable,eos,nps,nts,timeprev)
@@ -586,7 +680,7 @@ module initial_module
       class(t_ini_initial), intent(inout) :: ini
       type(t_grid), intent(in) :: grid
       type(t_variable), intent(inout) :: variable
-      class(t_eos), intent(in) :: eos
+      class(t_eos), intent(inout) :: eos
       integer, intent(out) :: nps,nts
       real(8), intent(out) :: timeprev
       integer :: i,j,k,n
@@ -630,7 +724,7 @@ module initial_module
               call variable%setdv(n,i,j,k,dv(n))
             end do
 
-            if(ini%iturb.ge.-1) then
+            if(ini%l_turb) then
               tv(3) = ini%emutref
               call variable%setpv(8,i,j,k,ini%kref)
               call variable%setpv(9,i,j,k,ini%oref)
@@ -649,10 +743,22 @@ module initial_module
               do n=6,ini%npv
                 qq(n) = dv(1)*pv(n)
               end do
-
               call variable%setqq(1,i,j,k,qq)
               call variable%setqq(2,i,j,k,qq)
             end if
+
+            if(ini%l_cav) then
+              do n=1,2
+                call variable%setrcav(n,i,j,k,0.d0)
+              end do
+            end if
+
+            if(ini%l_csf) then
+              do n=1,3
+                call variable%setcsf(n,i,j,k,0.d0)
+              end do
+            end if
+
           end do
         end do
       end do

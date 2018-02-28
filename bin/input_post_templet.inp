@@ -10,8 +10,11 @@ planform area
 0.d0
 nsolname(1:nps/nts, 2:physical time)
 1
+extra post variables(only read if mode.eq.1)
+1234
 ! name, nsteady, nexport, iturb, fluid, ngas      check in input.inp for postprocessing
 ! planform area, uref, rhoref, l_chord, aoa, aos  for surface pressure & clcd calculation
 ! famname='Surface'                               in *.cgns for surface pressure & clcd calculation
 ! famname='Heatflux*'                             in *.cgns for heatflux wall
 ! bcname='Wall' for correct wall boundary calculation with above famname
+! extra post=0:nothing, 1:Mach #, 2:vf, 3:r_c,r_v, 4:csf vector

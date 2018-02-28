@@ -13,17 +13,33 @@ program postprocess
 
   integer :: io,istart,iend,nsolution,mode,nsolname
   real(8) :: area
+  integer :: l
+  character(len=4) :: extravar_tmp
+  character(len=:), allocatable :: extravar
 
   open(newunit=io,file='./input_post.inp',status='old',action='read')
-  read(io,*); read(io,*) istart
-  read(io,*); read(io,*) iend
-  read(io,*); read(io,*) nsolution
-  read(io,*); read(io,*) mode
-  read(io,*); read(io,*) area
-  read(io,*); read(io,*) nsolname
+    read(io,*); read(io,*) istart
+    read(io,*); read(io,*) iend
+    read(io,*); read(io,*) nsolution
+    read(io,*); read(io,*) mode
+    read(io,*); read(io,*) area
+    read(io,*); read(io,*) nsolname
+    if(mode.eq.1) read(io,*); read(io,*) extravar_tmp
   close(io)
 
   call config%construct()
+
+  extravar = trim(extravar_tmp)
+  if(extravar.ne.'0') then
+    do l=1,len(extravar)
+      if(extravar(l:l).eq.'3') then
+        if(config%getncav().eq.0) write(*,*) '!!! wrong extravar; check ncav !!!'
+      end if
+      if(extravar(l:l).eq.'4') then
+        if(config%getcsf().eq.0) write(*,*) '!!! wrong extravar; check csf !!!'
+      end if
+   end do
+  end if
 
   select case(config%getiturb())
   case(0,-1,-2)
@@ -44,7 +60,7 @@ program postprocess
 
   select case(mode)
   case(1)
-    call variable%cgnswriting(config,grid,nsolname)
+    call variable%cgnswriting(config,grid,nsolname,extravar)
   case(2)
     call variable%surface_writing(config,grid)
   case(3)

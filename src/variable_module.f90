@@ -11,12 +11,13 @@ module variable_module
     integer :: npv,ndv,ntv,nqq
     integer :: size,rank,nsteady,ngrd,imax,jmax,kmax
     integer :: intsize,realsize
-    logical :: l_csf
+    logical :: l_turb,l_cav,l_csf
     integer(kind=mpi_offset_kind) :: disp
     real(8), dimension(:,:,:,:), allocatable :: pv      ! p,u,v,w,t,y1,y2,k,o
     real(8), dimension(:,:,:,:), allocatable :: dv      ! rho,h,rhol,rhov,rhog,snd2,drdp,drdt,drdy1,drdy2,dhdp,dhdt,dhdy1,dhdy2,drdpv,drdtv,drdpl,drdtl
     real(8), dimension(:,:,:,:), allocatable :: tv      ! vis,cond,emut
     real(8), dimension(:,:,:,:,:), allocatable :: qq    ! unsteady n-1,n-2 conservative variable
+    real(8), dimension(:,:,:,:), allocatable :: rcav    ! phase change rate
     real(8), dimension(:,:,:,:), allocatable :: csf,vfg ! surface tension force, volume fraction gradient
     contains
       procedure :: construct
@@ -30,6 +31,7 @@ module variable_module
       procedure :: setdv
       procedure :: settv
       procedure :: setqq
+      procedure :: setrcav
       procedure :: setcsf
       procedure :: setvfg
       procedure :: export_variable
@@ -60,12 +62,15 @@ module variable_module
       variable%jmax = grid%getjmax()
       variable%kmax = grid%getkmax()
 
+      variable%l_turb = .false.; if(config%getiturb().ge.-1) variable%l_turb = .true.
+      variable%l_cav = .false.; if(config%getncav().ne.0) variable%l_cav = .true.
       variable%l_csf = .false.; if(config%getcsf().ne.0) variable%l_csf = .true.
 
       allocate(variable%pv(variable%npv,-1:variable%imax+3,-1:variable%jmax+3,-1:variable%kmax+3))
       allocate(variable%dv(variable%ndv,-1:variable%imax+3,-1:variable%jmax+3,-1:variable%kmax+3))
       allocate(variable%tv(variable%ntv,-1:variable%imax+3,-1:variable%jmax+3,-1:variable%kmax+3))
       allocate(variable%qq(variable%npv,variable%nqq,2:variable%imax,2:variable%jmax,2:variable%kmax))
+      if(variable%l_cav) allocate(variable%rcav(2,2:variable%imax,2:variable%jmax,2:variable%kmax))
       if(variable%l_csf) then
         allocate(variable%csf(3,2:variable%imax,2:variable%jmax,2:variable%kmax))
         allocate(variable%vfg(3,1:variable%imax+1,1:variable%jmax+1,1:variable%kmax+1))
@@ -78,8 +83,10 @@ module variable_module
         do i=0,variable%rank-1
           variable%disp = variable%disp + variable%intsize*2 + variable%realsize &
                         + variable%realsize*variable%npv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
-                        + variable%realsize*variable%ntv*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5) &
                         + variable%realsize*variable%nqq*variable%npv*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+          if(variable%l_turb) variable%disp = variable%disp + variable%realsize*(grid%getimax_zone(i)+5)*(grid%getjmax_zone(i)+5)*(grid%getkmax_zone(i)+5)
+          if(variable%l_cav) variable%disp = variable%disp + variable%realsize*2*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
+          if(variable%l_csf) variable%disp = variable%disp + variable%realsize*3*(grid%getimax_zone(i)-1)*(grid%getjmax_zone(i)-1)*(grid%getkmax_zone(i)-1)
         end do
       end if
     end subroutine construct
@@ -92,6 +99,7 @@ module variable_module
       if(allocated(variable%dv)) deallocate(variable%dv)
       if(allocated(variable%tv)) deallocate(variable%tv)
       if(allocated(variable%qq)) deallocate(variable%qq)
+      if(allocated(variable%rcav)) deallocate(variable%rcav)
       if(allocated(variable%csf)) deallocate(variable%csf)
       if(allocated(variable%vfg)) deallocate(variable%vfg)
 
@@ -105,6 +113,8 @@ module variable_module
       integer :: ier,io,num
       integer(kind=mpi_offset_kind) :: disp
       character(8) :: iter_tag
+      real(8), allocatable :: emut(:,:,:)
+      integer :: i,j,k
 
       if(variable%nsteady.ge.1) then
         write(iter_tag,'(i8.8)') nt_phy
@@ -132,15 +142,40 @@ module variable_module
       call mpi_file_write_all(io,variable%pv,num,mpi_real8,mpi_status_ignore,ier)
       disp = disp + variable%realsize*num
 
-
-      call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
-      num = variable%ntv*(variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)
-      call mpi_file_write_all(io,variable%tv,num,mpi_real8,mpi_status_ignore,ier)
-      disp = disp + variable%realsize*num
+      if(variable%l_turb) then
+        allocate(emut(-1:variable%imax+3,-1:variable%jmax+3,-1:variable%kmax+3))
+        do k=-1,variable%kmax+3
+          do j=-1,variable%jmax+3
+            do i=-1,variable%imax+3
+              emut(i,j,k) = variable%tv(3,i,j,k)
+            end do
+          end do
+        end do
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = (variable%imax+5)*(variable%jmax+5)*(variable%kmax+5)
+        call mpi_file_write_all(io,emut,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + variable%realsize*num
+        if(allocated(emut)) deallocate(emut)
+      end if
 
       call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
       num = variable%nqq*variable%npv*(variable%imax-1)*(variable%jmax-1)*(variable%kmax-1)
       call mpi_file_write_all(io,variable%qq,num,mpi_real8,mpi_status_ignore,ier)
+      disp = disp + variable%realsize*num
+
+      if(variable%l_cav) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 2*(variable%imax-1)*(variable%jmax-1)*(variable%kmax-1)
+        call mpi_file_write_all(io,variable%rcav,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + variable%realsize*num
+      end if
+
+      if(variable%l_csf) then
+        call mpi_file_set_view(io,disp,mpi_real8,mpi_real8,'native',mpi_info_null,ier)
+        num = 3*(variable%imax-1)*(variable%jmax-1)*(variable%kmax-1)
+        call mpi_file_write_all(io,variable%csf,num,mpi_real8,mpi_status_ignore,ier)
+        disp = disp + variable%realsize*num
+      end if
 
       call mpi_file_close(io,ier)
 
@@ -236,6 +271,16 @@ module variable_module
 
     end subroutine setqq
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setrcav(variable,n,i,j,k,var)
+      implicit none
+      class(t_variable), intent(inout) :: variable
+      integer, intent(in) :: n,i,j,k
+      real(8), intent(in) :: var
+
+      variable%rcav(n,i,j,k) = var
+
+    end subroutine setrcav
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setcsf(variable,n,i,j,k,var)
       implicit none
       class(t_variable), intent(inout) :: variable
@@ -268,8 +313,8 @@ module variable_module
       do k=0,variable%kmax+2
         do j=0,variable%jmax+2
           do i=0,variable%imax+2
-            vf(i,j,k) = variable%dv(1,i,j,k)*(variable%pv(6,i,j,k)/variable%dv(5,i,j,k) &
-                                             +variable%pv(7,i,j,k)/variable%dv(6,i,j,k))
+            vf(i,j,k) = variable%dv(1,i,j,k)*(variable%pv(6,i,j,k)/variable%dv(4,i,j,k) &
+                                             +variable%pv(7,i,j,k)/variable%dv(5,i,j,k))
           end do
         end do
       end do

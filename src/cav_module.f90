@@ -7,7 +7,7 @@ module cav_module
   public :: t_cav,t_merkle,t_kunz,t_singhal,t_schnerr_sauer,t_lee,t_cav_result
 
   type t_cav_result
-    real(8) :: cavsource,icav(4)
+    real(8) :: r_c,r_v,icav(4)
   end type
 
   type, abstract :: t_cav
@@ -141,7 +141,7 @@ module cav_module
       real(8) :: r_c,r_v,pww,lam,rho1
       real(8), parameter :: phi = 1.d0
 
-      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      cav_result = t_cav_result(0.d0,0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
@@ -151,7 +151,8 @@ module cav_module
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
       r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
-      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+      cav_result%r_c = r_c*cav%grd(1)
+      cav_result%r_v = r_v*cav%grd(1)
 
       if(r_c.ne.0.d0) then
         cav_result%icav(1) = - r_c*cav%dv(7)*rho1 - cav%c_c*cav%dv(1)*cav%pv(2,6)*cav%dp_ref*cav%t_ref
@@ -177,7 +178,7 @@ module cav_module
       real(8) :: r_c,r_v,al,av,ag,pww,av1,lam,rho1
       real(8), parameter :: phi = 1.d0
 
-      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      cav_result = t_cav_result(0.d0,0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
@@ -191,7 +192,8 @@ module cav_module
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
       r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
-      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+      cav_result%r_c = r_c*cav%grd(1)
+      cav_result%r_v = r_v*cav%grd(1)
 
       av1 = 1.d0-4.d0*av+3.d0*av**2
       cav_result%icav(1) = - cav%c_c*cav%t_ref*(cav%dv(7)*cav%pv(2,6)*av1+2.d0*av**2*cav%dv(15)*(al+ag))
@@ -216,7 +218,7 @@ module cav_module
       real(8) :: r_c,r_v,pww,sigma,lam,rho1,rho2
       real(8), parameter :: phi = 1.d0
 
-      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      cav_result = t_cav_result(0.d0,0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       sigma = eos%get_sigma(cav%pv(2,5))
@@ -230,7 +232,8 @@ module cav_module
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
       r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
-      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+      cav_result%r_c = r_c*cav%grd(1)
+      cav_result%r_v = r_v*cav%grd(1)
 
       if(r_c.ne.0.d0 ) then
         cav_result%icav(1) = - r_c*(cav%dv(15)*rho2+0.5d0*cav%dv(17)*rho1)-0.5d0*cav%c_c*cav%uref/sigma*cav%dv(3)*cav%dv(4) &
@@ -267,7 +270,7 @@ module cav_module
 
       ! Y2 in INPUT.INP should not be 0.d0 / 1.d-7 recommended
 
-      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      cav_result = t_cav_result(0.d0,0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       pww = eos%get_pww(cav%pv(2,5))
       rho1 = 1.d0/cav%dv(1)
@@ -291,7 +294,9 @@ module cav_module
             *dsqrt(dmax1(pww-cav%pv(2,1)-cav%pref,0.d0))
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
       r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
-      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+
+      cav_result%r_c = r_c*cav%grd(1)
+      cav_result%r_v = r_v*cav%grd(1)
 
       if(r_c.ne.0.d0) then
         cav_result%icav(1) = - r_c*(cav%dv(7)*rho1 + cav%dv(15)*rho4/3.d0 - 5.d0*cav%dv(17)*rho3/6.d0 + 0.5d0/(cav%pv(2,1)+cav%pref-pww))
@@ -321,7 +326,7 @@ module cav_module
       ! ANSYS-FLUENT
       ! Cc,Cv: 1.D-1~1.D3, DEFAULT 1.D-1
 
-      cav_result = t_cav_result(0.d0,(/0.d0,0.d0,0.d0,0.d0/))
+      cav_result = t_cav_result(0.d0,0.d0,(/0.d0,0.d0,0.d0,0.d0/))
       if(cav%pv(2,5).ge.cav%t_crit) return
       tww = eos%get_tww(cav%pv(2,1)+cav%pref)
       rho1 = 1.d0/cav%dv(1)
@@ -331,7 +336,8 @@ module cav_module
       r_c = dmin1(r_c,cav%dv(1)*cav%pv(2,5))
       r_v = dmin1(r_v,cav%dv(1)*(1.d0-cav%pv(2,5)-cav%pv(2,6)))
 
-      cav_result%cavsource = (r_v - r_c)*cav%grd(1)
+      cav_result%r_c = r_c*cav%grd(1)
+      cav_result%r_v = r_v*cav%grd(1)
 
       if(r_c.ne.0.d0) then
         cav_result%icav(1) = - r_c*cav%dv(7)*rho1

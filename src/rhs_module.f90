@@ -562,8 +562,10 @@ module rhs_module
               call rhs%cav%setpv(x)
               call rhs%cav%setdv(dvl)
               cav_result = rhs%cav%cavsource(eos)
-              rhs%res(6,i,j,k) = rhs%res(6,i,j,k) + cav_result%cavsource
+              rhs%res(6,i,j,k) = rhs%res(6,i,j,k) + cav_result%r_v - cav_result%r_c
               if(allocated(rhs%icav)) rhs%icav(:,i,j,k) = cav_result%icav(:)
+              call variable%setrcav(1,i,j,k,cav_result%r_c)
+              call variable%setrcav(2,i,j,k,cav_result%r_v)
             end if
 
             if(rhs%l_turbsource) then
