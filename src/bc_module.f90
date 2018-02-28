@@ -34,12 +34,13 @@ module bc_module
     integer :: bc_comm_world,icolor,ikey
     class(t_bcinfo2), dimension(:), allocatable :: bcinfo,corner,edge
     class(t_connectinfo), dimension(:), allocatable :: connectinfo
-    class(t_mpitemp), dimension(:), allocatable :: mpitemp
+    class(t_mpitemp), dimension(:), allocatable :: mpitemp,mpitemp_vfg
     type(t_prec) :: prec
     contains
       procedure :: construct
       procedure :: destruct
       procedure :: setbc
+      procedure :: setbc_vfg
   end type t_bc
 
   interface
@@ -349,6 +350,8 @@ module bc_module
       bc%bcinfo(:)%bc_comm_world = bc%bc_comm_world
 
       !cccccccccccccccccc construct ncon ccccccccccccccccccccccccccccc
+      if(config%getcsf().eq.1) allocate(bc%mpitemp_vfg(bc%ncon))
+
       do n=1,bc%ncon
         bc%connectinfo(n)%donor = grid%getconnectdonor(n)
 
@@ -365,6 +368,7 @@ module bc_module
         if(bc%connectinfo(n)%istart(2).eq.bc%connectinfo(n)%iend(2)) then
           if(bc%connectinfo(n)%istart(2).eq.2) then
             bc%connectinfo(n)%iend(2) = bc%connectinfo(n)%iend(2) + 2
+            bc%connectinfo(n)%face = 3
             if(bc%connectinfo(n)%transmat(1,2).eq.1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
@@ -380,6 +384,7 @@ module bc_module
             end if
           else
             bc%connectinfo(n)%istart(2) = bc%connectinfo(n)%istart(2) - 2
+            bc%connectinfo(n)%face = 4
             if(bc%connectinfo(n)%transmat(1,2).eq.1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,2).eq.-1) then
@@ -394,9 +399,16 @@ module bc_module
               bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
             end if
           end if
+          if(config%getcsf().eq.1) then
+            bc%mpitemp_vfg(n)%num = (abs(bc%connectinfo(n)%istart(1)-bc%connectinfo(n)%iend(1))+1) &
+                                   *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1) &
+                                   *3
+            allocate(bc%mpitemp_vfg(n)%sendbuf(bc%mpitemp_vfg(n)%num),bc%mpitemp_vfg(n)%recvbuf(bc%mpitemp_vfg(n)%num))
+          end if
         else if(bc%connectinfo(n)%istart(1).eq.bc%connectinfo(n)%iend(1)) then
           if(bc%connectinfo(n)%istart(1).eq.2) then
             bc%connectinfo(n)%iend(1) = bc%connectinfo(n)%iend(1) + 2
+            bc%connectinfo(n)%face = 1
             if(bc%connectinfo(n)%transmat(1,1).eq.1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
@@ -412,6 +424,7 @@ module bc_module
             end if
           else
             bc%connectinfo(n)%istart(1) = bc%connectinfo(n)%istart(1) - 2
+            bc%connectinfo(n)%face = 2
             if(bc%connectinfo(n)%transmat(1,1).eq.1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,1).eq.-1) then
@@ -426,9 +439,16 @@ module bc_module
               bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
             end if
           end if
+          if(config%getcsf().eq.1) then
+            bc%mpitemp_vfg(n)%num = (abs(bc%connectinfo(n)%istart(2)-bc%connectinfo(n)%iend(2))+1) &
+                                   *(abs(bc%connectinfo(n)%istart(3)-bc%connectinfo(n)%iend(3))+1) &
+                                   *3
+            allocate(bc%mpitemp_vfg(n)%sendbuf(bc%mpitemp_vfg(n)%num),bc%mpitemp_vfg(n)%recvbuf(bc%mpitemp_vfg(n)%num))
+          end if
         else if(bc%connectinfo(n)%istart(3).eq.bc%connectinfo(n)%iend(3)) then
           if(bc%connectinfo(n)%istart(3).eq.2) then
             bc%connectinfo(n)%iend(3) = bc%connectinfo(n)%iend(3) + 2
+            bc%connectinfo(n)%face = 5
             if(bc%connectinfo(n)%transmat(1,3).eq.1) then
               bc%connectinfo(n)%iend_donor(1) = bc%connectinfo(n)%iend_donor(1) + 2
             else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
@@ -444,6 +464,7 @@ module bc_module
             end if
           else
             bc%connectinfo(n)%istart(3) = bc%connectinfo(n)%istart(3) - 2
+            bc%connectinfo(n)%face = 6
             if(bc%connectinfo(n)%transmat(1,3).eq.1) then
               bc%connectinfo(n)%istart_donor(1) = bc%connectinfo(n)%istart_donor(1) - 2
             else if(bc%connectinfo(n)%transmat(1,3).eq.-1) then
@@ -457,6 +478,12 @@ module bc_module
             else if(bc%connectinfo(n)%transmat(3,3).eq.-1) then
               bc%connectinfo(n)%istart_donor(3) = bc%connectinfo(n)%istart_donor(3) + 2
             end if
+          end if
+          if(config%getcsf().eq.1) then
+            bc%mpitemp_vfg(n)%num = (abs(bc%connectinfo(n)%istart(2)-bc%connectinfo(n)%iend(2))+1) &
+                                   *(abs(bc%connectinfo(n)%istart(1)-bc%connectinfo(n)%iend(1))+1) &
+                                   *3
+            allocate(bc%mpitemp_vfg(n)%sendbuf(bc%mpitemp_vfg(n)%num),bc%mpitemp_vfg(n)%recvbuf(bc%mpitemp_vfg(n)%num))
           end if
         end if
       end do
@@ -1188,6 +1215,8 @@ module bc_module
       do n=1,bc%ncon
         if(allocated(bc%mpitemp(n)%sendbuf)) deallocate(bc%mpitemp(n)%sendbuf)
         if(allocated(bc%mpitemp(n)%recvbuf)) deallocate(bc%mpitemp(n)%recvbuf)
+        if(allocated(bc%mpitemp_vfg(n)%sendbuf)) deallocate(bc%mpitemp_vfg(n)%sendbuf)
+        if(allocated(bc%mpitemp_vfg(n)%recvbuf)) deallocate(bc%mpitemp_vfg(n)%recvbuf)
       end do
 
       do n=1,bc%nbc
@@ -1200,7 +1229,7 @@ module bc_module
       end do
 
       deallocate(bc%bcinfo,bc%edge,bc%corner,bc%connectinfo)
-      deallocate(bc%mpitemp)
+      deallocate(bc%mpitemp,bc%mpitemp_vfg)
     end subroutine destruct
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine setbc(bc,grid,variable,eos,time)
@@ -1365,6 +1394,414 @@ module bc_module
       end do
 
     end subroutine setbc
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    subroutine setbc_vfg(bc,grid,variable,eos,time)
+      implicit none
+      class(t_bc), intent(inout) :: bc
+      type(t_grid), intent(in) :: grid
+      type(t_variable), intent(inout) :: variable
+      class(t_eos), intent(in) :: eos
+      real(8), intent(in) :: time
+      integer :: i,j,k,n,m,l
+      integer :: ii,jj,kk
+      integer :: ier
+      integer :: request_s(bc%ncon),request_r(bc%ncon),request_sa(bc%ncon),request_ra(bc%ncon)
+      integer :: status(mpi_status_size)
+      real(8) :: vfg(3)
+
+      do n=1,bc%ncon
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
+          call mpi_irecv(bc%mpitemp_vfg(n)%recvadress,19,mpi_integer,bc%connectinfo(n)%donor,&
+                         bc%connectinfo(n)%donor+bc%size,mpi_comm_world,request_ra(n),ier)
+          call mpi_irecv(bc%mpitemp_vfg(n)%recvbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,&
+                         bc%connectinfo(n)%donor,mpi_comm_world,request_r(n),ier)
+        end if
+      end do
+
+      do n=1,bc%ncon
+        l = 0
+        if(bc%connectinfo(n)%face.eq.1) then
+          do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+            do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+              vfg = variable%getvfg(bc%connectinfo(n)%istart(1),j,k)
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        else if(bc%connectinfo(n)%face.eq.2) then
+          do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+            do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+              vfg = variable%getvfg(bc%connectinfo(n)%iend(1),j,k)
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        else if(bc%connectinfo(n)%face.eq.3) then
+          do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+            do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+              vfg = variable%getvfg(i,bc%connectinfo(n)%istart(2),k)
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        else if(bc%connectinfo(n)%face.eq.4) then
+          do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+            do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+              vfg = variable%getvfg(i,bc%connectinfo(n)%iend(2),k)
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        else if(bc%connectinfo(n)%face.eq.5) then
+          do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+            do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+              vfg = variable%getvfg(i,j,bc%connectinfo(n)%istart(3))
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        else if(bc%connectinfo(n)%face.eq.6) then
+          do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+            do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+              vfg = variable%getvfg(i,j,bc%connectinfo(n)%iend(3))
+              do m=1,3
+                l = l + 1
+                bc%mpitemp_vfg(n)%sendbuf(l) = vfg(m)
+              end do
+            end do
+          end do
+        end if
+
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
+          bc%mpitemp_vfg(n)%sendadress = (/bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1), &
+                                           bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2), &
+                                           bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3), &
+                                           bc%connectinfo(n)%istart_donor(1), &
+                                           bc%connectinfo(n)%istart_donor(2), &
+                                           bc%connectinfo(n)%istart_donor(3), &
+                                           bc%connectinfo(n)%transmat(1,1),   &
+                                           bc%connectinfo(n)%transmat(1,2),   &
+                                           bc%connectinfo(n)%transmat(1,3),   &
+                                           bc%connectinfo(n)%transmat(2,1),   &
+                                           bc%connectinfo(n)%transmat(2,2),   &
+                                           bc%connectinfo(n)%transmat(2,3),   &
+                                           bc%connectinfo(n)%transmat(3,1),   &
+                                           bc%connectinfo(n)%transmat(3,2),   &
+                                           bc%connectinfo(n)%transmat(3,3),   &
+                                           bc%connectinfo(n)%face,0,0/)
+
+
+          call mpi_isend(bc%mpitemp_vfg(n)%sendadress,19,mpi_integer,bc%connectinfo(n)%donor,bc%rank+bc%size,mpi_comm_world,request_sa(n),ier)
+          call mpi_isend(bc%mpitemp_vfg(n)%sendbuf,bc%mpitemp(n)%num,mpi_real8,bc%connectinfo(n)%donor,bc%rank,mpi_comm_world,request_s(n),ier)
+        else ! no mpi boundary
+          l = 0
+          if(bc%connectinfo(n)%face.eq.1) then
+            do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+              do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+                do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%istart(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%connectinfo(n)%face.eq.2) then
+            do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+              do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+                do i=bc%connectinfo(n)%iend(1),bc%connectinfo(n)%iend(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%connectinfo(n)%face.eq.3) then
+            do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+              do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%istart(2)
+                do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%connectinfo(n)%face.eq.4) then
+            do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%iend(3)
+              do j=bc%connectinfo(n)%iend(2),bc%connectinfo(n)%iend(2)
+                do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%connectinfo(n)%face.eq.5) then
+            do k=bc%connectinfo(n)%istart(3),bc%connectinfo(n)%istart(3)
+              do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+                do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%connectinfo(n)%face.eq.6) then
+            do k=bc%connectinfo(n)%iend(3),bc%connectinfo(n)%iend(3)
+              do j=bc%connectinfo(n)%istart(2),bc%connectinfo(n)%iend(2)
+                do i=bc%connectinfo(n)%istart(1),bc%connectinfo(n)%iend(1)
+                  ii = bc%connectinfo(n)%transmat(1,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(1,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(1,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(1)
+                  jj = bc%connectinfo(n)%transmat(2,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(2,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(2,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(2)
+                  kk = bc%connectinfo(n)%transmat(3,1)*(i-bc%connectinfo(n)%istart(1)) &
+                     + bc%connectinfo(n)%transmat(3,2)*(j-bc%connectinfo(n)%istart(2)) &
+                     + bc%connectinfo(n)%transmat(3,3)*(k-bc%connectinfo(n)%istart(3)) &
+                     + bc%connectinfo(n)%istart_donor(3)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%sendbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          end if
+        end if
+      end do
+
+      do n=1,bc%ncon
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
+          call mpi_wait(request_s(n),status,ier)
+          call mpi_wait(request_r(n),status,ier)
+          call mpi_wait(request_sa(n),status,ier)
+          call mpi_wait(request_ra(n),status,ier)
+        end if
+      end do
+
+      do n=1,bc%ncon
+        if(bc%rank.ne.bc%connectinfo(n)%donor) then
+          l = 0
+          if(bc%mpitemp_vfg(n)%recvadress(19).eq.1) then
+            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
+              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
+                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(1)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%mpitemp_vfg(n)%recvadress(19).eq.2) then
+            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
+              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
+                do i=bc%mpitemp(n)%recvadress(2),bc%mpitemp(n)%recvadress(2)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%mpitemp_vfg(n)%recvadress(19).eq.3) then
+            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
+              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(3)
+                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%mpitemp_vfg(n)%recvadress(19).eq.4) then
+            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(6)
+              do j=bc%mpitemp(n)%recvadress(4),bc%mpitemp(n)%recvadress(4)
+                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%mpitemp_vfg(n)%recvadress(19).eq.5) then
+            do k=bc%mpitemp(n)%recvadress(5),bc%mpitemp(n)%recvadress(5)
+              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
+                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          else if(bc%mpitemp_vfg(n)%recvadress(19).eq.6) then
+            do k=bc%mpitemp(n)%recvadress(6),bc%mpitemp(n)%recvadress(6)
+              do j=bc%mpitemp(n)%recvadress(3),bc%mpitemp(n)%recvadress(4)
+                do i=bc%mpitemp(n)%recvadress(1),bc%mpitemp(n)%recvadress(2)
+                  ii = bc%mpitemp(n)%recvadress(10)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(11)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(12)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(7)
+                  jj = bc%mpitemp(n)%recvadress(13)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(14)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(15)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(8)
+                  kk = bc%mpitemp(n)%recvadress(16)*(i-bc%mpitemp(n)%recvadress(1)) &
+                     + bc%mpitemp(n)%recvadress(17)*(j-bc%mpitemp(n)%recvadress(3)) &
+                     + bc%mpitemp(n)%recvadress(18)*(k-bc%mpitemp(n)%recvadress(5)) &
+                     + bc%mpitemp(n)%recvadress(9)
+                  do m=1,3
+                    l = l + 1
+                    call variable%setvfg(m,ii,jj,kk,bc%mpitemp_vfg(n)%recvbuf(l))
+                  end do
+                end do
+              end do
+            end do
+          end if
+        end if
+      end do
+
+    end subroutine setbc_vfg
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     subroutine edgewallwall(bcinfo,grid,variable,eos,prec)
       implicit none

@@ -16,8 +16,8 @@ fluid         ngas
 0             0
 ncav          c_v            c_c
 0             0.d0           0.d0
-gravity
-0
+gravity       csf
+0             0
 rotation      rpm
 0             0.d0
 pref          uref           aoa            aos            tref           y1ref          y2ref

@@ -12,7 +12,7 @@ module grid_module
   end type t_bcinfo
 
   type t_connectinfo
-    integer :: donor,transmat(3,3)
+    integer :: donor,transmat(3,3),face
     integer :: istart(3),iend(3),istart_donor(3),iend_donor(3)
   end type t_connectinfo
 

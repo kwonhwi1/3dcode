@@ -126,6 +126,7 @@ module solve_module
       real(8) :: timeprev, time
 
       call solve%ini%initialize(grid,variable,eos,nps,nts,timeprev)
+      call variable%export_variable(0,0,0.d0)
 
       do nt_phy=nps,solve%npmax
         call solve%resi%setl_converge(.false.)

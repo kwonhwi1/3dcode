@@ -20,7 +20,7 @@ module update_module
   type, abstract :: t_update
     private
     integer :: npv,ndv,ntv,ngrd,nsteady,imax,jmax,kmax
-    logical :: l_turb,l_cav
+    logical :: l_turb,l_cav,l_csf
     real(8) :: pref,kref,oref,dt_phy
     class(t_lhs), allocatable :: lhs
     class(t_timestep), allocatable :: timestep
@@ -102,6 +102,13 @@ module update_module
         update%l_cav = .true.
       end select
 
+      select case(config%getcsf())
+      case(0)
+        update%l_csf = .false.
+      case(1)
+        update%l_csf = .true.
+      end select
+
       select case(config%getlocal())
       case(-1)
         allocate(t_fixedtime::update%timestep)
@@ -110,7 +117,6 @@ module update_module
       case(1)
         allocate(t_localtime::update%timestep)
       end select
-
       call update%timestep%construct(config,grid)
 
       select case(config%getiturb())
@@ -123,37 +129,30 @@ module update_module
       case(-2,-3)
         update%l_turb = .false.
       end select
-
       if(update%l_turb) then
         call update%eddy%construct(config,grid)
       end if
 
       select type(update)
       type is(t_eulerex)
-
         select case(config%getiturb())
         case(0,-1)
           allocate(t_lhs_flowturball_ex::update%lhs)
         case(-2,-3)
           allocate(t_lhs_flowonly_ex::update%lhs)
         end select
-
       type is(t_rk3rd)
-
         select case(config%getiturb())
         case(0,-1)
           allocate(t_lhs_flowturball_ex::update%lhs)
         case(-2,-3)
           allocate(t_lhs_flowonly_ex::update%lhs)
         end select
-
         update%a1=(/0.d0,0.75d0,1.d0/3.d0/)
         update%a2=(/1.d0,0.25d0,2.d0/3.d0/)
         update%a3=(/1.d0,0.25d0,2.d0/3.d0/)
-
         allocate(update%rk(update%npv,update%imax,update%jmax,update%kmax))
       type is(t_lusgs)
-
         select case(config%getiturb())
         case(0,-1)
           allocate(t_lhs_flowturball::update%lhs)
@@ -162,15 +161,11 @@ module update_module
           allocate(t_lhs_flowonly::update%lhs)
           allocate(t_jac_flowonly::update%jac)
         end select
-
         allocate(update%dqs(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
         allocate(update%dcv(update%npv,update%imax+1,update%jmax+1,update%kmax+1))
-
         call update%jac%construct(config,grid)
-
       class default
       end select
-
       call update%lhs%construct(config,grid)
 
       allocate(update%rhs)
@@ -239,7 +234,14 @@ module update_module
       else if (update%nsteady.ge.1) then
         time = update%dt_phy*dble(nt_phy)
       end if
+
       call update%bc%setbc(grid,variable,eos,time)
+
+      if(update%l_csf) then
+        call variable%calvfg(grid)
+        call update%bc%setbc_vfg(grid,variable,eos,time)
+      end if
+
       call update%rhs%calrhs(grid,variable,eos,time)
 
       do k=2,update%kmax
@@ -351,8 +353,16 @@ module update_module
         else if(update%nsteady.ge.1) then
           time = update%dt_phy*dble(nt_phy)
         end if
+
         call update%bc%setbc(grid,variable,eos,time)
+
+        if(update%l_csf) then
+          call variable%calvfg(grid)
+          call update%bc%setbc_vfg(grid,variable,eos,time)
+        end if
+
         call update%rhs%calrhs(grid,variable,eos,time)
+
         do k=2,update%kmax
           do j=2,update%jmax
             do i=2,update%imax
@@ -463,7 +473,14 @@ module update_module
       else if(update%nsteady.ge.1) then
         time = update%dt_phy*dble(nt_phy)
       end if
+
       call update%bc%setbc(grid,variable,eos,time)
+
+      if(update%l_csf) then
+        call variable%calvfg(grid)
+        call update%bc%setbc_vfg(grid,variable,eos,time)
+      end if
+
       call update%rhs%calrhs(grid,variable,eos,time)
 
       update%dcv = 0.d0

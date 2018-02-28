@@ -65,6 +65,7 @@ OBJS_MAIN =   $(OBJ_DIR)/config_module.o\
               $(OBJ_DIR)/vsflux_module.o\
               $(OBJ_DIR)/gravity_module.o\
               $(OBJ_DIR)/rotation_module.o\
+              $(OBJ_DIR)/csf_module.o\
               $(OBJ_DIR)/bc_module.o\
               $(OBJ_DIR)/jacobian_module.o\
               $(OBJ_DIR)/lhs_module.o\

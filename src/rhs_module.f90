@@ -14,6 +14,7 @@ module rhs_module
   use unsteady_module
   use gravity_module
   use rotation_module
+  use csf_module
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
   implicit none
   private
@@ -22,7 +23,7 @@ module rhs_module
   type t_rhs
     private
     integer :: stencil,npv,ndv,ntv,ngrd,imax,jmax,kmax
-    logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady,l_gravity,l_rotation
+    logical :: l_flux,l_muscl,l_cav,l_turbsource,l_vsflux,l_unsteady,l_gravity,l_rotation,l_csf
     real(8) :: pref
     real(8) :: omega(3)
     real(8), dimension(:,:,:,:), allocatable :: res,icav,itt
@@ -36,6 +37,7 @@ module rhs_module
     class(t_unsteady),   allocatable :: unsteady
     class(t_gravity),    allocatable :: gravity
     class(t_rotation),   allocatable :: rotation
+    class(t_csf),        allocatable :: csf
     contains
       procedure :: construct
       procedure :: destruct
@@ -127,6 +129,13 @@ module rhs_module
       case default
       end select
 
+      select case(config%getcsf())
+      case(0)
+      case(1)
+        allocate(t_csf::rhs%csf)
+      case default
+      end select
+
       rhs%l_flux       = .false.
       rhs%l_muscl      = .false.
       rhs%l_cav        = .false.
@@ -135,6 +144,7 @@ module rhs_module
       rhs%l_unsteady   = .false.
       rhs%l_gravity    = .false.
       rhs%l_rotation   = .false.
+      rhs%l_csf        = .false.
 
       rhs%ngrd = grid%getngrd()
       rhs%imax = grid%getimax()
@@ -190,6 +200,11 @@ module rhs_module
         rhs%l_rotation = .true.
       end if
 
+      if(allocated(rhs%csf)) then
+        call rhs%csf%construct(config,grid)
+        rhs%l_csf = .true.
+      end if
+
       allocate(rhs%res(rhs%npv,2:rhs%imax,2:rhs%jmax,2:rhs%kmax))
 
     end subroutine construct
@@ -234,6 +249,10 @@ module rhs_module
         call rhs%rotation%destruct()
         deallocate(rhs%rotation)
       end if
+      if(rhs%l_csf) then
+        call rhs%csf%destruct()
+        deallocate(rhs%csf)
+      end if
       deallocate(rhs%res)
 
     end subroutine destruct
@@ -242,7 +261,7 @@ module rhs_module
       implicit none
       class(t_rhs), intent(inout) :: rhs
       type(t_grid), intent(in) :: grid
-      type(t_variable), intent(in) :: variable
+      type(t_variable), intent(inout) :: variable
       class(t_eos), intent(in) :: eos
       real(8), intent(in) :: time
       integer :: i,j,k
@@ -255,6 +274,8 @@ module rhs_module
       real(8) :: pvl(rhs%npv),pvr(rhs%npv)
       real(8) :: dvl(rhs%ndv),dvr(rhs%ndv)
       real(8) :: tvl(rhs%ntv),tvr(rhs%ntv)
+      real(8) :: x_vfg(7,3),csf(rhs%npv)
+      integer :: m(2)
       type(t_cav_result) :: cav_result
       type(t_turb_result) :: turb_result
 
@@ -579,6 +600,40 @@ module rhs_module
               call rhs%rotation%setdv(dvl)
               call rhs%rotation%setgrd(grdl)
               rhs%res(:,i,j,k) = rhs%res(:,i,j,k) - rhs%rotation%getrotationsource()
+            end if
+
+            if(rhs%l_csf) then
+              x(7,:) = variable%getpv(i,j,k)
+              x_vfg(7,:) = variable%getvfg(i,j,k)
+              m = (/-1,1/)
+              ll = 0
+              do ii = 1,2
+                ll = ll+1
+                x(ll,:) = variable%getpv(i+m(ii),j,k)
+                x_vfg(ll,:) = variable%getvfg(i+m(ii),j,k)
+              end do
+              do jj = 1,2
+                ll = ll+1
+                x(ll,:) = variable%getpv(i,j+m(jj),k)
+                x_vfg(ll,:) = variable%getvfg(i,j+m(jj),k)
+              end do
+              do kk = 1,2
+                ll = ll+1
+                x(ll,:) = variable%getpv(i,j,k+m(kk))
+                x_vfg(ll,:) = variable%getvfg(i,j,k+m(kk))
+              end do
+              ex1=-ex1
+              ex3=-ex3
+              tx1=-tx1
+              call rhs%csf%setpv(x)
+              call rhs%csf%setvfg(x_vfg)
+              call rhs%csf%setgrd(grdl)
+              call rhs%csf%setnorm(ex1,ex2,ex3,ex4,tx1,tx2)
+              csf = rhs%csf%csfsource(eos)
+              rhs%res(:,i,j,k) = rhs%res(:,i,j,k) + csf
+              call variable%setcsf(1,i,j,k,csf(2))
+              call variable%setcsf(2,i,j,k,csf(3))
+              call variable%setcsf(3,i,j,k,csf(4))
             end if
           end do
         end do

@@ -18,7 +18,7 @@ module config_module
     integer :: timemethod,local,prec
     real(8) :: cfl
     integer :: fluid,ngas
-    integer :: ncav,gravity,rotation
+    integer :: ncav,gravity,rotation,csf
     real(8) :: rpm,omega(3)
     real(8) :: c_v,c_c
     real(8) :: pref,uref,aoa,aos,tref,y1ref,y2ref
@@ -60,6 +60,7 @@ module config_module
       procedure :: getc_c
       procedure :: getgravity
       procedure :: getrotation
+      procedure :: getcsf
       procedure :: getomega
       procedure :: getcfl
       procedure :: getfluid
@@ -108,7 +109,7 @@ module config_module
           read(io,*); read(io,*) config%timemethod,config%local,config%prec,config%cfl
           read(io,*); read(io,*) config%fluid,config%ngas
           read(io,*); read(io,*) config%ncav,config%c_v,config%c_c
-          read(io,*); read(io,*) config%gravity
+          read(io,*); read(io,*) config%gravity,config%csf
           read(io,*); read(io,*) config%rotation,config%rpm
           read(io,*); read(io,*) config%pref,config%uref,config%aoa,config%aos,config%tref,config%y1ref,config%y2ref
           read(io,*); read(io,*) config%l_chord,config%l_character,config%scale,config%l_domain
@@ -456,6 +457,15 @@ module config_module
       getgravity = config%gravity
 
     end function getgravity
+    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    pure function getcsf(config)
+      implicit none
+      class(t_config), intent(in) :: config
+      integer :: getcsf
+
+      getcsf = config%csf
+
+    end function getcsf
     !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     pure function getrotation(config)
       implicit none
