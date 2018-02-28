@@ -718,7 +718,7 @@ module initial_module
         do j=2,ini%jmax
           do i=2,ini%imax
             pv = variable%getpv(i,j,k)
-            call eos%deteos(pv(1)+ini%pref,pv(5)+ini%tref,pv(6),pv(7),dv,tv)
+            call eos%deteos(pv(1)+ini%pref,pv(5),pv(6),pv(7),dv,tv)
 
             do n=1,ini%ndv
               call variable%setdv(n,i,j,k,dv(n))
